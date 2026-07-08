@@ -1,430 +1,357 @@
-// Sidebar principal do sistema.
-//
-// Correção:
-// - Dashboard removido
-// - Relatórios removido
-// - BI virou a tela principal
-//
-// Menus expansíveis:
-// - Chegada da Fazenda
-// - Alho Classificado
-// - Produto Final
-// - Saída / Venda
-
-import { useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { NavLink } from "react-router";
 
 import {
   BarChart3,
   Boxes,
   ChevronDown,
-  Gauge,
-  LogOut,
+  ClipboardList,
+  DoorOpen,
   PackageCheck,
   Search,
   Settings,
   SlidersHorizontal,
   Truck,
   Warehouse,
-  Wheat,
+  X,
 } from "lucide-react";
 
-import { useAuth } from "../../contexts/AuthContext";
+const gruposMenu = [
+  {
+    titulo: "BI",
+    itens: [
+      {
+        label: "BI",
+        path: "/bi",
+        icon: BarChart3,
+      },
+    ],
+  },
+  {
+    titulo: "Chegada da Fazenda",
+    icon: ClipboardList,
+    itens: [
+      {
+        label: "Lançamento",
+        path: "/chegada-fazenda",
+        icon: ClipboardList,
+      },
+      {
+        label: "Consulta",
+        path: "/consulta-chegada-fazenda",
+        icon: Search,
+      },
+    ],
+  },
+  {
+    titulo: "Alho Classificado",
+    icon: Boxes,
+    itens: [
+      {
+        label: "Lançamento",
+        path: "/alho-classificado",
+        icon: Boxes,
+      },
+      {
+        label: "Consulta",
+        path: "/consulta-estoque-classificado",
+        icon: Search,
+      },
+    ],
+  },
+  {
+    titulo: "Produto Final",
+    icon: PackageCheck,
+    itens: [
+      {
+        label: "Lançamento",
+        path: "/produto-final",
+        icon: PackageCheck,
+      },
+      {
+        label: "Consulta",
+        path: "/consulta-produto-final",
+        icon: Search,
+      },
+    ],
+  },
+  {
+    titulo: "Saída / Venda",
+    icon: Truck,
+    itens: [
+      {
+        label: "Lançamento",
+        path: "/saida-venda",
+        icon: Truck,
+      },
+      {
+        label: "Consulta",
+        path: "/consulta-saidas",
+        icon: Search,
+      },
+    ],
+  },
+  {
+    titulo: "Estoque Atual",
+    itens: [
+      {
+        label: "Estoque Atual",
+        path: "/estoque-atual",
+        icon: Warehouse,
+      },
+    ],
+  },
+  {
+    titulo: "Cadastro de Calibres",
+    itens: [
+      {
+        label: "Cadastro de Calibres",
+        path: "/calibres",
+        icon: SlidersHorizontal,
+      },
+    ],
+  },
+  {
+    titulo: "Configurações",
+    itens: [
+      {
+        label: "Configurações",
+        path: "/configuracoes",
+        icon: Settings,
+      },
+    ],
+  },
+];
 
-function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const { logout } = useAuth();
-
-  const [grupoAberto, setGrupoAberto] = useState(null);
-
-  const menuItems = [
-    {
-      type: "link",
-      label: "BI",
-      path: "/bi",
-      icon: BarChart3,
-    },
-    {
-      type: "group",
-      id: "chegada",
-      label: "Chegada da Fazenda",
-      icon: Wheat,
-      paths: ["/chegada-fazenda", "/consulta-chegada-fazenda"],
-      items: [
-        {
-          label: "Lançamento",
-          path: "/chegada-fazenda",
-          icon: Wheat,
-        },
-        {
-          label: "Consulta",
-          path: "/consulta-chegada-fazenda",
-          icon: Search,
-        },
-      ],
-    },
-    {
-      type: "group",
-      id: "classificado",
-      label: "Alho Classificado",
-      icon: Boxes,
-      paths: ["/alho-classificado", "/consulta-estoque-classificado"],
-      items: [
-        {
-          label: "Lançamento",
-          path: "/alho-classificado",
-          icon: Boxes,
-        },
-        {
-          label: "Consulta Estoque",
-          path: "/consulta-estoque-classificado",
-          icon: Search,
-        },
-      ],
-    },
-    {
-      type: "group",
-      id: "produto-final",
-      label: "Produto Final",
-      icon: PackageCheck,
-      paths: ["/produto-final", "/consulta-produto-final"],
-      items: [
-        {
-          label: "Lançamento",
-          path: "/produto-final",
-          icon: PackageCheck,
-        },
-        {
-          label: "Consulta",
-          path: "/consulta-produto-final",
-          icon: Search,
-        },
-      ],
-    },
-    {
-      type: "group",
-      id: "saida-venda",
-      label: "Saída / Venda",
-      icon: Truck,
-      paths: ["/saida-venda", "/consulta-saidas"],
-      items: [
-        {
-          label: "Lançamento",
-          path: "/saida-venda",
-          icon: Truck,
-        },
-        {
-          label: "Consulta",
-          path: "/consulta-saidas",
-          icon: Search,
-        },
-      ],
-    },
-    {
-      type: "link",
-      label: "Estoque Atual",
-      path: "/estoque-atual",
-      icon: Warehouse,
-    },
-    {
-      type: "link",
-      label: "Cadastro de Calibres",
-      path: "/calibres",
-      icon: SlidersHorizontal,
-    },
-    {
-      type: "link",
-      label: "Configurações",
-      path: "/configuracoes",
-      icon: Settings,
-    },
-  ];
-
-  useEffect(() => {
-    const grupoAtual = menuItems.find((item) => {
-      return item.type === "group" && item.paths.includes(location.pathname);
-    });
-
-    if (grupoAtual) {
-      setGrupoAberto(grupoAtual.id);
-    }
-  }, [location.pathname]);
-
-  async function sair() {
-    try {
-      await logout();
-
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-
-      alert("Não foi possível sair do sistema.");
-    }
-  }
-
-  function alternarGrupo(id) {
-    setGrupoAberto((grupoAtual) => {
-      if (grupoAtual === id) {
-        return null;
-      }
-
-      return id;
-    });
-  }
-
-  function renderLink(item, pequeno = false) {
-    const Icon = item.icon;
-
-    return (
-      <NavLink
-        key={item.path}
-        to={item.path}
-        className={({ isActive }) => `
-          group/link
-          flex
-          w-full
-          items-center
-          gap-3
-          rounded-2xl
-          text-left
-          font-semibold
-          transition-all
-          duration-300
-          ease-out
-          ${pequeno ? "px-3 py-2.5 text-xs" : "px-4 py-3 text-sm"}
-          ${
-            isActive
-              ? "bg-white text-[var(--color-sidebar-dark)] shadow-sm"
-              : "text-white/75 hover:bg-white/10 hover:text-white"
-          }
-        `}
-      >
-        {({ isActive }) => (
-          <>
-            <Icon
-              size={pequeno ? 17 : 20}
-              className={`
-                shrink-0
-                transition-all
-                duration-300
-                ease-out
-                ${
-                  isActive
-                    ? "text-[var(--color-green-primary)]"
-                    : "text-white/75 group-hover/link:text-white"
-                }
-              `}
-            />
-
-            <span className="text-clamp">{item.label}</span>
-          </>
-        )}
-      </NavLink>
-    );
-  }
-
-  function renderGroup(group) {
-    const Icon = group.icon;
-
-    const grupoAtivo = group.paths.includes(location.pathname);
-    const estaAberto = grupoAberto === group.id;
-
-    return (
-      <div key={group.id} className="space-y-1">
-        <button
-          type="button"
-          onClick={() => alternarGrupo(group.id)}
-          className={`
-            group/button
-            flex
-            w-full
-            items-center
-            justify-between
-            gap-3
-            rounded-2xl
-            px-4
-            py-3
-            text-left
-            text-sm
-            font-semibold
-            transition-all
-            duration-300
-            ease-out
-            ${
-              grupoAtivo || estaAberto
-                ? "bg-white text-[var(--color-sidebar-dark)] shadow-sm"
-                : "text-white/75 hover:bg-white/10 hover:text-white"
-            }
-          `}
-        >
-          <span className="flex min-w-0 items-center gap-3">
-            <Icon
-              size={20}
-              className={`
-                shrink-0
-                transition-all
-                duration-300
-                ease-out
-                ${
-                  grupoAtivo || estaAberto
-                    ? "text-[var(--color-green-primary)]"
-                    : "text-white/75 group-hover/button:text-white"
-                }
-              `}
-            />
-
-            <span className="text-clamp">{group.label}</span>
-          </span>
-
-          <ChevronDown
-            size={18}
-            className={`
-              shrink-0
-              transition-all
-              duration-300
-              ease-out
-              ${estaAberto ? "rotate-180 scale-110" : "rotate-0 scale-100"}
-              ${
-                grupoAtivo || estaAberto
-                  ? "text-[var(--color-green-primary)]"
-                  : "text-white/75 group-hover/button:text-white"
-              }
-            `}
-          />
-        </button>
-
-        <div
-          className={`
-            overflow-hidden
-            transition-all
-            duration-300
-            ease-out
-            ${estaAberto ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}
-          `}
-        >
-          <div
-            className={`
-              ml-4
-              space-y-1
-              border-l
-              border-white/15
-              pl-3
-              pt-1
-              transition-all
-              duration-300
-              ease-out
-              ${estaAberto ? "translate-y-0" : "-translate-y-2"}
-            `}
-          >
-            {group.items.map((item) => renderLink(item, true))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+function SidebarLink({ item, onNavigate }) {
+  const Icon = item.icon;
 
   return (
-    <aside
-      className="
-        fixed
-        left-0
-        top-0
-        z-40
-        flex
-        h-screen
-        w-[280px]
-        flex-col
-        bg-gradient-to-b
-        from-[var(--color-sidebar-dark)]
-        to-[var(--color-sidebar-medium)]
-        px-5
-        py-6
-        text-white
-      "
-    >
-      <div className="mb-8 flex items-center gap-3 px-2">
-        <div
-          className="
-            flex
-            h-12
-            w-12
-            items-center
-            justify-center
-            rounded-2xl
-            border
-            border-white/15
-            bg-white/12
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-full
-              bg-white
-              text-xl
-            "
-          >
-            🧄
-          </div>
-        </div>
-
-        <div>
-          <h1 className="text-lg font-bold leading-tight text-white">
-            Estoque de Alho
-          </h1>
-
-          <p className="mt-0.5 text-xs font-medium text-white/65">
-            Controle agrícola
-          </p>
-        </div>
-      </div>
-
-      <nav className="flex-1 space-y-2 overflow-y-auto pr-1">
-        {menuItems.map((item) => {
-          if (item.type === "group") {
-            return renderGroup(item);
-          }
-
-          return renderLink(item);
-        })}
-      </nav>
-
-      <button
-        type="button"
-        onClick={sair}
-        className="
-          mt-5
+    <NavLink
+      to={item.path}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `
           flex
+          min-h-11
           w-full
           items-center
           gap-3
           rounded-2xl
-          border
-          border-white/10
-          bg-white/8
           px-4
           py-3
           text-sm
-          font-semibold
-          text-white/75
-          transition-all
-          duration-300
-          ease-out
+          font-bold
+          transition
+          ${
+            isActive
+              ? "bg-white text-[var(--color-green-primary)] shadow-sm"
+              : "text-white/85 hover:bg-white/10 hover:text-white"
+          }
+        `
+      }
+    >
+      {Icon && <Icon size={18} className="shrink-0" />}
+
+      <span className="truncate">{item.label}</span>
+    </NavLink>
+  );
+}
+
+function SidebarGroup({ grupo, onNavigate }) {
+  const GrupoIcon = grupo.icon;
+
+  if (grupo.itens.length === 1 && grupo.itens[0].label === grupo.titulo) {
+    return <SidebarLink item={grupo.itens[0]} onNavigate={onNavigate} />;
+  }
+
+  return (
+    <details className="group" open>
+      <summary
+        className="
+          flex
+          cursor-pointer
+          list-none
+          items-center
+          justify-between
+          gap-3
+          rounded-2xl
+          px-4
+          py-3
+          text-sm
+          font-black
+          text-white/95
+          transition
           hover:bg-white/10
-          hover:text-white
         "
       >
-        <LogOut size={20} />
-        Sair
-      </button>
-    </aside>
+        <div className="flex min-w-0 items-center gap-3">
+          {GrupoIcon && <GrupoIcon size={18} className="shrink-0" />}
+
+          <span className="truncate">{grupo.titulo}</span>
+        </div>
+
+        <ChevronDown
+          size={16}
+          className="shrink-0 transition group-open:rotate-180"
+        />
+      </summary>
+
+      <div className="mt-1 space-y-1 pl-4">
+        {grupo.itens.map((item) => (
+          <SidebarLink
+            key={item.path}
+            item={item}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function Sidebar({ openMobile = false, onCloseMobile, onLogout }) {
+  function fecharAoNavegar() {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onCloseMobile}
+        aria-label="Fechar menu"
+        className={`
+          fixed
+          inset-0
+          z-40
+          bg-slate-950/55
+          backdrop-blur-sm
+          transition
+          lg:hidden
+          ${openMobile ? "block" : "hidden"}
+        `}
+      />
+
+      <aside
+        className={`
+          fixed
+          left-0
+          top-0
+          z-50
+          flex
+          h-dvh
+          w-[280px]
+          max-w-[86vw]
+          flex-col
+          bg-[var(--color-sidebar-dark)]
+          px-4
+          py-5
+          text-white
+          shadow-2xl
+          transition-transform
+          duration-300
+          ease-out
+          sm:px-5
+          sm:py-6
+          lg:translate-x-0
+          ${openMobile ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="
+                flex
+                h-12
+                w-12
+                shrink-0
+                items-center
+                justify-center
+                rounded-2xl
+                border
+                border-white/15
+                bg-white/10
+                text-2xl
+              "
+            >
+              🧄
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-black leading-tight text-white">
+                Estoque de Alho
+              </h1>
+
+              <p className="truncate text-xs font-semibold text-white/65">
+                Controle agrícola
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-2xl
+              bg-white/10
+              text-white
+              transition
+              hover:bg-white/15
+              lg:hidden
+            "
+            aria-label="Fechar menu"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 sidebar-scroll">
+          {gruposMenu.map((grupo) => (
+            <SidebarGroup
+              key={grupo.titulo}
+              grupo={grupo}
+              onNavigate={fecharAoNavegar}
+            />
+          ))}
+        </nav>
+
+        <div className="mt-5 border-t border-white/10 pt-5">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="
+              flex
+              h-12
+              w-full
+              items-center
+              justify-center
+              gap-3
+              rounded-2xl
+              border
+              border-white/15
+              bg-white/10
+              px-4
+              text-sm
+              font-bold
+              text-white
+              transition
+              hover:bg-white/15
+            "
+          >
+            <DoorOpen size={18} />
+            Sair
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 

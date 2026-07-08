@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router";
 
+import { Menu } from "lucide-react";
+
 import { useAuth } from "../../contexts/AuthContext";
 
 const pageInfo = {
@@ -121,7 +123,7 @@ function obterPerfilUsuario(perfil) {
   );
 }
 
-function Topbar() {
+function Topbar({ onOpenSidebar }) {
   const location = useLocation();
 
   const { usuario, perfil } = useAuth();
@@ -161,16 +163,41 @@ function Topbar() {
       "
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="truncate text-xl font-black text-[var(--color-text-primary)] sm:text-2xl">
-            {paginaAtual.title}
-          </h2>
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="
+              flex
+              h-11
+              w-11
+              shrink-0
+              items-center
+              justify-center
+              rounded-2xl
+              border
+              border-[var(--color-border)]
+              bg-white
+              text-[var(--color-text-primary)]
+              shadow-sm
+              lg:hidden
+            "
+            aria-label="Abrir menu"
+          >
+            <Menu size={22} />
+          </button>
 
-          {paginaAtual.subtitle && (
-            <p className="mt-1 line-clamp-2 text-xs font-semibold text-[var(--color-text-secondary)] sm:text-sm">
-              {paginaAtual.subtitle}
-            </p>
-          )}
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-black text-[var(--color-text-primary)] sm:text-2xl">
+              {paginaAtual.title}
+            </h2>
+
+            {paginaAtual.subtitle && (
+              <p className="mt-1 line-clamp-2 text-xs font-semibold text-[var(--color-text-secondary)] sm:text-sm">
+                {paginaAtual.subtitle}
+              </p>
+            )}
+          </div>
         </div>
 
         <div

@@ -1,28 +1,27 @@
-// Tabela padrão do sistema.
-// Recebe colunas e linhas de dados.
-
-function DataTable({ columns = [], data = [], emptyMessage = "Nenhum registro encontrado." }) {
+function DataTable({
+  columns = [],
+  data = [],
+  emptyMessage = "Nenhum registro encontrado.",
+}) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse">
-          {/* Cabeçalho da tabela */}
+    <div className="w-full overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white">
+      <div className="w-full overflow-x-auto overscroll-x-contain">
+        <table className="w-full min-w-[860px] border-collapse">
           <thead>
-            <tr className="bg-slate-50">
+            <tr className="border-b border-[var(--color-border-soft)] bg-slate-50">
               {columns.map((column) => (
                 <th
                   key={column.key}
                   className="
-                    px-5
+                    whitespace-nowrap
+                    px-4
                     py-4
                     text-left
                     text-xs
-                    font-bold
+                    font-black
                     uppercase
                     tracking-wide
-                    text-[var(--color-text-secondary)]
-                    border-b
-                    border-[var(--color-border-soft)]
+                    text-[var(--color-text-muted)]
                   "
                 >
                   {column.label}
@@ -31,46 +30,61 @@ function DataTable({ columns = [], data = [], emptyMessage = "Nenhum registro en
             </tr>
           </thead>
 
-          {/* Corpo da tabela */}
           <tbody>
-            {data.length > 0 ? (
-              data.map((row, rowIndex) => (
-                <tr
-                  key={row.id || rowIndex}
-                  className="transition hover:bg-[var(--color-green-light)]/40"
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className="
-                        px-5
-                        py-4
-                        text-sm
-                        text-[var(--color-text-primary)]
-                        border-b
-                        border-[var(--color-border-soft)]
-                      "
-                    >
-                      {/* 
-                        Se a coluna tiver uma função render, usa ela.
-                        Se não tiver, mostra o valor direto.
-                      */}
-                      {column.render
-                        ? column.render(row[column.key], row)
-                        : row[column.key]}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : (
+            {data.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]"
+                  className="
+                    px-4
+                    py-10
+                    text-center
+                    text-sm
+                    font-semibold
+                    text-[var(--color-text-muted)]
+                  "
                 >
                   {emptyMessage}
                 </td>
               </tr>
+            ) : (
+              data.map((row, rowIndex) => (
+                <tr
+                  key={row.id || row.area_id || row.calibre_id || rowIndex}
+                  className="
+                    border-b
+                    border-[var(--color-border-soft)]
+                    transition
+                    last:border-b-0
+                    hover:bg-slate-50
+                  "
+                >
+                  {columns.map((column) => {
+                    const value = row[column.key];
+
+                    return (
+                      <td
+                        key={column.key}
+                        className="
+                          max-w-[340px]
+                          px-4
+                          py-4
+                          align-middle
+                          text-sm
+                          font-semibold
+                          text-[var(--color-text-secondary)]
+                        "
+                      >
+                        <div className="min-w-0 break-words">
+                          {column.render
+                            ? column.render(value, row, rowIndex)
+                            : value || "-"}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>

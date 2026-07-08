@@ -1,28 +1,62 @@
-// Layout principal do sistema.
-// Ele mantém a Sidebar fixa, a Topbar e a área de conteúdo.
-// As páginas entram no lugar do <Outlet />.
-
+import { useState } from "react";
 import { Outlet } from "react-router";
+
+import { useAuth } from "../../contexts/AuthContext";
 
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
 function MainLayout() {
+  const { sair, logout } = useAuth();
+
+  const [sidebarMobileAberta, setSidebarMobileAberta] = useState(false);
+
+  async function sairDoSistema() {
+    if (sair) {
+      await sair();
+      return;
+    }
+
+    if (logout) {
+      await logout();
+    }
+  }
+
+  function abrirMenuMobile() {
+    setSidebarMobileAberta(true);
+  }
+
+  function fecharMenuMobile() {
+    setSidebarMobileAberta(false);
+  }
+
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
-      {/* Sidebar fixa à esquerda */}
-      <Sidebar />
+    <div className="min-h-dvh bg-[var(--color-bg-page)]">
+      <Sidebar
+        openMobile={sidebarMobileAberta}
+        onCloseMobile={fecharMenuMobile}
+        onLogout={sairDoSistema}
+      />
 
-      {/* Área principal deslocada para a direita por causa da sidebar */}
-      <div className="min-h-screen pl-[280px]">
-        {/* Topbar aparece em todas as telas */}
-        <Topbar />
+      <div className="min-h-dvh w-full transition-all duration-300 lg:pl-[280px]">
+        <Topbar onOpenSidebar={abrirMenuMobile} />
 
-        {/* Conteúdo principal da tela atual */}
-        <main className="px-8 py-8">
-          <div className="mx-auto max-w-[1440px]">
-            <Outlet />
-          </div>
+        <main
+          className="
+            mx-auto
+            w-full
+            max-w-[1800px]
+            px-4
+            py-5
+            sm:px-5
+            sm:py-6
+            md:px-6
+            lg:px-7
+            xl:px-8
+            xl:py-8
+          "
+        >
+          <Outlet />
         </main>
       </div>
     </div>
