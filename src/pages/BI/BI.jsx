@@ -55,142 +55,100 @@ const EXPLICACOES_BI = {
 
   saldoDisponivel: {
     titulo: "Saldo disponível",
-    texto:
-      "Mostra o total de caixas que ainda podem sair do estoque.",
-    uso:
-      "Serve para ter uma visão rápida do volume disponível para venda ou expedição.",
-    calculo:
-      "Soma o saldo disponível de todas as combinações Área / Pivô + Calibre.",
+    texto: "Mostra o total de caixas que ainda podem sair do estoque.",
+    uso: "Serve para ter uma visão rápida do volume disponível para venda ou expedição.",
+    calculo: "Soma o saldo disponível de todas as combinações Área / Pivô + Calibre.",
   },
 
   areasComSaldo: {
     titulo: "Áreas com saldo",
-    texto:
-      "Mostra quantas áreas ainda possuem produto disponível.",
-    uso:
-      "Ajuda a saber se o estoque está concentrado em poucas áreas ou distribuído em várias.",
-    calculo:
-      "Conta as áreas que possuem pelo menos um calibre com saldo disponível.",
+    texto: "Mostra quantas áreas ainda possuem produto disponível.",
+    uso: "Ajuda a saber se o estoque está concentrado em poucas áreas ou distribuído em várias.",
+    calculo: "Conta as áreas que possuem pelo menos um calibre com saldo disponível.",
   },
 
   calibresComSaldo: {
     titulo: "Calibres com saldo",
-    texto:
-      "Mostra quantos calibres ainda existem disponíveis no estoque.",
-    uso:
-      "Ajuda a saber se ainda existe variedade de calibre para venda.",
-    calculo:
-      "Conta os calibres que possuem saldo disponível em uma ou mais áreas.",
+    texto: "Mostra quantos calibres ainda existem disponíveis no estoque.",
+    uso: "Ajuda a saber se ainda existe variedade de calibre para venda.",
+    calculo: "Conta os calibres que possuem saldo disponível em uma ou mais áreas.",
   },
 
   areaCalibre: {
     titulo: "Área + Calibre",
-    texto:
-      "Mostra quantas combinações de área e calibre possuem saldo.",
-    uso:
-      "Essa é uma leitura mais precisa do estoque, porque mostra não só o calibre, mas onde ele está.",
-    calculo:
-      "Conta cada combinação Área / Pivô + Calibre com saldo maior que zero.",
+    texto: "Mostra quantas combinações de área e calibre possuem saldo.",
+    uso: "Essa é uma leitura mais precisa do estoque, porque mostra não só o calibre, mas onde ele está.",
+    calculo: "Conta cada combinação Área / Pivô + Calibre com saldo maior que zero.",
   },
 
   produtoFinal: {
     titulo: "Produto final",
-    texto:
-      "Mostra quantas caixas foram lançadas como produto final no período.",
-    uso:
-      "Serve para acompanhar o volume que virou estoque pronto para saída.",
-    calculo:
-      "Soma as caixas lançadas na tela de Produto Final dentro do período selecionado.",
+    texto: "Mostra quantas caixas foram lançadas como produto final no período.",
+    uso: "Serve para acompanhar o volume que virou estoque pronto para saída.",
+    calculo: "Soma as caixas lançadas na tela de Produto Final dentro do período selecionado.",
   },
 
   saidas: {
     titulo: "Saídas",
-    texto:
-      "Mostra quantas caixas foram baixadas do estoque por venda ou expedição.",
-    uso:
-      "Serve para acompanhar o quanto saiu do estoque no período.",
-    calculo:
-      "Soma as caixas lançadas na tela de Saída / Venda dentro do período selecionado.",
+    texto: "Mostra quantas caixas foram baixadas do estoque por venda ou expedição.",
+    uso: "Serve para acompanhar o quanto saiu do estoque no período.",
+    calculo: "Soma as caixas lançadas na tela de Saída / Venda dentro do período selecionado.",
   },
 
   estoqueCritico: {
     titulo: "Estoque crítico",
-    texto:
-      "Mostra combinações Área + Calibre que estão com estoque baixo ou sem estoque.",
-    uso:
-      "Use para identificar rapidamente onde pode faltar produto.",
-    calculo:
-      "Conta os itens marcados como estoque baixo ou sem estoque.",
+    texto: "Mostra combinações Área + Calibre que estão com estoque baixo ou sem estoque.",
+    uso: "Use para identificar rapidamente onde pode faltar produto.",
+    calculo: "Conta os itens marcados como estoque baixo ou sem estoque.",
   },
 
   giroGeral: {
     titulo: "Giro geral",
-    texto:
-      "Mostra a relação entre o que foi produzido e o que saiu.",
-    uso:
-      "Ajuda a entender se o estoque está girando ou ficando parado.",
-    calculo:
-      "Saídas ÷ Produto final produzido no período.",
+    texto: "Mostra a relação entre o que foi produzido e o que saiu.",
+    uso: "Ajuda a entender se o estoque está girando ou ficando parado.",
+    calculo: "Saídas ÷ Produto final produzido no período.",
   },
 
   graficoAreaCalibre: {
     titulo: "Top saldos por Área / Pivô + Calibre",
-    texto:
-      "Mostra os maiores saldos disponíveis separando área e calibre.",
-    uso:
-      "Use para saber rapidamente onde existe mais produto disponível para saída.",
-    calculo:
-      "Ordena as combinações Área + Calibre pelo maior saldo disponível.",
+    texto: "Mostra os maiores saldos disponíveis separando área e calibre.",
+    uso: "Use para saber rapidamente onde existe mais produto disponível para saída.",
+    calculo: "Ordena as combinações Área + Calibre pelo maior saldo disponível.",
   },
 
   graficoArea: {
     titulo: "Saldo disponível por Área / Pivô",
-    texto:
-      "Mostra o saldo total de cada área, somando todos os calibres daquela área.",
-    uso:
-      "Use para saber quais áreas ainda concentram mais estoque.",
-    calculo:
-      "Soma o saldo disponível de todos os calibres dentro de cada área.",
+    texto: "Mostra o saldo total de cada área, somando todos os calibres daquela área.",
+    uso: "Use para saber quais áreas ainda concentram mais estoque.",
+    calculo: "Soma o saldo disponível de todos os calibres dentro de cada área.",
   },
 
   tabelaPrincipal: {
     titulo: "Tabela principal — Área / Pivô + Calibre",
-    texto:
-      "Essa é a tabela mais importante do dashboard.",
-    uso:
-      "Use essa tabela para decidir de qual área e calibre sairão as caixas.",
-    calculo:
-      "Produto final da Área + Calibre menos as saídas da mesma Área + Calibre.",
+    texto: "Essa é a tabela mais importante do dashboard.",
+    uso: "Use essa tabela para decidir de qual área e calibre sairão as caixas.",
+    calculo: "Produto final da Área + Calibre menos as saídas da mesma Área + Calibre.",
   },
 
   resumoArea: {
     titulo: "Resumo por Área / Pivô",
-    texto:
-      "Mostra o saldo consolidado de cada área.",
-    uso:
-      "Use para comparar áreas e entender onde existe mais estoque disponível.",
-    calculo:
-      "Soma produto final, saídas e saldo de todos os calibres dentro da área.",
+    texto: "Mostra o saldo consolidado de cada área.",
+    uso: "Use para comparar áreas e entender onde existe mais estoque disponível.",
+    calculo: "Soma produto final, saídas e saldo de todos os calibres dentro da área.",
   },
 
   alertas: {
     titulo: "Alertas objetivos",
-    texto:
-      "Mostra apenas os problemas que precisam de atenção.",
-    uso:
-      "Use para verificar saldo negativo, estoque crítico e pendências de conferência.",
-    calculo:
-      "Analisa as combinações Área + Calibre e aponta riscos.",
+    texto: "Mostra apenas os problemas que precisam de atenção.",
+    uso: "Use para verificar saldo negativo, estoque crítico e pendências de conferência.",
+    calculo: "Analisa as combinações Área + Calibre e aponta riscos.",
   },
 
   exportacao: {
     titulo: "Exportação gerencial",
-    texto:
-      "Exporta os dados do dashboard para Excel.",
-    uso:
-      "Use para conferir números, enviar para gestão ou guardar histórico.",
-    calculo:
-      "A planilha usa os mesmos dados exibidos no dashboard.",
+    texto: "Exporta os dados do dashboard para Excel.",
+    uso: "Use para conferir números, enviar para gestão ou guardar histórico.",
+    calculo: "A planilha usa os mesmos dados exibidos no dashboard.",
   },
 };
 
@@ -243,7 +201,7 @@ function statusTexto(status) {
 
 function CampoDataCompacto({ label, name, value, onChange }) {
   return (
-    <label className="block">
+    <label className="block w-full xl:w-auto">
       <span className="mb-1 block text-xs font-bold text-[var(--color-text-primary)]">
         {label}
       </span>
@@ -255,7 +213,7 @@ function CampoDataCompacto({ label, name, value, onChange }) {
         onChange={onChange}
         className="
           h-11
-          w-[155px]
+          w-full
           rounded-2xl
           border
           border-[var(--color-border)]
@@ -269,6 +227,7 @@ function CampoDataCompacto({ label, name, value, onChange }) {
           focus:border-[var(--color-green-primary)]
           focus:ring-2
           focus:ring-[var(--color-green-light)]
+          xl:w-[155px]
         "
       />
     </label>
@@ -745,8 +704,8 @@ function BI() {
     <div className="space-y-8">
       <Card>
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex items-start gap-3 sm:items-center">
               <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
                 Dashboard gerencial — Área / Pivô + Calibre
               </h3>
@@ -759,50 +718,55 @@ function BI() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end justify-end gap-3">
-            <CampoDataCompacto
-              label="Data inicial"
-              name="dataInicial"
-              value={filtros.dataInicial}
-              onChange={atualizarFiltro}
-            />
+          <div className="w-full xl:w-auto">
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:flex xl:w-auto xl:items-end xl:justify-end">
+              <CampoDataCompacto
+                label="Data inicial"
+                name="dataInicial"
+                value={filtros.dataInicial}
+                onChange={atualizarFiltro}
+              />
 
-            <CampoDataCompacto
-              label="Data final"
-              name="dataFinal"
-              value={filtros.dataFinal}
-              onChange={atualizarFiltro}
-            />
+              <CampoDataCompacto
+                label="Data final"
+                name="dataFinal"
+                value={filtros.dataFinal}
+                onChange={atualizarFiltro}
+              />
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={limparFiltros}
-              disabled={carregando}
-            >
-              <RefreshCcw size={16} />
-              Limpar
-            </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={limparFiltros}
+                disabled={carregando}
+                className="w-full xl:w-auto"
+              >
+                <RefreshCcw size={16} />
+                Limpar
+              </Button>
 
-            <Button
-              type="button"
-              variant="primary"
-              onClick={aplicarFiltros}
-              disabled={carregando}
-            >
-              <CalendarDays size={16} />
-              {carregando ? "Carregando..." : "Atualizar"}
-            </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={aplicarFiltros}
+                disabled={carregando}
+                className="w-full xl:w-auto"
+              >
+                <CalendarDays size={16} />
+                {carregando ? "Carregando..." : "Atualizar"}
+              </Button>
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={baixarPlanilhaExcel}
-              disabled={carregando || !bi}
-            >
-              <FileSpreadsheet size={16} />
-              Baixar Excel
-            </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={baixarPlanilhaExcel}
+                disabled={carregando || !bi}
+                className="w-full sm:col-span-2 xl:w-auto xl:col-span-1"
+              >
+                <FileSpreadsheet size={16} />
+                Baixar Excel
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

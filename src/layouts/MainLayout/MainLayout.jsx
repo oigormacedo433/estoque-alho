@@ -46,6 +46,7 @@ function MainLayout() {
             mx-auto
             w-full
             max-w-[1800px]
+            overflow-visible
             px-4
             py-5
             sm:px-5

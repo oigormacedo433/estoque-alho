@@ -245,6 +245,7 @@ function Sidebar({ openMobile = false, onCloseMobile, onLogout }) {
           w-[280px]
           max-w-[86vw]
           flex-col
+          overflow-hidden
           bg-[var(--color-sidebar-dark)]
           px-4
           py-5
@@ -313,7 +314,17 @@ function Sidebar({ openMobile = false, onCloseMobile, onLogout }) {
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 sidebar-scroll">
+        <nav
+          className="
+            sidebar-scroll
+            min-h-0
+            flex-1
+            space-y-2
+            overflow-y-auto
+            overflow-x-hidden
+            pr-1
+          "
+        >
           {gruposMenu.map((grupo) => (
             <SidebarGroup
               key={grupo.titulo}
