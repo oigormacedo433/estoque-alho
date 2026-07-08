@@ -1,16 +1,16 @@
 import {
   AlertTriangle,
-  CheckCircle2,
+  CheckCircle,
   Info,
   Trash2,
   X,
 } from "lucide-react";
 
 function ConfirmModal({
-  open = false,
+  open,
   title = "Confirmar ação",
-  description = "Tem certeza que deseja continuar?",
-  details = [],
+  description = "",
+  details = null,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   variant = "danger",
@@ -18,39 +18,34 @@ function ConfirmModal({
   onCancel,
   onConfirm,
 }) {
-  if (!open) {
-    return null;
-  }
+  if (!open) return null;
 
-  const variantConfig = {
+  const variants = {
     danger: {
-      icon: Trash2,
-      iconBox: "bg-red-100 text-red-700",
-      button:
-        "bg-red-600 text-white hover:bg-red-700 focus:ring-red-200 disabled:bg-red-300",
+      iconWrapper: "bg-red-50 text-red-700",
+      button: "bg-red-600 text-white border-red-600 hover:bg-red-700",
+      Icon: Trash2,
     },
     warning: {
-      icon: AlertTriangle,
-      iconBox: "bg-orange-100 text-orange-700",
-      button:
-        "bg-orange-600 text-white hover:bg-orange-700 focus:ring-orange-200 disabled:bg-orange-300",
+      iconWrapper: "bg-orange-50 text-orange-700",
+      button: "bg-orange-500 text-white border-orange-500 hover:bg-orange-600",
+      Icon: AlertTriangle,
     },
     success: {
-      icon: CheckCircle2,
-      iconBox: "bg-green-100 text-green-700",
-      button:
-        "bg-green-700 text-white hover:bg-green-800 focus:ring-green-200 disabled:bg-green-300",
+      iconWrapper: "bg-green-50 text-green-700",
+      button: "bg-green-700 text-white border-green-700 hover:bg-green-800",
+      Icon: CheckCircle,
     },
     info: {
-      icon: Info,
-      iconBox: "bg-blue-100 text-blue-700",
+      iconWrapper: "bg-blue-50 text-blue-700",
       button:
-        "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-200 disabled:bg-blue-300",
+        "bg-[var(--color-green-primary)] text-white border-[var(--color-green-primary)] hover:bg-[var(--color-green-dark)]",
+      Icon: Info,
     },
   };
 
-  const config = variantConfig[variant] || variantConfig.danger;
-  const Icon = config.icon;
+  const atual = variants[variant] || variants.danger;
+  const Icon = atual.Icon;
 
   return (
     <div
@@ -61,8 +56,8 @@ function ConfirmModal({
         flex
         items-center
         justify-center
-        bg-slate-950/60
-        px-4
+        bg-slate-950/55
+        p-4
         backdrop-blur-sm
       "
     >
@@ -74,35 +69,38 @@ function ConfirmModal({
           border
           border-[var(--color-border-soft)]
           bg-white
-          p-6
+          p-5
           shadow-2xl
+          sm:p-6
         "
       >
-        <div className="flex items-start justify-between gap-5">
-          <div className="flex items-start gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-4">
             <div
               className={`
                 flex
-                h-13
-                w-13
+                h-14
+                w-14
                 shrink-0
                 items-center
                 justify-center
                 rounded-2xl
-                ${config.iconBox}
+                ${atual.iconWrapper}
               `}
             >
               <Icon size={26} />
             </div>
 
-            <div>
-              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+            <div className="min-w-0">
+              <h3 className="text-xl font-black text-[var(--color-text-primary)]">
                 {title}
               </h3>
 
-              <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                {description}
-              </p>
+              {description && (
+                <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
+                  {description}
+                </p>
+              )}
             </div>
           </div>
 
@@ -121,18 +119,17 @@ function ConfirmModal({
               border
               border-[var(--color-border-soft)]
               bg-slate-50
-              text-[var(--color-text-secondary)]
+              text-[var(--color-text-muted)]
               transition
               hover:bg-slate-100
-              disabled:cursor-not-allowed
               disabled:opacity-60
             "
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {details.length > 0 && (
+        {details && (
           <div
             className="
               mt-6
@@ -141,32 +138,24 @@ function ConfirmModal({
               border-[var(--color-border-soft)]
               bg-slate-50
               p-4
+              text-sm
+              font-semibold
+              leading-6
+              text-[var(--color-text-secondary)]
             "
           >
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {details.map((item) => (
-                <div key={item.label}>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
-                    {item.label}
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
-                    {item.value || "-"}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {details}
           </div>
         )}
 
-        <div className="mt-7 flex flex-col justify-end gap-3 md:flex-row">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
             className="
               inline-flex
-              h-12
+              min-h-12
               items-center
               justify-center
               rounded-2xl
@@ -175,11 +164,11 @@ function ConfirmModal({
               bg-white
               px-5
               text-sm
-              font-bold
-              text-[var(--color-text-secondary)]
+              font-black
+              text-[var(--color-text-primary)]
+              shadow-sm
               transition
               hover:bg-slate-50
-              disabled:cursor-not-allowed
               disabled:opacity-60
             "
           >
@@ -192,19 +181,18 @@ function ConfirmModal({
             disabled={loading}
             className={`
               inline-flex
-              h-12
+              min-h-12
               items-center
               justify-center
               rounded-2xl
+              border
               px-5
               text-sm
-              font-bold
+              font-black
               shadow-sm
               transition
-              focus:outline-none
-              focus:ring-4
-              disabled:cursor-not-allowed
-              ${config.button}
+              disabled:opacity-60
+              ${atual.button}
             `}
           >
             {loading ? "Processando..." : confirmLabel}

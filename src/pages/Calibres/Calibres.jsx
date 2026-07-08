@@ -1,22 +1,3 @@
-// Tela Cadastro de Calibres.
-//
-// Etapa 9:
-// - Código
-// - Nome do calibre
-// - Descrição/observação
-// - Ordem de exibição
-// - Tipo
-// - Status ativo/inativo
-// - Salvar
-// - Cancelar
-// - Resumo
-// - Tabela
-// - Editar
-// - Excluir, se permitido
-//
-// Não usamos dados fictícios.
-// Tudo vem do Supabase.
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -24,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmModal,
   DataTable,
   Input,
   KpiCard,
@@ -32,14 +14,13 @@ import {
 } from "../../components/ui";
 
 import {
-  CheckCircle,
-  Clock,
+  Edit,
   Layers,
-  Pencil,
+  Plus,
+  Save,
   SlidersHorizontal,
   Trash2,
   X,
-  XCircle,
 } from "lucide-react";
 
 import {
@@ -50,50 +31,42 @@ import {
   listarCalibres,
 } from "../../services/calibresService";
 
+const FORM_INICIAL = {
+  codigo: "",
+  nome: "",
+  tipo: "Comercial",
+  ordem: "",
+  ativo: "true",
+  observacao: "",
+};
+
 function formatarNumero(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
-function formatarDataHora(data) {
-  if (!data) {
-    return "Sem atualização";
-  }
+function tipoVariant(tipo) {
+  const valor = String(tipo || "").toLowerCase();
 
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(data));
-}
+  if (valor.includes("ind")) return "warning";
 
-function obterNomeTipo(tipo) {
-  if (tipo === "industria") {
-    return "Indústria";
-  }
-
-  return "Comercial";
+  return "info";
 }
 
 function Calibres() {
   const [calibres, setCalibres] = useState([]);
 
+  const [form, setForm] = useState(FORM_INICIAL);
+
+  const [editandoId, setEditandoId] = useState(null);
+
+  const [calibreParaExcluir, setCalibreParaExcluir] = useState(null);
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [excluindoId, setExcluindoId] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
-
-  const [modoEdicao, setModoEdicao] = useState(false);
-  const [registroEditandoId, setRegistroEditandoId] = useState(null);
-
-  const [form, setForm] = useState({
-    codigo: "",
-    nome: "",
-    tipo: "comercial",
-    ordem: "",
-    observacao: "",
-    ativo: "true",
-  });
 
   const resumo = useMemo(() => {
     return calcularResumoCalibres(calibres);
@@ -106,13 +79,10 @@ function Calibres() {
 
       const dados = await listarCalibres();
 
-      setCalibres(dados);
+      setCalibres(dados || []);
     } catch (error) {
       console.error("Erro ao carregar calibres:", error);
-
-      setErro(
-        "Não foi possível carregar os calibres. Confira a conexão com o Supabase e as permissões da tabela."
-      );
+      setErro(error.message || "Não foi possível carregar os calibres.");
     } finally {
       setCarregando(false);
     }
@@ -131,61 +101,43 @@ function Calibres() {
     }));
 
     setErro("");
-  }
-
-  function limparFormulario() {
-    setForm({
-      codigo: "",
-      nome: "",
-      tipo: "comercial",
-      ordem: "",
-      observacao: "",
-      ativo: "true",
-    });
-
-    setModoEdicao(false);
-    setRegistroEditandoId(null);
+    setSucesso("");
   }
 
   function validarFormulario() {
-    if (!form.codigo.trim()) {
-      return "Informe o código do calibre.";
-    }
+    if (!form.codigo) return "Informe o código do calibre.";
+    if (!form.nome) return "Informe o nome do calibre.";
+    if (!form.tipo) return "Informe o tipo do calibre.";
+    if (!form.ordem) return "Informe a ordem do calibre.";
 
-    if (!form.nome.trim()) {
-      return "Informe o nome do calibre.";
-    }
-
-    if (!form.tipo) {
-      return "Selecione o tipo do calibre.";
-    }
-
-    if (form.ordem === "") {
-      return "Informe a ordem de exibição.";
-    }
-
-    if (Number(form.ordem) < 0) {
-      return "A ordem de exibição não pode ser negativa.";
+    if (Number(form.ordem) <= 0) {
+      return "A ordem precisa ser maior que zero.";
     }
 
     return "";
   }
 
-  function iniciarEdicao(registro) {
+  function limparFormulario() {
+    setForm(FORM_INICIAL);
+    setEditandoId(null);
     setErro("");
     setSucesso("");
+  }
 
-    setModoEdicao(true);
-    setRegistroEditandoId(registro.id);
+  function iniciarEdicao(calibre) {
+    setEditandoId(calibre.id);
 
     setForm({
-      codigo: registro.codigo || "",
-      nome: registro.nome || "",
-      tipo: registro.tipo || "comercial",
-      ordem: String(registro.ordem ?? ""),
-      observacao: registro.observacao || "",
-      ativo: registro.ativo ? "true" : "false",
+      codigo: calibre.codigo || "",
+      nome: calibre.nome || "",
+      tipo: calibre.tipo || "Comercial",
+      ordem: String(calibre.ordem || ""),
+      ativo: calibre.ativo ? "true" : "false",
+      observacao: calibre.observacao || "",
     });
+
+    setErro("");
+    setSucesso("");
 
     window.scrollTo({
       top: 0,
@@ -209,63 +161,65 @@ function Calibres() {
 
       setSalvando(true);
 
-      if (modoEdicao && registroEditandoId) {
-        await editarCalibre(registroEditandoId, form);
+      const payload = {
+        ...form,
+        ativo: form.ativo === "true",
+      };
 
+      if (editandoId) {
+        await editarCalibre(editandoId, payload);
         setSucesso("Calibre atualizado com sucesso.");
       } else {
-        await cadastrarCalibre(form);
-
+        await cadastrarCalibre(payload);
         setSucesso("Calibre cadastrado com sucesso.");
       }
 
       limparFormulario();
-
       await carregarCalibres();
     } catch (error) {
       console.error("Erro ao salvar calibre:", error);
-
-      setErro(
-        error.message ||
-          "Não foi possível salvar o calibre. Confira os dados informados."
-      );
+      setErro(error.message || "Não foi possível salvar o calibre.");
     } finally {
       setSalvando(false);
     }
   }
 
-  async function excluirRegistro(registro) {
-    const confirmar = window.confirm(
-      `Tem certeza que deseja excluir este calibre?\n\nCódigo: ${registro.codigo}\nNome: ${registro.nome}\n\nSe ele já foi usado em lançamentos, o banco pode bloquear a exclusão. Nesse caso, inative o calibre.`
-    );
+  function abrirModalExcluir(calibre) {
+    setCalibreParaExcluir(calibre);
+    setErro("");
+    setSucesso("");
+  }
 
-    if (!confirmar) {
-      return;
-    }
+  function fecharModalExcluir() {
+    if (excluindo) return;
+
+    setCalibreParaExcluir(null);
+  }
+
+  async function confirmarExclusao() {
+    if (!calibreParaExcluir?.id) return;
 
     try {
+      setExcluindo(true);
       setErro("");
       setSucesso("");
-      setExcluindoId(registro.id);
 
-      await excluirCalibre(registro.id);
+      await excluirCalibre(calibreParaExcluir.id);
 
-      if (registroEditandoId === registro.id) {
+      setSucesso("Calibre excluído com sucesso.");
+
+      if (editandoId === calibreParaExcluir.id) {
         limparFormulario();
       }
 
-      setSucesso("Calibre excluído com sucesso.");
+      setCalibreParaExcluir(null);
 
       await carregarCalibres();
     } catch (error) {
       console.error("Erro ao excluir calibre:", error);
-
-      setErro(
-        error.message ||
-          "Não foi possível excluir o calibre. Se ele já foi usado, inative em vez de excluir."
-      );
+      setErro(error.message || "Não foi possível excluir o calibre.");
     } finally {
-      setExcluindoId(null);
+      setExcluindo(false);
     }
   }
 
@@ -274,24 +228,20 @@ function Calibres() {
       key: "codigo",
       label: "Código",
       render: (value) => (
-        <span className="font-bold text-[var(--color-text-primary)]">
-          {value}
-        </span>
+        <p className="font-black text-[var(--color-text-primary)]">
+          {value || "-"}
+        </p>
       ),
     },
     {
       key: "nome",
       label: "Nome",
+      render: (value) => value || "-",
     },
     {
       key: "tipo",
       label: "Tipo",
-      render: (value) =>
-        value === "industria" ? (
-          <Badge variant="warning">Indústria</Badge>
-        ) : (
-          <Badge variant="info">Comercial</Badge>
-        ),
+      render: (value) => <Badge variant={tipoVariant(value)}>{value || "-"}</Badge>,
     },
     {
       key: "ordem",
@@ -305,7 +255,7 @@ function Calibres() {
         value ? (
           <Badge variant="success">Ativo</Badge>
         ) : (
-          <Badge variant="neutral">Inativo</Badge>
+          <Badge variant="warning">Inativo</Badge>
         ),
     },
     {
@@ -317,27 +267,27 @@ function Calibres() {
       key: "acoes",
       label: "Ações",
       render: (_, row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            variant="secondary"
             size="sm"
-            disabled={salvando || excluindoId === row.id}
+            variant="secondary"
+            disabled={salvando || excluindo}
             onClick={() => iniciarEdicao(row)}
           >
-            <Pencil size={16} />
+            <Edit size={16} />
             Editar
           </Button>
 
           <Button
             type="button"
-            variant="danger"
             size="sm"
-            disabled={salvando || excluindoId === row.id}
-            onClick={() => excluirRegistro(row)}
+            variant="danger"
+            disabled={salvando || excluindo}
+            onClick={() => abrirModalExcluir(row)}
           >
             <Trash2 size={16} />
-            {excluindoId === row.id ? "Excluindo..." : "Excluir"}
+            Excluir
           </Button>
         </div>
       ),
@@ -346,47 +296,33 @@ function Calibres() {
 
   return (
     <div className="space-y-8">
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <KpiCard
-          title="Total cadastrados"
-          value={formatarNumero(resumo.totalCadastrados)}
-          description="Calibres no banco"
+          title="Calibres cadastrados"
+          value={formatarNumero(resumo.total)}
+          description="Total salvo no sistema"
           icon={SlidersHorizontal}
           variant="info"
         />
 
         <KpiCard
-          title="Ativos"
+          title="Calibres ativos"
           value={formatarNumero(resumo.ativos)}
-          description="Aparecem nos selects"
-          icon={CheckCircle}
+          description="Aparecem nos lançamentos"
+          icon={Layers}
           variant="success"
         />
 
         <KpiCard
-          title="Inativos"
+          title="Calibres inativos"
           value={formatarNumero(resumo.inativos)}
-          description="Ocultos em novos lançamentos"
-          icon={XCircle}
-          variant={resumo.inativos > 0 ? "warning" : "success"}
-        />
-
-        <KpiCard
-          title="Última atualização"
-          value={formatarDataHora(resumo.ultimaAtualizacao)}
-          description="Cadastro de calibres"
-          icon={Clock}
-          variant="info"
+          description="Ficam apenas no histórico"
+          icon={X}
+          variant="warning"
         />
       </section>
 
-      {erro && (
-        <AlertBox
-          variant="danger"
-          title="Atenção"
-          description={erro}
-        />
-      )}
+      {erro && <AlertBox variant="danger" title="Atenção" description={erro} />}
 
       {sucesso && (
         <AlertBox
@@ -397,34 +333,37 @@ function Calibres() {
       )}
 
       <Card>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              {modoEdicao ? "Editar calibre" : "Cadastro de calibre"}
+            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+              {editandoId ? "Editar calibre" : "Novo calibre"}
             </h3>
 
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Cadastre e organize os calibres usados nas telas do sistema.
+            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+              Configure os calibres usados nas telas de classificação, produto
+              final e saída.
             </p>
           </div>
 
-          {modoEdicao && (
-            <Badge variant="warning">Editando registro</Badge>
+          {editandoId ? (
+            <Badge variant="warning">Editando</Badge>
+          ) : (
+            <Badge variant="info">Cadastro</Badge>
           )}
         </div>
 
         <form onSubmit={salvarCalibre}>
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
             <Input
               label="Código"
               name="codigo"
               value={form.codigo}
               onChange={atualizarCampo}
-              placeholder="Ex: C4, C5, IND"
+              placeholder="Ex: C4"
             />
 
             <Input
-              label="Nome do calibre"
+              label="Nome"
               name="nome"
               value={form.nome}
               onChange={atualizarCampo}
@@ -436,15 +375,15 @@ function Calibres() {
               name="tipo"
               value={form.tipo}
               onChange={atualizarCampo}
-              placeholder="Selecione o tipo"
               options={[
-                { value: "comercial", label: "Comercial" },
-                { value: "industria", label: "Indústria" },
+                { value: "Comercial", label: "Comercial" },
+                { value: "Indústria", label: "Indústria" },
               ]}
+              placeholder="Selecione o tipo"
             />
 
             <Input
-              label="Ordem de exibição"
+              label="Ordem"
               name="ordem"
               type="number"
               value={form.ordem}
@@ -457,14 +396,14 @@ function Calibres() {
               name="ativo"
               value={form.ativo}
               onChange={atualizarCampo}
-              placeholder="Selecione o status"
               options={[
                 { value: "true", label: "Ativo" },
                 { value: "false", label: "Inativo" },
               ]}
+              placeholder="Selecione o status"
             />
 
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 xl:col-span-3">
               <Textarea
                 label="Descrição / Observação"
                 name="observacao"
@@ -475,46 +414,39 @@ function Calibres() {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={limparFormulario}
-              disabled={salvando}
-            >
-              {modoEdicao ? (
-                <>
-                  <X size={16} />
-                  Cancelar edição
-                </>
-              ) : (
-                "Cancelar"
-              )}
-            </Button>
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            {editandoId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={salvando}
+                onClick={limparFormulario}
+              >
+                <X size={16} />
+                Cancelar
+              </Button>
+            )}
 
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={salvando}
-            >
+            <Button type="submit" variant="primary" disabled={salvando}>
+              {editandoId ? <Save size={16} /> : <Plus size={16} />}
               {salvando
                 ? "Salvando..."
-                : modoEdicao
-                  ? "Salvar alterações"
-                  : "Salvar calibre"}
+                : editandoId
+                  ? "Salvar calibre"
+                  : "Cadastrar calibre"}
             </Button>
           </div>
         </form>
       </Card>
 
       <Card>
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
               Calibres cadastrados
             </h3>
 
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
               Calibres salvos no banco de dados.
             </p>
           </div>
@@ -528,36 +460,77 @@ function Calibres() {
 
         {carregando ? (
           <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-8 text-center text-sm font-semibold text-[var(--color-text-muted)]">
-            Carregando calibres do banco...
+            Carregando calibres...
           </div>
         ) : (
           <DataTable
             columns={columns}
             data={calibres}
-            emptyMessage="Nenhum calibre cadastrado no banco."
+            emptyMessage="Nenhum calibre cadastrado."
           />
         )}
       </Card>
 
       <Card>
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
-            <Layers size={24} />
-          </div>
-
-          <div>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              Regra dos calibres ativos
-            </h3>
-
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Apenas calibres com status ativo aparecem nos selects das telas de
-              Alho Classificado, Produto Final e Saída/Venda. Calibres inativos
-              permanecem no histórico, mas não devem ser usados em novos lançamentos.
-            </p>
-          </div>
-        </div>
+        <AlertBox
+          variant="info"
+          title="Regra dos calibres ativos"
+          description="Apenas calibres com status ativo aparecem nos selects das telas de Alho Classificado, Produto Final e Saída/Venda. Calibres inativos permanecem no histórico."
+        />
       </Card>
+
+      <ConfirmModal
+        open={Boolean(calibreParaExcluir)}
+        title="Excluir calibre?"
+        description="Essa ação tenta remover o calibre selecionado. Se ele já foi usado em lançamentos, o banco pode bloquear a exclusão. Nesse caso, inative o calibre."
+        variant="danger"
+        confirmLabel="Confirmar exclusão"
+        cancelLabel="Cancelar"
+        loading={excluindo}
+        onCancel={fecharModalExcluir}
+        onConfirm={confirmarExclusao}
+        details={
+          calibreParaExcluir ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Código
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {calibreParaExcluir.codigo || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Nome
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {calibreParaExcluir.nome || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Tipo
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {calibreParaExcluir.tipo || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Status
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {calibreParaExcluir.ativo ? "Ativo" : "Inativo"}
+                </p>
+              </div>
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }

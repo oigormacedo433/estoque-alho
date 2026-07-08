@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmModal,
   DataTable,
   Input,
   KpiCard,
@@ -48,13 +49,17 @@ function obterHoraAtual() {
 
 function formatarData(data) {
   if (!data) return "-";
-  const [ano, mes, dia] = data.split("-");
+
+  const [ano, mes, dia] = String(data).split("-");
+
+  if (!ano || !mes || !dia) return data;
+
   return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora) {
   if (!hora) return "-";
-  return hora.slice(0, 5);
+  return String(hora).slice(0, 5);
 }
 
 function formatarNumero(valor) {
@@ -90,9 +95,10 @@ function SaidaVenda() {
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [excluindoId, setExcluindoId] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const [editandoId, setEditandoId] = useState(null);
+  const [saidaParaExcluir, setSaidaParaExcluir] = useState(null);
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -205,7 +211,10 @@ function SaidaVenda() {
       setSaldoSelecionado(null);
 
       try {
-        const estoque = await listarEstoqueDisponivelSaida({ areaId: value });
+        const estoque = await listarEstoqueDisponivelSaida({
+          areaId: value,
+        });
+
         setEstoqueDisponivel((estadoAtual) => {
           const outros = estadoAtual.filter((item) => item.area_id !== value);
           return [...outros, ...(estoque || [])];
@@ -310,7 +319,7 @@ function SaidaVenda() {
 
     const novoForm = {
       data_saida: registro.data_saida || obterDataAtual(),
-      hora: registro.hora ? registro.hora.slice(0, 5) : obterHoraAtual(),
+      hora: registro.hora ? String(registro.hora).slice(0, 5) : obterHoraAtual(),
       area_id: registro.area_id || "",
       cliente: registro.cliente || "",
       numero_pedido: registro.numero_pedido || "",
@@ -341,31 +350,40 @@ function SaidaVenda() {
     });
   }
 
-  async function removerRegistro(registro) {
-    const confirmar = window.confirm(
-      `Deseja excluir esta saída de ${registro.quantidade_caixas} caixas? O estoque da área voltará automaticamente.`
-    );
+  function abrirModalExcluir(registro) {
+    setSaidaParaExcluir(registro);
+    setErro("");
+    setSucesso("");
+  }
 
-    if (!confirmar) return;
+  function fecharModalExcluir() {
+    if (excluindo) return;
+    setSaidaParaExcluir(null);
+  }
+
+  async function confirmarExclusao() {
+    if (!saidaParaExcluir?.id) return;
 
     try {
-      setExcluindoId(registro.id);
+      setExcluindo(true);
       setErro("");
       setSucesso("");
 
-      await excluirSaidaVenda(registro.id);
+      await excluirSaidaVenda(saidaParaExcluir.id);
 
       setSucesso("Saída/Venda excluída com sucesso.");
 
-      if (editandoId === registro.id) {
+      if (editandoId === saidaParaExcluir.id) {
         cancelarEdicao();
       }
+
+      setSaidaParaExcluir(null);
 
       await carregarDados();
     } catch (error) {
       setErro(error.message || "Não foi possível excluir a saída/venda.");
     } finally {
-      setExcluindoId(null);
+      setExcluindo(false);
     }
   }
 
@@ -424,7 +442,7 @@ function SaidaVenda() {
             type="button"
             size="sm"
             variant="secondary"
-            disabled={salvando || excluindoId === row.id}
+            disabled={salvando || excluindo}
             onClick={() => iniciarEdicao(row)}
           >
             <Edit size={16} />
@@ -435,11 +453,11 @@ function SaidaVenda() {
             type="button"
             size="sm"
             variant="danger"
-            disabled={salvando || excluindoId === row.id}
-            onClick={() => removerRegistro(row)}
+            disabled={salvando || excluindo}
+            onClick={() => abrirModalExcluir(row)}
           >
             <Trash2 size={16} />
-            {excluindoId === row.id ? "Excluindo..." : "Excluir"}
+            Excluir
           </Button>
         </div>
       ),
@@ -618,7 +636,7 @@ function SaidaVenda() {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             {editandoId && (
               <Button
                 type="button"
@@ -644,7 +662,7 @@ function SaidaVenda() {
       </Card>
 
       <Card>
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
               Saídas registradas
@@ -674,6 +692,88 @@ function SaidaVenda() {
           />
         )}
       </Card>
+
+      <ConfirmModal
+        open={Boolean(saidaParaExcluir)}
+        title="Excluir saída?"
+        description="Essa ação remove a saída selecionada. Ao confirmar, o saldo disponível volta automaticamente no cálculo do estoque."
+        variant="danger"
+        confirmLabel="Confirmar exclusão"
+        cancelLabel="Cancelar"
+        loading={excluindo}
+        onCancel={fecharModalExcluir}
+        onConfirm={confirmarExclusao}
+        details={
+          saidaParaExcluir ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Data
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarData(saidaParaExcluir.data_saida)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Área / Pivô
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {saidaParaExcluir.areas_fazenda?.nome || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Cliente
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {saidaParaExcluir.cliente || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Pedido / Carga
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {saidaParaExcluir.numero_pedido || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Calibre
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {saidaParaExcluir.calibres
+                    ? `${saidaParaExcluir.calibres.codigo} — ${saidaParaExcluir.calibres.nome}`
+                    : "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Quantidade
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarNumero(saidaParaExcluir.quantidade_caixas)} caixas
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Peso
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarKg(saidaParaExcluir.peso_total_kg)}
+                </p>
+              </div>
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 }
