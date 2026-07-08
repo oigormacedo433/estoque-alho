@@ -1,0 +1,76 @@
+/* Importa o Tailwind CSS */
+@import "tailwindcss";
+
+/* 
+  Variáveis globais da identidade visual do sistema.
+  Essas cores serão usadas em todo o projeto para manter
+  o layout igual às telas de referência.
+*/
+:root {
+  /* Verdes principais */
+  --color-sidebar-dark: #12372a;
+  --color-sidebar-medium: #1f513f;
+  --color-green-primary: #2f7d4e;
+  --color-green-primary-hover: #25643f;
+  --color-green-light: #e8f5ee;
+  --color-green-border: #b9dec9;
+
+  /* Neutros */
+  --color-background: #f5f7f6;
+  --color-card: #ffffff;
+  --color-border: #dfe7e2;
+  --color-border-soft: #edf2ef;
+  --color-text-primary: #1f2933;
+  --color-text-secondary: #65726b;
+  --color-text-muted: #8a9690;
+
+  /* Status */
+  --color-success: #2f7d4e;
+  --color-success-light: #e8f5ee;
+
+  --color-warning: #d98a21;
+  --color-warning-light: #fff4e3;
+
+  --color-danger: #c94a3a;
+  --color-danger-light: #fdecea;
+
+  --color-info: #2f6fbd;
+  --color-info-light: #e8f1ff;
+
+  /* Sombras e arredondamento */
+  --shadow-card: 0 8px 24px rgba(18, 55, 42, 0.06);
+  --radius-card: 18px;
+  --radius-input: 12px;
+}
+
+/* 
+  Estilo base do sistema.
+  Mantém fundo claro e fonte limpa em todas as telas.
+*/
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* 
+  Remove estilos padrões que podem atrapalhar
+  o visual administrativo.
+*/
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* 
+  Classe utilitária para limitar conteúdo textual
+  e evitar que textos grandes quebrem o layout.
+*/
+.text-clamp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
