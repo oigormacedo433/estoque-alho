@@ -14,14 +14,14 @@ import {
 } from "../../components/ui";
 
 import {
+  CheckCircle,
+  Eye,
   PackageCheck,
   Pencil,
   Scale,
   Search,
-  ShoppingCart,
-  Star,
+  ShieldCheck,
   Trash2,
-  Truck,
   X,
 } from "lucide-react";
 
@@ -29,12 +29,12 @@ import { listarCalibresAtivos } from "../../services/calibresService";
 import { listarResponsaveisAtivos } from "../../services/responsaveisService";
 
 import {
-  calcularResumoConsultaSaidas,
-  editarSaidaVenda,
-  excluirSaidaVenda,
-  listarEstoqueDisponivelSaida,
-  listarSaidasVendas,
-} from "../../services/saidaVendaService";
+  calcularResumoProdutoFinal,
+  editarProdutoFinal,
+  excluirProdutoFinal,
+  listarProdutoFinal,
+  listarSaldoProdutoFinalAtual,
+} from "../../services/produtoFinalService";
 
 function obterDataAtual() {
   const data = new Date();
@@ -46,14 +46,17 @@ function obterDataAtual() {
 function formatarData(data) {
   if (!data) return "-";
 
-  const [ano, mes, dia] = data.split("-");
+  const [ano, mes, dia] = String(data).split("-");
+
+  if (!ano || !mes || !dia) return "-";
+
   return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora) {
   if (!hora) return "-";
 
-  return hora.slice(0, 5);
+  return String(hora).slice(0, 5);
 }
 
 function formatarNumero(valor) {
@@ -67,11 +70,12 @@ function formatarKg(valor) {
   })} kg`;
 }
 
-function ConsultaSaidas() {
+function ConsultaProdutoFinal() {
   const [calibres, setCalibres] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
-  const [estoqueDisponivel, setEstoqueDisponivel] = useState([]);
-  const [saidas, setSaidas] = useState([]);
+
+  const [registros, setRegistros] = useState([]);
+  const [saldoAtual, setSaldoAtual] = useState([]);
 
   const [carregando, setCarregando] = useState(true);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
@@ -80,8 +84,8 @@ function ConsultaSaidas() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
+  const [detalheSelecionado, setDetalheSelecionado] = useState(null);
   const [registroEditandoId, setRegistroEditandoId] = useState(null);
-  const [registroOriginal, setRegistroOriginal] = useState(null);
   const [registroParaExcluir, setRegistroParaExcluir] = useState(null);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -90,19 +94,18 @@ function ConsultaSaidas() {
   const [filtros, setFiltros] = useState({
     dataInicial: "",
     dataFinal: "",
-    cliente: "",
-    numeroPedido: "",
     calibreId: "",
     responsavelId: "",
+    conferido: "todos",
   });
 
   const [formEdicao, setFormEdicao] = useState({
-    data_saida: "",
+    data_registro: "",
     hora: "",
-    cliente: "",
-    numero_pedido: "",
     calibre_id: "",
     quantidade_caixas: "",
+    peso_por_caixa_kg: "",
+    conferido: "sim",
     responsavel_id: "",
     observacao: "",
   });
@@ -122,117 +125,83 @@ function ConsultaSaidas() {
   }, [responsaveis]);
 
   const resumo = useMemo(() => {
-    return calcularResumoConsultaSaidas(saidas);
-  }, [saidas]);
+    return calcularResumoProdutoFinal(registros);
+  }, [registros]);
 
   const totalPaginas = useMemo(() => {
-    return Math.max(1, Math.ceil(saidas.length / itensPorPagina));
-  }, [saidas.length]);
+    return Math.max(1, Math.ceil(registros.length / itensPorPagina));
+  }, [registros.length]);
 
-  const saidasPaginadas = useMemo(() => {
+  const registrosPaginados = useMemo(() => {
     const inicio = (paginaAtual - 1) * itensPorPagina;
     const fim = inicio + itensPorPagina;
 
-    return saidas.slice(inicio, fim);
-  }, [saidas, paginaAtual]);
-
-  const estoqueSelecionado = useMemo(() => {
-    return (
-      estoqueDisponivel.find(
-        (item) => item.calibre_id === formEdicao.calibre_id
-      ) || null
-    );
-  }, [estoqueDisponivel, formEdicao.calibre_id]);
-
-  const saldoConsiderado = useMemo(() => {
-    let saldoCaixas = Number(estoqueSelecionado?.saldo_disponivel_caixas || 0);
-    let pesoDisponivelKg = Number(estoqueSelecionado?.peso_disponivel_kg || 0);
-
-    const mesmoCalibre =
-      registroOriginal &&
-      registroOriginal.calibre_id === formEdicao.calibre_id;
-
-    if (mesmoCalibre) {
-      saldoCaixas += Number(registroOriginal.quantidade_caixas || 0);
-      pesoDisponivelKg += Number(registroOriginal.peso_total_kg || 0);
-    }
-
-    const pesoMedio =
-      saldoCaixas > 0 && pesoDisponivelKg > 0
-        ? pesoDisponivelKg / saldoCaixas
-        : 0;
-
-    return {
-      saldoCaixas,
-      pesoDisponivelKg,
-      pesoMedio,
-    };
-  }, [estoqueSelecionado, registroOriginal, formEdicao.calibre_id]);
+    return registros.slice(inicio, fim);
+  }, [registros, paginaAtual]);
 
   const pesoTotalEdicao = useMemo(() => {
-    return (
-      Number(formEdicao.quantidade_caixas || 0) *
-      Number(saldoConsiderado.pesoMedio || 0)
-    );
-  }, [formEdicao.quantidade_caixas, saldoConsiderado.pesoMedio]);
+    const caixas = Number(formEdicao.quantidade_caixas || 0);
+    const pesoPorCaixa = Number(formEdicao.peso_por_caixa_kg || 0);
 
-  const quantidadeMaiorQueSaldo = useMemo(() => {
-    const quantidade = Number(formEdicao.quantidade_caixas || 0);
+    return caixas * pesoPorCaixa;
+  }, [formEdicao.quantidade_caixas, formEdicao.peso_por_caixa_kg]);
 
-    if (!formEdicao.calibre_id || quantidade <= 0) {
-      return false;
+  const saldoDetalhe = useMemo(() => {
+    if (!detalheSelecionado) {
+      return null;
     }
 
-    return quantidade > Number(saldoConsiderado.saldoCaixas || 0);
-  }, [
-    formEdicao.calibre_id,
-    formEdicao.quantidade_caixas,
-    saldoConsiderado.saldoCaixas,
-  ]);
+    const calibreId =
+      detalheSelecionado.calibres?.id || detalheSelecionado.calibre_id;
+
+    return saldoAtual.find((item) => item.calibre_id === calibreId) || null;
+  }, [detalheSelecionado, saldoAtual]);
 
   async function carregarOpcoes() {
-    const [calibresBanco, responsaveisBanco, estoqueBanco] = await Promise.all([
+    const [calibresBanco, responsaveisBanco] = await Promise.all([
       listarCalibresAtivos(),
       listarResponsaveisAtivos(),
-      listarEstoqueDisponivelSaida(),
     ]);
 
     setCalibres(calibresBanco);
     setResponsaveis(responsaveisBanco);
-    setEstoqueDisponivel(estoqueBanco);
   }
 
   function montarFiltrosParaBusca(filtrosAtuais) {
     return {
       dataInicial: filtrosAtuais.dataInicial || "",
       dataFinal: filtrosAtuais.dataFinal || "",
-      cliente: filtrosAtuais.cliente || "",
-      numeroPedido: filtrosAtuais.numeroPedido || "",
       calibreId: filtrosAtuais.calibreId || "",
       responsavelId: filtrosAtuais.responsavelId || "",
+      conferido:
+        filtrosAtuais.conferido === "todos" ? "" : filtrosAtuais.conferido,
     };
   }
 
-  async function carregarSaidas(filtrosAtuais = filtros) {
+  async function carregarRegistros(filtrosAtuais = filtros) {
     try {
       setCarregando(true);
       setErro("");
       setSucesso("");
 
-      const [saidasBanco, estoqueBanco] = await Promise.all([
-        listarSaidasVendas(montarFiltrosParaBusca(filtrosAtuais)),
-        listarEstoqueDisponivelSaida(),
+      const [registrosBanco, saldoBanco] = await Promise.all([
+        listarProdutoFinal(montarFiltrosParaBusca(filtrosAtuais)),
+        listarSaldoProdutoFinalAtual(),
       ]);
 
-      setSaidas(saidasBanco);
-      setEstoqueDisponivel(estoqueBanco);
+      setRegistros(registrosBanco);
+      setSaldoAtual(saldoBanco);
       setPaginaAtual(1);
+
+      if (registrosBanco.length === 0) {
+        setDetalheSelecionado(null);
+      }
     } catch (error) {
-      console.error("Erro ao consultar saídas:", error);
+      console.error("Erro ao consultar produto final:", error);
 
       setErro(
         error.message ||
-          "Não foi possível consultar as saídas. Confira as permissões no Supabase."
+          "Não foi possível consultar o produto final. Confira as permissões no Supabase."
       );
     } finally {
       setCarregando(false);
@@ -246,14 +215,20 @@ function ConsultaSaidas() {
 
       await carregarOpcoes();
 
-      const saidasBanco = await listarSaidasVendas();
+      const [registrosBanco, saldoBanco] = await Promise.all([
+        listarProdutoFinal(),
+        listarSaldoProdutoFinalAtual(),
+      ]);
 
-      setSaidas(saidasBanco);
+      setRegistros(registrosBanco);
+      setSaldoAtual(saldoBanco);
       setPaginaAtual(1);
     } catch (error) {
-      console.error("Erro ao carregar consulta de saídas:", error);
+      console.error("Erro ao carregar consulta de produto final:", error);
 
-      setErro(error.message || "Não foi possível carregar a consulta de saídas.");
+      setErro(
+        error.message || "Não foi possível carregar a consulta de produto final."
+      );
     } finally {
       setCarregando(false);
     }
@@ -284,42 +259,51 @@ function ConsultaSaidas() {
       return;
     }
 
-    carregarSaidas(filtros);
+    carregarRegistros(filtros);
   }
 
   function limparFiltros() {
     const filtrosLimpos = {
       dataInicial: "",
       dataFinal: "",
-      cliente: "",
-      numeroPedido: "",
       calibreId: "",
       responsavelId: "",
+      conferido: "todos",
     };
 
     setFiltros(filtrosLimpos);
+    setDetalheSelecionado(null);
     setRegistroEditandoId(null);
-    setRegistroOriginal(null);
     setErro("");
     setSucesso("");
 
-    carregarSaidas(filtrosLimpos);
+    carregarRegistros(filtrosLimpos);
+  }
+
+  function visualizarRegistro(registro) {
+    setDetalheSelecionado(registro);
+    setRegistroEditandoId(null);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   function iniciarEdicao(registro) {
     setErro("");
     setSucesso("");
 
+    setDetalheSelecionado(registro);
     setRegistroEditandoId(registro.id);
-    setRegistroOriginal(registro);
 
     setFormEdicao({
-      data_saida: registro.data_saida || obterDataAtual(),
+      data_registro: registro.data_registro || obterDataAtual(),
       hora: formatarHora(registro.hora),
-      cliente: registro.cliente || "",
-      numero_pedido: registro.numero_pedido || "",
       calibre_id: registro.calibres?.id || registro.calibre_id || "",
       quantidade_caixas: String(registro.quantidade_caixas || ""),
+      peso_por_caixa_kg: String(registro.peso_por_caixa_kg || ""),
+      conferido: registro.conferido ? "sim" : "nao",
       responsavel_id: registro.responsaveis?.id || registro.responsavel_id || "",
       observacao: registro.observacao || "",
     });
@@ -332,7 +316,6 @@ function ConsultaSaidas() {
 
   function cancelarEdicao() {
     setRegistroEditandoId(null);
-    setRegistroOriginal(null);
   }
 
   function atualizarFormEdicao(event) {
@@ -347,12 +330,12 @@ function ConsultaSaidas() {
   }
 
   function validarEdicao() {
-    if (!formEdicao.data_saida) {
-      return "Informe a data da saída.";
+    if (!formEdicao.data_registro) {
+      return "Informe a data do lançamento.";
     }
 
     if (!formEdicao.hora) {
-      return "Informe a hora da saída.";
+      return "Informe a hora.";
     }
 
     if (!formEdicao.calibre_id) {
@@ -367,14 +350,12 @@ function ConsultaSaidas() {
       return "A quantidade de caixas precisa ser maior que zero.";
     }
 
-    if (Number(saldoConsiderado.saldoCaixas || 0) <= 0) {
-      return "Não existe estoque disponível para o calibre selecionado.";
+    if (!formEdicao.peso_por_caixa_kg) {
+      return "Informe o peso por caixa.";
     }
 
-    if (quantidadeMaiorQueSaldo) {
-      return `Estoque insuficiente. Saldo disponível: ${formatarNumero(
-        saldoConsiderado.saldoCaixas
-      )} caixas.`;
+    if (Number(formEdicao.peso_por_caixa_kg) <= 0) {
+      return "O peso por caixa precisa ser maior que zero.";
     }
 
     return "";
@@ -396,18 +377,16 @@ function ConsultaSaidas() {
 
       setSalvandoEdicao(true);
 
-      await editarSaidaVenda(registroEditandoId, formEdicao);
+      await editarProdutoFinal(registroEditandoId, formEdicao);
 
-      setSucesso("Saída atualizada com sucesso. O estoque foi recalculado.");
-
+      setSucesso("Produto final atualizado com sucesso.");
       setRegistroEditandoId(null);
-      setRegistroOriginal(null);
 
-      await carregarSaidas(filtros);
+      await carregarRegistros(filtros);
     } catch (error) {
-      console.error("Erro ao editar saída:", error);
+      console.error("Erro ao editar produto final:", error);
 
-      setErro(error.message || "Não foi possível editar a saída.");
+      setErro(error.message || "Não foi possível editar o produto final.");
     } finally {
       setSalvandoEdicao(false);
     }
@@ -437,20 +416,24 @@ function ConsultaSaidas() {
       setSucesso("");
       setExcluindoId(registroParaExcluir.id);
 
-      await excluirSaidaVenda(registroParaExcluir.id);
+      await excluirProdutoFinal(registroParaExcluir.id);
+
+      if (detalheSelecionado?.id === registroParaExcluir.id) {
+        setDetalheSelecionado(null);
+      }
 
       if (registroEditandoId === registroParaExcluir.id) {
-        cancelarEdicao();
+        setRegistroEditandoId(null);
       }
 
       setRegistroParaExcluir(null);
-      setSucesso("Saída excluída com sucesso. O estoque foi recalculado.");
+      setSucesso("Produto final excluído com sucesso. O estoque foi recalculado.");
 
-      await carregarSaidas(filtros);
+      await carregarRegistros(filtros);
     } catch (error) {
-      console.error("Erro ao excluir saída:", error);
+      console.error("Erro ao excluir produto final:", error);
 
-      setErro(error.message || "Não foi possível excluir a saída.");
+      setErro(error.message || "Não foi possível excluir o produto final.");
     } finally {
       setExcluindoId(null);
     }
@@ -466,7 +449,7 @@ function ConsultaSaidas() {
 
   const columns = [
     {
-      key: "data_saida",
+      key: "data_registro",
       label: "Data",
       render: (value) => formatarData(value),
     },
@@ -476,34 +459,39 @@ function ConsultaSaidas() {
       render: (value) => formatarHora(value),
     },
     {
-      key: "cliente",
-      label: "Cliente",
-      render: (value) => value || "-",
-    },
-    {
-      key: "numero_pedido",
-      label: "Pedido / Carga",
-      render: (value) => value || "-",
-    },
-    {
       key: "calibres",
       label: "Calibre",
       render: (value) => (value ? `${value.codigo} — ${value.nome}` : "-"),
     },
     {
       key: "quantidade_caixas",
-      label: "Caixas",
+      label: "Quantidade de caixas",
       render: (value) => `${formatarNumero(value)} caixas`,
     },
     {
+      key: "peso_por_caixa_kg",
+      label: "Peso por caixa",
+      render: (value) => formatarKg(value),
+    },
+    {
       key: "peso_total_kg",
-      label: "Peso",
+      label: "Peso total",
       render: (value) => formatarKg(value),
     },
     {
       key: "responsaveis",
       label: "Responsável",
       render: (value) => value?.nome || "-",
+    },
+    {
+      key: "conferido",
+      label: "Status",
+      render: (value) =>
+        value ? (
+          <Badge variant="success">Conferido</Badge>
+        ) : (
+          <Badge variant="warning">Pendente</Badge>
+        ),
     },
     {
       key: "observacao",
@@ -515,6 +503,16 @@ function ConsultaSaidas() {
       label: "Ações",
       render: (_, row) => (
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => visualizarRegistro(row)}
+          >
+            <Eye size={16} />
+            Ver
+          </Button>
+
           <Button
             type="button"
             variant="secondary"
@@ -545,83 +543,90 @@ function ConsultaSaidas() {
     <div className="space-y-8">
       <ConfirmModal
         open={Boolean(registroParaExcluir)}
-        title="Excluir saída?"
-        description="Essa ação remove a saída selecionada. Ao confirmar, o saldo disponível volta automaticamente no cálculo do estoque."
+        title="Excluir produto final?"
+        description="Essa ação remove o lançamento selecionado e recalcula automaticamente o estoque disponível. Essa exclusão não pode ser desfeita."
         confirmLabel="Confirmar exclusão"
         cancelLabel="Cancelar"
         variant="danger"
         loading={Boolean(excluindoId)}
         onCancel={cancelarExclusao}
         onConfirm={confirmarExclusao}
-        details={[
-          {
-            label: "Data",
-            value: formatarData(registroParaExcluir?.data_saida),
-          },
-          {
-            label: "Cliente",
-            value: registroParaExcluir?.cliente || "-",
-          },
-          {
-            label: "Pedido / Carga",
-            value: registroParaExcluir?.numero_pedido || "-",
-          },
-          {
-            label: "Calibre",
-            value: registroParaExcluir?.calibres
-              ? `${registroParaExcluir.calibres.codigo} — ${registroParaExcluir.calibres.nome}`
-              : "-",
-          },
-          {
-            label: "Quantidade",
-            value: `${formatarNumero(
-              registroParaExcluir?.quantidade_caixas
-            )} caixas`,
-          },
-          {
-            label: "Peso",
-            value: formatarKg(registroParaExcluir?.peso_total_kg),
-          },
-        ]}
+        details={
+          registroParaExcluir ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Data
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarData(registroParaExcluir.data_registro)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Calibre
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {registroParaExcluir.calibres
+                    ? `${registroParaExcluir.calibres.codigo} — ${registroParaExcluir.calibres.nome}`
+                    : "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Quantidade
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarNumero(registroParaExcluir.quantidade_caixas)} caixas
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Peso total
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarKg(registroParaExcluir.peso_total_kg)}
+                </p>
+              </div>
+            </div>
+          ) : null
+        }
       />
 
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Total de saídas"
+          title="Lançamentos"
           value={formatarNumero(resumo.totalRegistros)}
-          description="Registros encontrados"
-          icon={ShoppingCart}
+          description="Registros no período"
+          icon={PackageCheck}
           variant="info"
         />
 
         <KpiCard
-          title="Caixas expedidas"
+          title="Caixas produzidas"
           value={formatarNumero(resumo.totalCaixas)}
-          description="Total filtrado"
-          icon={Truck}
-          variant="warning"
-        />
-
-        <KpiCard
-          title="Peso expedido"
-          value={formatarKg(resumo.pesoTotalKg)}
-          description="Peso total filtrado"
-          icon={Scale}
-          variant="warning"
-        />
-
-        <KpiCard
-          title="Calibre mais vendido"
-          value={resumo.calibreMaisVendido?.calibre_codigo || "-"}
-          description={
-            resumo.calibreMaisVendido
-              ? `${resumo.calibreMaisVendido.calibre_nome} • ${formatarNumero(
-                  resumo.calibreMaisVendido.caixas
-                )} caixas`
-              : "Sem vendas no filtro"
-          }
-          icon={Star}
+          description="Quantidade de caixas"
+          icon={CheckCircle}
           variant="success"
+        />
+
+        <KpiCard
+          title="Peso total produzido"
+          value={formatarKg(resumo.pesoTotalKg)}
+          description="Soma dos pesos totais"
+          icon={Scale}
+          variant="success"
+        />
+
+        <KpiCard
+          title="Calibres com produto"
+          value={formatarNumero(resumo.calibresComProdutoFinal)}
+          description="Calibres no período"
+          icon={ShieldCheck}
+          variant="info"
         />
       </section>
 
@@ -647,7 +652,7 @@ function ConsultaSaidas() {
             </h3>
 
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Filtre as saídas por período, cliente, pedido/carga, calibre e responsável.
+              Filtre o produto final por período, calibre, responsável e status.
             </p>
           </div>
         </div>
@@ -669,22 +674,6 @@ function ConsultaSaidas() {
             onChange={atualizarFiltro}
           />
 
-          <Input
-            label="Cliente"
-            name="cliente"
-            value={filtros.cliente}
-            onChange={atualizarFiltro}
-            placeholder="Buscar por cliente"
-          />
-
-          <Input
-            label="Pedido / Carga"
-            name="numeroPedido"
-            value={filtros.numeroPedido}
-            onChange={atualizarFiltro}
-            placeholder="Buscar por pedido ou carga"
-          />
-
           <Select
             label="Calibre"
             name="calibreId"
@@ -702,6 +691,18 @@ function ConsultaSaidas() {
             options={responsavelOptions}
             placeholder="Todos os responsáveis"
           />
+
+          <Select
+            label="Status"
+            name="conferido"
+            value={filtros.conferido}
+            onChange={atualizarFiltro}
+            options={[
+              { value: "todos", label: "Todos" },
+              { value: "sim", label: "Conferidos" },
+              { value: "nao", label: "Pendentes" },
+            ]}
+          />
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -715,16 +716,126 @@ function ConsultaSaidas() {
         </div>
       </Card>
 
+      {detalheSelecionado && !registroEditandoId && (
+        <Card>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+                Detalhe rápido do produto final
+              </h3>
+
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                Visualização rápida do lançamento selecionado.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDetalheSelecionado(null)}
+            >
+              <X size={16} />
+              Fechar
+            </Button>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Calibre selecionado
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {detalheSelecionado.calibres
+                  ? `${detalheSelecionado.calibres.codigo} — ${detalheSelecionado.calibres.nome}`
+                  : "-"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Caixas produzidas
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {formatarNumero(detalheSelecionado.quantidade_caixas)} caixas
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Peso produzido
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {formatarKg(detalheSelecionado.peso_total_kg)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Peso por caixa
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {formatarKg(detalheSelecionado.peso_por_caixa_kg)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Último lançamento
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {formatarData(detalheSelecionado.data_registro)} às{" "}
+                {formatarHora(detalheSelecionado.hora)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Saldo disponível atual
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {saldoDetalhe
+                  ? `${formatarNumero(
+                      saldoDetalhe.saldo_disponivel_caixas
+                    )} caixas`
+                  : "Sem saldo calculado"}
+              </p>
+
+              {saldoDetalhe && (
+                <p className="mt-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                  {formatarKg(saldoDetalhe.peso_disponivel_kg)}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4 md:col-span-2 xl:col-span-3">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Observação
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
+                {detalheSelecionado.observacao || "-"}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {registroEditandoId && (
         <Card>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-                Editar saída
+                Editar produto final
               </h3>
 
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Atualize os dados da saída. O sistema continua bloqueando quantidade maior que o saldo.
+                Atualize quantidade, peso por caixa, calibre, responsável e status.
               </p>
             </div>
 
@@ -734,10 +845,10 @@ function ConsultaSaidas() {
           <form onSubmit={salvarEdicao}>
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
               <Input
-                label="Data da saída"
-                name="data_saida"
+                label="Data do lançamento"
+                name="data_registro"
                 type="date"
-                value={formEdicao.data_saida}
+                value={formEdicao.data_registro}
                 onChange={atualizarFormEdicao}
               />
 
@@ -746,20 +857,6 @@ function ConsultaSaidas() {
                 name="hora"
                 type="time"
                 value={formEdicao.hora}
-                onChange={atualizarFormEdicao}
-              />
-
-              <Input
-                label="Cliente"
-                name="cliente"
-                value={formEdicao.cliente}
-                onChange={atualizarFormEdicao}
-              />
-
-              <Input
-                label="Pedido / Carga"
-                name="numero_pedido"
-                value={formEdicao.numero_pedido}
                 onChange={atualizarFormEdicao}
               />
 
@@ -781,21 +878,30 @@ function ConsultaSaidas() {
               />
 
               <Input
-                label="Saldo disponível considerado"
-                name="saldo_disponivel"
-                type="text"
-                value={`${formatarNumero(
-                  saldoConsiderado.saldoCaixas
-                )} caixas`}
-                disabled
+                label="Peso por caixa em kg"
+                name="peso_por_caixa_kg"
+                type="number"
+                value={formEdicao.peso_por_caixa_kg}
+                onChange={atualizarFormEdicao}
               />
 
               <Input
                 label="Peso total calculado"
-                name="peso_total"
+                name="peso_total_calculado"
                 type="text"
                 value={formatarKg(pesoTotalEdicao)}
                 disabled
+              />
+
+              <Select
+                label="Status"
+                name="conferido"
+                value={formEdicao.conferido}
+                onChange={atualizarFormEdicao}
+                options={[
+                  { value: "sim", label: "Conferido" },
+                  { value: "nao", label: "Pendente" },
+                ]}
               />
 
               <Select
@@ -817,18 +923,6 @@ function ConsultaSaidas() {
               </div>
             </div>
 
-            {quantidadeMaiorQueSaldo && (
-              <div className="mt-5">
-                <AlertBox
-                  variant="danger"
-                  title="Estoque insuficiente"
-                  description={`Saldo disponível considerado: ${formatarNumero(
-                    saldoConsiderado.saldoCaixas
-                  )} caixas.`}
-                />
-              </div>
-            )}
-
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 type="button"
@@ -843,7 +937,7 @@ function ConsultaSaidas() {
               <Button
                 type="submit"
                 variant="primary"
-                disabled={salvandoEdicao || quantidadeMaiorQueSaldo}
+                disabled={salvandoEdicao}
               >
                 {salvandoEdicao ? "Salvando..." : "Salvar alterações"}
               </Button>
@@ -856,39 +950,39 @@ function ConsultaSaidas() {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              Saídas encontradas
+              Produtos finais encontrados
             </h3>
 
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Consulta dos registros de saída/venda salvos no banco.
+              Consulta dos lançamentos de produto final salvos no banco.
             </p>
           </div>
 
           <Badge variant="info">
             {carregando
               ? "Carregando"
-              : `${formatarNumero(saidas.length)} registros`}
+              : `${formatarNumero(registros.length)} registros`}
           </Badge>
         </div>
 
         {carregando ? (
           <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-8 text-center text-sm font-semibold text-[var(--color-text-muted)]">
-            Carregando saídas do banco...
+            Carregando produto final do banco...
           </div>
         ) : (
           <>
             <DataTable
               columns={columns}
-              data={saidasPaginadas}
-              emptyMessage="Nenhuma saída encontrada para os filtros aplicados."
+              data={registrosPaginados}
+              emptyMessage="Nenhum produto final encontrado para os filtros aplicados."
             />
 
             <div className="mt-5 flex flex-col items-center justify-between gap-3 md:flex-row">
               <p className="text-sm font-semibold text-[var(--color-text-secondary)]">
                 Página {formatarNumero(paginaAtual)} de{" "}
                 {formatarNumero(totalPaginas)} — exibindo{" "}
-                {formatarNumero(saidasPaginadas.length)} de{" "}
-                {formatarNumero(saidas.length)} registros
+                {formatarNumero(registrosPaginados.length)} de{" "}
+                {formatarNumero(registros.length)} registros
               </p>
 
               <div className="flex gap-3">
@@ -918,4 +1012,4 @@ function ConsultaSaidas() {
   );
 }
 
-export default ConsultaSaidas;
+export default ConsultaProdutoFinal;

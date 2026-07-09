@@ -46,14 +46,17 @@ function obterDataAtual() {
 function formatarData(data) {
   if (!data) return "-";
 
-  const [ano, mes, dia] = data.split("-");
+  const [ano, mes, dia] = String(data).split("-");
+
+  if (!ano || !mes || !dia) return "-";
+
   return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora) {
   if (!hora) return "-";
 
-  return hora.slice(0, 5);
+  return String(hora).slice(0, 5);
 }
 
 function formatarNumero(valor) {
@@ -548,28 +551,49 @@ function ConsultaProdutoFinal() {
         loading={Boolean(excluindoId)}
         onCancel={cancelarExclusao}
         onConfirm={confirmarExclusao}
-        details={[
-          {
-            label: "Data",
-            value: formatarData(registroParaExcluir?.data_registro),
-          },
-          {
-            label: "Calibre",
-            value: registroParaExcluir?.calibres
-              ? `${registroParaExcluir.calibres.codigo} — ${registroParaExcluir.calibres.nome}`
-              : "-",
-          },
-          {
-            label: "Quantidade",
-            value: `${formatarNumero(
-              registroParaExcluir?.quantidade_caixas
-            )} caixas`,
-          },
-          {
-            label: "Peso total",
-            value: formatarKg(registroParaExcluir?.peso_total_kg),
-          },
-        ]}
+        details={
+          registroParaExcluir ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Data
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarData(registroParaExcluir.data_registro)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Calibre
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {registroParaExcluir.calibres
+                    ? `${registroParaExcluir.calibres.codigo} — ${registroParaExcluir.calibres.nome}`
+                    : "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Quantidade
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarNumero(registroParaExcluir.quantidade_caixas)} caixas
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Peso total
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarKg(registroParaExcluir.peso_total_kg)}
+                </p>
+              </div>
+            </div>
+          ) : null
+        }
       />
 
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">

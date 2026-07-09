@@ -27,20 +27,7 @@ import {
   Warehouse,
 } from "lucide-react";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
-import {
-  buscarDadosBI,
-  prepararPlanilhasBI,
-} from "../../services/biService";
+import { buscarDadosBI, prepararPlanilhasBI } from "../../services/biService";
 
 const EXPLICACOES_BI = {
   painel: {
@@ -57,27 +44,32 @@ const EXPLICACOES_BI = {
     titulo: "Saldo disponível",
     texto: "Mostra o total de caixas que ainda podem sair do estoque.",
     uso: "Serve para ter uma visão rápida do volume disponível para venda ou expedição.",
-    calculo: "Soma o saldo disponível de todas as combinações Área / Pivô + Calibre.",
+    calculo:
+      "Soma o saldo disponível de todas as combinações Área / Pivô + Calibre.",
   },
 
   areasComSaldo: {
     titulo: "Áreas com saldo",
     texto: "Mostra quantas áreas ainda possuem produto disponível.",
-    uso: "Ajuda a saber se o estoque está concentrado em poucas áreas ou distribuído em várias.",
-    calculo: "Conta as áreas que possuem pelo menos um calibre com saldo disponível.",
+    uso:
+      "Ajuda a saber se o estoque está concentrado em poucas áreas ou distribuído em várias.",
+    calculo:
+      "Conta as áreas que possuem pelo menos um calibre com saldo disponível.",
   },
 
   calibresComSaldo: {
     titulo: "Calibres com saldo",
     texto: "Mostra quantos calibres ainda existem disponíveis no estoque.",
     uso: "Ajuda a saber se ainda existe variedade de calibre para venda.",
-    calculo: "Conta os calibres que possuem saldo disponível em uma ou mais áreas.",
+    calculo:
+      "Conta os calibres que possuem saldo disponível em uma ou mais áreas.",
   },
 
   areaCalibre: {
     titulo: "Área + Calibre",
     texto: "Mostra quantas combinações de área e calibre possuem saldo.",
-    uso: "Essa é uma leitura mais precisa do estoque, porque mostra não só o calibre, mas onde ele está.",
+    uso:
+      "Essa é uma leitura mais precisa do estoque, porque mostra não só o calibre, mas onde ele está.",
     calculo: "Conta cada combinação Área / Pivô + Calibre com saldo maior que zero.",
   },
 
@@ -85,19 +77,22 @@ const EXPLICACOES_BI = {
     titulo: "Produto final",
     texto: "Mostra quantas caixas foram lançadas como produto final no período.",
     uso: "Serve para acompanhar o volume que virou estoque pronto para saída.",
-    calculo: "Soma as caixas lançadas na tela de Produto Final dentro do período selecionado.",
+    calculo:
+      "Soma as caixas lançadas na tela de Produto Final dentro do período selecionado.",
   },
 
   saidas: {
     titulo: "Saídas",
     texto: "Mostra quantas caixas foram baixadas do estoque por venda ou expedição.",
     uso: "Serve para acompanhar o quanto saiu do estoque no período.",
-    calculo: "Soma as caixas lançadas na tela de Saída / Venda dentro do período selecionado.",
+    calculo:
+      "Soma as caixas lançadas na tela de Saída / Venda dentro do período selecionado.",
   },
 
   estoqueCritico: {
     titulo: "Estoque crítico",
-    texto: "Mostra combinações Área + Calibre que estão com estoque baixo ou sem estoque.",
+    texto:
+      "Mostra combinações Área + Calibre que estão com estoque baixo ou sem estoque.",
     uso: "Use para identificar rapidamente onde pode faltar produto.",
     calculo: "Conta os itens marcados como estoque baixo ou sem estoque.",
   },
@@ -113,28 +108,62 @@ const EXPLICACOES_BI = {
     titulo: "Top saldos por Área / Pivô + Calibre",
     texto: "Mostra os maiores saldos disponíveis separando área e calibre.",
     uso: "Use para saber rapidamente onde existe mais produto disponível para saída.",
-    calculo: "Ordena as combinações Área + Calibre pelo maior saldo disponível.",
+    calculo:
+      "Ordena as combinações Área + Calibre pelo maior saldo disponível.",
   },
 
   graficoArea: {
     titulo: "Saldo disponível por Área / Pivô",
-    texto: "Mostra o saldo total de cada área, somando todos os calibres daquela área.",
+    texto:
+      "Mostra o saldo total de cada área, somando todos os calibres daquela área.",
     uso: "Use para saber quais áreas ainda concentram mais estoque.",
-    calculo: "Soma o saldo disponível de todos os calibres dentro de cada área.",
+    calculo:
+      "Soma o saldo disponível de todos os calibres dentro de cada área.",
+  },
+
+  eficienciaProducao: {
+    titulo: "Eficiência de produção",
+    texto:
+      "Mostra quanto do volume classificado virou produto final pronto para estoque.",
+    uso:
+      "Use para entender se a operação está conseguindo transformar o alho classificado em produto final.",
+    calculo:
+      "Produto final produzido ÷ caixas equivalentes classificadas.",
+  },
+
+  giroSaida: {
+    titulo: "Giro de saída",
+    texto:
+      "Mostra quanto do produto final produzido já saiu em venda ou expedição.",
+    uso:
+      "Use para saber se o estoque está girando bem ou se está ficando parado.",
+    calculo: "Caixas de saída ÷ caixas de produto final produzido.",
+  },
+
+  riscoEstoque: {
+    titulo: "Risco de estoque",
+    texto:
+      "Mostra se existem combinações Área + Calibre em situação de atenção.",
+    uso:
+      "Use para encontrar rápido onde pode faltar produto ou onde existe saldo inconsistente.",
+    calculo:
+      "Soma estoque crítico com possíveis saldos negativos encontrados no BI.",
   },
 
   tabelaPrincipal: {
     titulo: "Tabela principal — Área / Pivô + Calibre",
     texto: "Essa é a tabela mais importante do dashboard.",
     uso: "Use essa tabela para decidir de qual área e calibre sairão as caixas.",
-    calculo: "Produto final da Área + Calibre menos as saídas da mesma Área + Calibre.",
+    calculo:
+      "Produto final da Área + Calibre menos as saídas da mesma Área + Calibre.",
   },
 
   resumoArea: {
     titulo: "Resumo por Área / Pivô",
     texto: "Mostra o saldo consolidado de cada área.",
     uso: "Use para comparar áreas e entender onde existe mais estoque disponível.",
-    calculo: "Soma produto final, saídas e saldo de todos os calibres dentro da área.",
+    calculo:
+      "Soma produto final, saídas e saldo de todos os calibres dentro da área.",
   },
 
   alertas: {
@@ -169,6 +198,20 @@ function obterDataMenosDias(dias) {
   return dataLocal.toISOString().slice(0, 10);
 }
 
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function arraySeguro(valor) {
+  return Array.isArray(valor) ? valor : [];
+}
+
 function formatarNumero(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
@@ -197,6 +240,158 @@ function statusTexto(status) {
   if (status === "sem_estoque") return "Sem estoque";
   if (status === "baixo") return "Estoque baixo";
   return "Normal";
+}
+
+function obterArea(item) {
+  return (
+    item?.area ||
+    item?.area_nome ||
+    item?.nome_area ||
+    item?.areas_fazenda?.nome ||
+    "Sem área"
+  );
+}
+
+function obterCalibre(item) {
+  if (item?.calibre) return item.calibre;
+
+  if (item?.calibre_codigo || item?.calibre_nome) {
+    return `${item.calibre_codigo || "-"} — ${item.calibre_nome || "-"}`;
+  }
+
+  if (item?.calibres?.codigo || item?.calibres?.nome) {
+    return `${item.calibres?.codigo || "-"} — ${item.calibres?.nome || "-"}`;
+  }
+
+  return "Sem calibre";
+}
+
+function extrairSaldoCaixas(item) {
+  return numero(
+    item?.saldo_disponivel_caixas ??
+      item?.saldo_caixas ??
+      item?.valor ??
+      item?.total_caixas ??
+      item?.total
+  );
+}
+
+function extrairPesoKg(item) {
+  return numero(
+    item?.peso_disponivel_kg ??
+      item?.saldo_disponivel_peso_kg ??
+      item?.peso_total_kg ??
+      item?.peso
+  );
+}
+
+function normalizarTabelaEstoqueAreaCalibre(bi) {
+  const tabelas = bi?.tabelas || {};
+
+  const origem =
+    arraySeguro(tabelas.estoqueAreaCalibre).length > 0
+      ? arraySeguro(tabelas.estoqueAreaCalibre)
+      : arraySeguro(bi?.resumoAreaCalibre);
+
+  return origem;
+}
+
+function normalizarTabelaEstoquePorArea(bi) {
+  const tabelas = bi?.tabelas || {};
+
+  const origemArea = arraySeguro(tabelas.estoquePorArea);
+
+  if (origemArea.length > 0) {
+    return origemArea;
+  }
+
+  const origemAreaCalibre = normalizarTabelaEstoqueAreaCalibre(bi);
+  const mapa = new Map();
+
+  origemAreaCalibre.forEach((item) => {
+    const area = obterArea(item);
+
+    if (!mapa.has(area)) {
+      mapa.set(area, {
+        area,
+        produto_final_caixas: 0,
+        produto_final_peso_kg: 0,
+        saidas_caixas: 0,
+        saidas_peso_kg: 0,
+        saldo_disponivel_caixas: 0,
+        peso_disponivel_kg: 0,
+        calibres_com_saldo: 0,
+        giro_area: 0,
+        status_area: "normal",
+      });
+    }
+
+    const atual = mapa.get(area);
+
+    atual.produto_final_caixas += numero(item.produto_final_caixas);
+    atual.produto_final_peso_kg += numero(item.produto_final_peso_kg);
+    atual.saidas_caixas += numero(item.saidas_caixas);
+    atual.saidas_peso_kg += numero(item.saidas_peso_kg);
+    atual.saldo_disponivel_caixas += numero(item.saldo_disponivel_caixas);
+    atual.peso_disponivel_kg += numero(item.peso_disponivel_kg);
+
+    if (numero(item.saldo_disponivel_caixas) > 0) {
+      atual.calibres_com_saldo += 1;
+    }
+  });
+
+  return Array.from(mapa.values()).map((item) => ({
+    ...item,
+    giro_area:
+      item.produto_final_caixas > 0
+        ? (item.saidas_caixas / item.produto_final_caixas) * 100
+        : 0,
+    status_area: item.saldo_disponivel_caixas <= 0 ? "sem_estoque" : "normal",
+  }));
+}
+
+function normalizarGraficoAreaCalibre(bi) {
+  const tabela = normalizarTabelaEstoqueAreaCalibre(bi);
+
+  return tabela
+    .map((item) => {
+      const area = obterArea(item);
+      const calibre = obterCalibre(item);
+      const saldo = extrairSaldoCaixas(item);
+      const peso = extrairPesoKg(item);
+
+      return {
+        nome: `${area} + ${calibre}`,
+        area,
+        calibre,
+        valor: saldo,
+        peso,
+      };
+    })
+    .filter((item) => item.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10);
+}
+
+function normalizarGraficoArea(bi) {
+  const tabelaArea = normalizarTabelaEstoquePorArea(bi);
+
+  return tabelaArea
+    .map((item) => {
+      const area = obterArea(item);
+      const saldo = extrairSaldoCaixas(item);
+      const peso = extrairPesoKg(item);
+
+      return {
+        nome: area,
+        area,
+        valor: saldo,
+        peso,
+      };
+    })
+    .filter((item) => item.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10);
 }
 
 function CampoDataCompacto({ label, name, value, onChange }) {
@@ -373,6 +568,75 @@ function BiKpiCard({
   );
 }
 
+function ResumoOperacionalCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  variant = "success",
+  info,
+}) {
+  const variantMap = {
+    success: "bg-[var(--color-green-light)] text-[var(--color-green-primary)]",
+    warning: "bg-orange-100 text-orange-700",
+    danger: "bg-red-100 text-red-700",
+    info: "bg-blue-50 text-blue-700",
+  };
+
+  const textMap = {
+    success: "text-[var(--color-green-primary)]",
+    warning: "text-orange-700",
+    danger: "text-red-700",
+    info: "text-blue-700",
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div
+            className={`
+              flex
+              h-12
+              w-12
+              shrink-0
+              items-center
+              justify-center
+              rounded-2xl
+              ${variantMap[variant] || variantMap.info}
+            `}
+          >
+            <Icon size={24} />
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
+              {title}
+            </h3>
+
+            <p
+              className={`
+                mt-1
+                text-3xl
+                font-bold
+                ${textMap[variant] || textMap.info}
+              `}
+            >
+              {value}
+            </p>
+
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <AjudaHover info={info} />
+      </div>
+    </Card>
+  );
+}
+
 function CardHeaderInfo({ title, description, info }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -391,27 +655,68 @@ function CardHeaderInfo({ title, description, info }) {
   );
 }
 
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload || payload.length === 0) return null;
+function GraficoBarrasInterno({ dados, variante = "azul" }) {
+  const maiorValor = Math.max(...dados.map((item) => numero(item.valor)), 0);
+
+  const barraClasse =
+    variante === "verde"
+      ? "bg-[var(--color-green-primary)]"
+      : "bg-blue-600";
+
+  if (!dados || dados.length === 0) {
+    return (
+      <div className="mt-5 flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-[var(--color-border-soft)] bg-slate-50">
+        <div className="text-center">
+          <p className="text-sm font-bold text-[var(--color-text-primary)]">
+            Sem dados para o gráfico
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-[var(--color-text-muted)]">
+            Quando houver saldo disponível no período, o gráfico aparecerá aqui.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-3 shadow-lg">
-      <p className="mb-2 text-sm font-bold text-[var(--color-text-primary)]">
-        {label}
-      </p>
+    <div className="mt-5 min-h-[320px] rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-5">
+      <div className="space-y-4">
+        {dados.map((item, index) => {
+          const largura =
+            maiorValor > 0
+              ? Math.max(6, Math.round((numero(item.valor) / maiorValor) * 100))
+              : 0;
 
-      <div className="space-y-1">
-        {payload.map((item) => (
-          <p
-            key={item.dataKey}
-            className="text-xs font-semibold text-[var(--color-text-secondary)]"
-          >
-            {item.name || item.dataKey}:{" "}
-            <span className="text-[var(--color-text-primary)]">
-              {formatarNumero(item.value)}
-            </span>
-          </p>
-        ))}
+          return (
+            <div key={`${item.nome}-${index}`}>
+              <div className="mb-2 flex items-center justify-between gap-4">
+                <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">
+                  {item.nome}
+                </p>
+
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-black text-[var(--color-text-primary)]">
+                    {formatarNumero(item.valor)} caixas
+                  </p>
+
+                  <p className="text-xs font-semibold text-[var(--color-text-muted)]">
+                    {formatarKg(item.peso)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-4 overflow-hidden rounded-full bg-white">
+                <div
+                  className={`h-full rounded-full ${barraClasse}`}
+                  style={{
+                    width: `${largura}%`,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -429,21 +734,40 @@ function BI() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
+  const indicadores = bi?.indicadores || {};
+  const alertas = bi?.alertas || {};
+
+  const tabelaEstoqueAreaCalibre = useMemo(() => {
+    return normalizarTabelaEstoqueAreaCalibre(bi);
+  }, [bi]);
+
+  const tabelaEstoquePorArea = useMemo(() => {
+    return normalizarTabelaEstoquePorArea(bi);
+  }, [bi]);
+
+  const dadosGraficoAreaCalibre = useMemo(() => {
+    return normalizarGraficoAreaCalibre(bi);
+  }, [bi]);
+
+  const dadosGraficoArea = useMemo(() => {
+    return normalizarGraficoArea(bi);
+  }, [bi]);
+
   const indicadoresCards = useMemo(() => {
     if (!bi) return [];
 
     return [
       {
         title: "Saldo disponível",
-        value: formatarNumero(bi.indicadores.saldoDisponivel),
-        description: formatarKg(bi.indicadores.pesoDisponivelKg),
+        value: formatarNumero(indicadores.saldoDisponivel),
+        description: formatarKg(indicadores.pesoDisponivelKg),
         icon: BarChart3,
         variant: "info",
         info: EXPLICACOES_BI.saldoDisponivel,
       },
       {
         title: "Áreas com saldo",
-        value: formatarNumero(bi.indicadores.areasComSaldo),
+        value: formatarNumero(indicadores.areasComSaldo),
         description: "Áreas / Pivôs disponíveis",
         icon: MapPinned,
         variant: "success",
@@ -451,7 +775,7 @@ function BI() {
       },
       {
         title: "Calibres com saldo",
-        value: formatarNumero(bi.indicadores.calibresComSaldo),
+        value: formatarNumero(indicadores.calibresComSaldo),
         description: "Calibres disponíveis",
         icon: PackageCheck,
         variant: "success",
@@ -459,7 +783,7 @@ function BI() {
       },
       {
         title: "Área + Calibre",
-        value: formatarNumero(bi.indicadores.combinacoesComSaldo),
+        value: formatarNumero(indicadores.combinacoesComSaldo),
         description: "Combinações com saldo",
         icon: Warehouse,
         variant: "info",
@@ -467,55 +791,55 @@ function BI() {
       },
       {
         title: "Produto final",
-        value: formatarNumero(bi.indicadores.caixasFinaisProduzidas),
-        description: formatarKg(bi.indicadores.pesoFinalProduzido),
+        value: formatarNumero(indicadores.caixasFinaisProduzidas),
+        description: formatarKg(indicadores.pesoFinalProduzido),
         icon: ShoppingCart,
         variant: "success",
         info: EXPLICACOES_BI.produtoFinal,
       },
       {
         title: "Saídas",
-        value: formatarNumero(bi.indicadores.saidasCaixas),
-        description: formatarKg(bi.indicadores.saidasPesoKg),
+        value: formatarNumero(indicadores.saidasCaixas),
+        description: formatarKg(indicadores.saidasPesoKg),
         icon: Truck,
         variant: "warning",
         info: EXPLICACOES_BI.saidas,
       },
       {
         title: "Estoque crítico",
-        value: formatarNumero(bi.indicadores.estoqueCritico),
-        description: `${formatarNumero(bi.indicadores.semEstoque)} sem estoque`,
+        value: formatarNumero(indicadores.estoqueCritico),
+        description: `${formatarNumero(indicadores.semEstoque)} sem estoque`,
         icon: AlertTriangle,
-        variant: bi.indicadores.estoqueCritico > 0 ? "warning" : "success",
+        variant: indicadores.estoqueCritico > 0 ? "warning" : "success",
         info: EXPLICACOES_BI.estoqueCritico,
       },
       {
         title: "Giro geral",
-        value: formatarPercentual(bi.indicadores.giroSaida),
+        value: formatarPercentual(indicadores.giroSaida),
         description: "Saída sobre produto final",
         icon: Scale,
         variant: "info",
         info: EXPLICACOES_BI.giroGeral,
       },
     ];
-  }, [bi]);
+  }, [bi, indicadores]);
 
   const estoqueAreaCalibreColumns = [
     {
       key: "area",
       label: "Área / Pivô",
-      render: (value) => (
+      render: (value, row) => (
         <p className="font-bold text-[var(--color-text-primary)]">
-          {value}
+          {value || obterArea(row)}
         </p>
       ),
     },
     {
       key: "calibre",
       label: "Calibre",
-      render: (value) => (
+      render: (value, row) => (
         <p className="font-bold text-[var(--color-text-primary)]">
-          {value}
+          {value || obterCalibre(row)}
         </p>
       ),
     },
@@ -569,7 +893,7 @@ function BI() {
       render: (value, row) => (
         <div>
           <p className="font-bold text-[var(--color-text-primary)]">
-            {value}
+            {value || obterArea(row)}
           </p>
 
           <p className="text-xs font-semibold text-[var(--color-text-muted)]">
@@ -761,7 +1085,7 @@ function BI() {
                 variant="secondary"
                 onClick={baixarPlanilhaExcel}
                 disabled={carregando || !bi}
-                className="w-full sm:col-span-2 xl:w-auto xl:col-span-1"
+                className="w-full sm:col-span-2 xl:col-span-1 xl:w-auto"
               >
                 <FileSpreadsheet size={16} />
                 Baixar Excel
@@ -813,22 +1137,10 @@ function BI() {
                 info={EXPLICACOES_BI.graficoAreaCalibre}
               />
 
-              <div className="mt-5 h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bi.graficos.saldoPorAreaCalibre}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="area_calibre" />
-                    <YAxis />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      dataKey="saldo_disponivel_caixas"
-                      name="Saldo disponível"
-                      fill="#2563eb"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <GraficoBarrasInterno
+                dados={dadosGraficoAreaCalibre}
+                variante="azul"
+              />
             </Card>
 
             <Card>
@@ -838,94 +1150,40 @@ function BI() {
                 info={EXPLICACOES_BI.graficoArea}
               />
 
-              <div className="mt-5 h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bi.graficos.estoquePorArea}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="area" />
-                    <YAxis />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      dataKey="saldo_disponivel_caixas"
-                      name="Saldo disponível"
-                      fill="#0f766e"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <GraficoBarrasInterno dados={dadosGraficoArea} variante="verde" />
             </Card>
           </section>
 
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-            <Card>
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
-                  <CheckCircle size={24} />
-                </div>
+            <ResumoOperacionalCard
+              title="Eficiência de produção"
+              value={formatarPercentual(indicadores.eficienciaProducao)}
+              description="Produto final sobre caixas equivalentes classificadas."
+              icon={CheckCircle}
+              variant="success"
+              info={EXPLICACOES_BI.eficienciaProducao}
+            />
 
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
-                    Eficiência de produção
-                  </h3>
+            <ResumoOperacionalCard
+              title="Giro de saída"
+              value={formatarPercentual(indicadores.giroSaida)}
+              description="Saídas sobre produto final produzido."
+              icon={Truck}
+              variant="warning"
+              info={EXPLICACOES_BI.giroSaida}
+            />
 
-                  <p className="mt-1 text-3xl font-bold text-[var(--color-green-primary)]">
-                    {formatarPercentual(bi.indicadores.eficienciaProducao)}
-                  </p>
-
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Produto final sobre caixas equivalentes classificadas.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-700">
-                  <Truck size={24} />
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
-                    Giro de saída
-                  </h3>
-
-                  <p className="mt-1 text-3xl font-bold text-orange-700">
-                    {formatarPercentual(bi.indicadores.giroSaida)}
-                  </p>
-
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Saídas sobre produto final produzido.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-700">
-                  <ShieldAlert size={24} />
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
-                    Risco de estoque
-                  </h3>
-
-                  <p className="mt-1 text-3xl font-bold text-red-700">
-                    {formatarNumero(
-                      bi.indicadores.estoqueCritico +
-                        bi.alertas.saldoNegativo.length
-                    )}
-                  </p>
-
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    Estoque crítico + saldo negativo.
-                  </p>
-                </div>
-              </div>
-            </Card>
+            <ResumoOperacionalCard
+              title="Risco de estoque"
+              value={formatarNumero(
+                numero(indicadores.estoqueCritico) +
+                  arraySeguro(alertas.saldoNegativo).length
+              )}
+              description="Estoque crítico + saldo negativo."
+              icon={ShieldAlert}
+              variant="danger"
+              info={EXPLICACOES_BI.riscoEstoque}
+            />
           </section>
 
           <Card>
@@ -939,7 +1197,7 @@ function BI() {
 
             <DataTable
               columns={estoqueAreaCalibreColumns}
-              data={bi.tabelas.estoqueAreaCalibre}
+              data={tabelaEstoqueAreaCalibre}
               emptyMessage="Nenhum estoque por Área / Pivô + Calibre encontrado."
             />
           </Card>
@@ -956,7 +1214,7 @@ function BI() {
 
               <DataTable
                 columns={areaColumns}
-                data={bi.tabelas.estoquePorArea}
+                data={tabelaEstoquePorArea}
                 emptyMessage="Nenhuma área com estoque."
               />
             </Card>
@@ -973,13 +1231,15 @@ function BI() {
               <div className="space-y-4">
                 <AlertBox
                   variant={
-                    bi.alertas.saldoNegativo.length > 0 ? "danger" : "success"
+                    arraySeguro(alertas.saldoNegativo).length > 0
+                      ? "danger"
+                      : "success"
                   }
                   title="Saldo negativo"
                   description={
-                    bi.alertas.saldoNegativo.length > 0
+                    arraySeguro(alertas.saldoNegativo).length > 0
                       ? `${formatarNumero(
-                          bi.alertas.saldoNegativo.length
+                          arraySeguro(alertas.saldoNegativo).length
                         )} combinação(ões) Área + Calibre com saldo negativo.`
                       : "Nenhum saldo negativo encontrado."
                   }
@@ -987,15 +1247,15 @@ function BI() {
 
                 <AlertBox
                   variant={
-                    bi.alertas.combinacoesCriticas.length > 0
+                    arraySeguro(alertas.combinacoesCriticas).length > 0
                       ? "warning"
                       : "success"
                   }
                   title="Estoque crítico"
                   description={
-                    bi.alertas.combinacoesCriticas.length > 0
+                    arraySeguro(alertas.combinacoesCriticas).length > 0
                       ? `${formatarNumero(
-                          bi.alertas.combinacoesCriticas.length
+                          arraySeguro(alertas.combinacoesCriticas).length
                         )} combinação(ões) Área + Calibre em alerta.`
                       : "Nenhuma combinação Área + Calibre em alerta."
                   }
@@ -1005,9 +1265,9 @@ function BI() {
                   variant="info"
                   title="Área com maior produto final"
                   description={
-                    bi.alertas.maiorAreaProduto
-                      ? `${bi.alertas.maiorAreaProduto.area}: ${formatarNumero(
-                          bi.alertas.maiorAreaProduto.caixas
+                    alertas.maiorAreaProduto
+                      ? `${alertas.maiorAreaProduto.area}: ${formatarNumero(
+                          alertas.maiorAreaProduto.caixas
                         )} caixas finais.`
                       : "Sem produto final no período."
                   }
@@ -1015,11 +1275,11 @@ function BI() {
 
                 <AlertBox
                   variant={
-                    bi.alertas.totalPendencias > 0 ? "warning" : "success"
+                    numero(alertas.totalPendencias) > 0 ? "warning" : "success"
                   }
                   title="Conferências pendentes"
                   description={`${formatarNumero(
-                    bi.alertas.totalPendencias
+                    alertas.totalPendencias
                   )} pendência(s) no período.`}
                 />
               </div>
