@@ -1,7 +1,6 @@
 import { supabase } from "./supabaseClient";
 
 import {
-  booleanPorSimNao,
   campoObrigatorio,
   inteiroMaiorQueZero,
   mensagemErroSupabase,
@@ -9,12 +8,65 @@ import {
   validarHora,
 } from "../utils/validacoes";
 
-function obterHoraAtual() {
-  return new Date().toTimeString().slice(0, 5);
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function booleano(valor) {
+  return (
+    valor === true ||
+    valor === "true" ||
+    valor === "sim" ||
+    valor === 1 ||
+    valor === "1"
+  );
+}
+
+function calcularTotalAutomatico(dados) {
+  return numero(dados.quantidade_paletes) * numero(dados.caixas_por_palete);
+}
+
+function obterTotalCaixasFinal(item) {
+  const usaManual = booleano(item?.permitir_edicao_total_caixas);
+  const totalManual = numero(item?.total_caixas_manual);
+  const totalAutomatico = numero(item?.total_caixas);
+
+  if (usaManual && totalManual > 0) {
+    return totalManual;
+  }
+
+  return totalAutomatico;
+}
+
+function normalizarClassificacao(item) {
+  if (!item) return item;
+
+  const totalAutomatico = numero(item.total_caixas);
+  const totalFinal = obterTotalCaixasFinal(item);
+
+  return {
+    ...item,
+
+    total_caixas_calculado: totalAutomatico,
+    total_caixas_original: totalAutomatico,
+
+    // Mantém compatibilidade com páginas antigas.
+    // Quem usa total_caixas agora recebe o total final correto.
+    total_caixas: totalFinal,
+    total_caixas_final: totalFinal,
+
+    total_manual_ativo: booleano(item.permitir_edicao_total_caixas),
+  };
 }
 
 async function validarCalibreAtivo(calibreId) {
-  campoObrigatorio(calibreId, "Calibre");
+  if (!calibreId) return;
 
   const { data, error } = await supabase
     .from("calibres")
@@ -31,34 +83,58 @@ async function validarCalibreAtivo(calibreId) {
   }
 
   if (!data.ativo) {
-    throw new Error("Não é permitido usar calibre inativo em novo lançamento.");
+    throw new Error("Não é possível lançar com calibre inativo.");
   }
-
-  return true;
 }
 
-async function montarPayloadAlhoClassificado(dados) {
-  await validarCalibreAtivo(dados.calibre_id);
+function montarPayloadAlhoClassificado(dados) {
+  const quantidadePaletes = inteiroMaiorQueZero(
+    dados.quantidade_paletes,
+    "Quantidade de paletes"
+  );
+
+  const caixasPorPalete = inteiroMaiorQueZero(
+    dados.caixas_por_palete,
+    "Caixas por palete"
+  );
+
+  const permitirEdicaoManual = booleano(dados.permitir_edicao_total_caixas);
+
+  let totalManual = null;
+
+  if (permitirEdicaoManual) {
+    totalManual = inteiroMaiorQueZero(
+      dados.total_caixas_manual,
+      "Total de caixas manual"
+    );
+  }
 
   return {
     data_classificacao: validarData(
       dados.data_classificacao,
       "Data de classificação"
     ),
-    hora: dados.hora ? validarHora(dados.hora, "Hora") : obterHoraAtual(),
+
+    hora: validarHora(dados.hora, "Hora"),
+
     fazenda_id: campoObrigatorio(dados.fazenda_id, "Fazenda"),
+
     lote: dados.lote ? String(dados.lote).trim() : null,
+
     calibre_id: campoObrigatorio(dados.calibre_id, "Calibre"),
-    quantidade_paletes: inteiroMaiorQueZero(
-      dados.quantidade_paletes,
-      "Quantidade de paletes"
-    ),
-    caixas_por_palete: inteiroMaiorQueZero(
-      dados.caixas_por_palete,
-      "Caixas por palete"
-    ),
-    conferido: booleanPorSimNao(dados.conferido),
+
+    quantidade_paletes: quantidadePaletes,
+
+    caixas_por_palete: caixasPorPalete,
+
+    permitir_edicao_total_caixas: permitirEdicaoManual,
+
+    total_caixas_manual: permitirEdicaoManual ? totalManual : null,
+
     responsavel_id: campoObrigatorio(dados.responsavel_id, "Responsável"),
+
+    conferido: booleano(dados.conferido),
+
     observacao: dados.observacao ? String(dados.observacao).trim() : null,
   };
 }
@@ -67,33 +143,18 @@ export async function listarAlhoClassificado(filtros = {}) {
   let query = supabase
     .from("alho_classificado")
     .select(`
-      id,
-      data_classificacao,
-      hora,
-      fazenda_id,
-      lote,
-      calibre_id,
-      quantidade_paletes,
-      caixas_por_palete,
-      total_caixas,
-      conferido,
-      responsavel_id,
-      observacao,
-      criado_em,
-      atualizado_em,
-      fazendas (
+      *,
+      fazendas:fazenda_id (
         id,
         nome
       ),
-      calibres (
+      calibres:calibre_id (
         id,
         codigo,
         nome,
-        tipo,
-        ordem,
-        ativo
+        tipo
       ),
-      responsaveis (
+      responsaveis:responsavel_id (
         id,
         nome
       )
@@ -121,58 +182,31 @@ export async function listarAlhoClassificado(filtros = {}) {
     query = query.eq("responsavel_id", filtros.responsavelId);
   }
 
-  if (filtros.lote) {
-    query = query.ilike("lote", `%${filtros.lote}%`);
-  }
-
-  if (filtros.conferido === "sim") {
-    query = query.eq("conferido", true);
-  }
-
-  if (filtros.conferido === "nao") {
-    query = query.eq("conferido", false);
-  }
-
   const { data, error } = await query;
 
   if (error) {
     throw new Error(mensagemErroSupabase(error));
   }
 
-  return data || [];
+  return (data || []).map(normalizarClassificacao);
 }
 
 export async function buscarAlhoClassificadoPorId(id) {
   const { data, error } = await supabase
     .from("alho_classificado")
     .select(`
-      id,
-      data_classificacao,
-      hora,
-      fazenda_id,
-      lote,
-      calibre_id,
-      quantidade_paletes,
-      caixas_por_palete,
-      total_caixas,
-      conferido,
-      responsavel_id,
-      observacao,
-      criado_em,
-      atualizado_em,
-      fazendas (
+      *,
+      fazendas:fazenda_id (
         id,
         nome
       ),
-      calibres (
+      calibres:calibre_id (
         id,
         codigo,
         nome,
-        tipo,
-        ordem,
-        ativo
+        tipo
       ),
-      responsaveis (
+      responsaveis:responsavel_id (
         id,
         nome
       )
@@ -184,24 +218,42 @@ export async function buscarAlhoClassificadoPorId(id) {
     throw new Error(mensagemErroSupabase(error));
   }
 
-  return data;
+  return normalizarClassificacao(data);
 }
 
 export async function cadastrarAlhoClassificado(dados) {
   try {
-    const payload = await montarPayloadAlhoClassificado(dados);
+    await validarCalibreAtivo(dados.calibre_id);
+
+    const payload = montarPayloadAlhoClassificado(dados);
 
     const { data, error } = await supabase
       .from("alho_classificado")
       .insert(payload)
-      .select()
+      .select(`
+        *,
+        fazendas:fazenda_id (
+          id,
+          nome
+        ),
+        calibres:calibre_id (
+          id,
+          codigo,
+          nome,
+          tipo
+        ),
+        responsaveis:responsavel_id (
+          id,
+          nome
+        )
+      `)
       .single();
 
     if (error) {
       throw error;
     }
 
-    return data;
+    return normalizarClassificacao(data);
   } catch (error) {
     throw new Error(mensagemErroSupabase(error));
   }
@@ -209,20 +261,38 @@ export async function cadastrarAlhoClassificado(dados) {
 
 export async function editarAlhoClassificado(id, dados) {
   try {
-    const payload = await montarPayloadAlhoClassificado(dados);
+    await validarCalibreAtivo(dados.calibre_id);
+
+    const payload = montarPayloadAlhoClassificado(dados);
 
     const { data, error } = await supabase
       .from("alho_classificado")
       .update(payload)
       .eq("id", id)
-      .select()
+      .select(`
+        *,
+        fazendas:fazenda_id (
+          id,
+          nome
+        ),
+        calibres:calibre_id (
+          id,
+          codigo,
+          nome,
+          tipo
+        ),
+        responsaveis:responsavel_id (
+          id,
+          nome
+        )
+      `)
       .single();
 
     if (error) {
       throw error;
     }
 
-    return data;
+    return normalizarClassificacao(data);
   } catch (error) {
     throw new Error(mensagemErroSupabase(error));
   }
@@ -241,63 +311,73 @@ export async function excluirAlhoClassificado(id) {
   return true;
 }
 
-export function calcularResumoAlhoClassificado(registros = []) {
-  const totalRegistros = registros.length;
+export function calcularResumoAlhoClassificado(classificacoes = []) {
+  const totalPaletes = classificacoes.reduce(
+    (total, item) => total + numero(item.quantidade_paletes),
+    0
+  );
 
-  const totalPaletes = registros.reduce((total, item) => {
-    return total + Number(item.quantidade_paletes || 0);
-  }, 0);
+  const totalCaixas = classificacoes.reduce(
+    (total, item) => total + obterTotalCaixasFinal(item),
+    0
+  );
 
-  const totalCaixas = registros.reduce((total, item) => {
-    return total + Number(item.total_caixas || 0);
-  }, 0);
-
-  const pendentes = registros.filter((item) => !item.conferido).length;
-
-  const conferidos = registros.filter((item) => item.conferido).length;
+  const totalRegistros = classificacoes.length;
 
   const calibres = new Set(
-    registros.map((item) => item.calibres?.id || item.calibre_id).filter(Boolean)
-  ).size;
+    classificacoes
+      .map((item) => item.calibre_id)
+      .filter(Boolean)
+  );
 
   return {
     totalRegistros,
     totalPaletes,
     totalCaixas,
-    pendentes,
-    conferidos,
-    calibres,
+    calibresClassificados: calibres.size,
   };
 }
 
-export function calcularEstoqueClassificadoPorCalibre(registros = []) {
+export function calcularEstoqueClassificadoPorCalibre(classificacoes = []) {
   const mapa = new Map();
 
-  registros.forEach((item) => {
-    const calibreId = item.calibres?.id || item.calibre_id;
+  classificacoes.forEach((item) => {
+    const calibreId = item.calibre_id || item.calibres?.id || "sem-calibre";
 
-    if (!calibreId) return;
+    const calibreCodigo = item.calibres?.codigo || "-";
+    const calibreNome = item.calibres?.nome || "Sem calibre";
 
-    const atual = mapa.get(calibreId) || {
-      calibre_id: calibreId,
-      calibre_codigo: item.calibres?.codigo || "-",
-      calibre_nome: item.calibres?.nome || "Sem calibre",
-      calibre_ordem: item.calibres?.ordem || 999,
-      total_paletes: 0,
-      total_caixas: 0,
-      registros: 0,
-    };
+    if (!mapa.has(calibreId)) {
+      mapa.set(calibreId, {
+        calibre_id: calibreId,
+        calibre_codigo: calibreCodigo,
+        calibre_nome: calibreNome,
+        calibre: `${calibreCodigo} — ${calibreNome}`,
+        quantidade_paletes: 0,
+        total_caixas: 0,
+        total_caixas_final: 0,
+        registros: 0,
+      });
+    }
 
-    atual.total_paletes += Number(item.quantidade_paletes || 0);
-    atual.total_caixas += Number(item.total_caixas || 0);
+    const atual = mapa.get(calibreId);
+
+    atual.quantidade_paletes += numero(item.quantidade_paletes);
+    atual.total_caixas += obterTotalCaixasFinal(item);
+    atual.total_caixas_final += obterTotalCaixasFinal(item);
     atual.registros += 1;
-
-    mapa.set(calibreId, atual);
   });
 
-  return Array.from(mapa.values()).sort((a, b) => {
-    return Number(a.calibre_ordem || 999) - Number(b.calibre_ordem || 999);
-  });
+  return Array.from(mapa.values()).sort((a, b) =>
+    String(a.calibre_codigo).localeCompare(String(b.calibre_codigo))
+  );
 }
 
 export const listarClassificacoes = listarAlhoClassificado;
+export const listarEstoqueClassificado = listarAlhoClassificado;
+export const cadastrarClassificacao = cadastrarAlhoClassificado;
+export const editarClassificacao = editarAlhoClassificado;
+export const excluirClassificacao = excluirAlhoClassificado;
+export const calcularResumoClassificacoes = calcularResumoAlhoClassificado;
+export const calcularClassificacaoPorCalibre =
+  calcularEstoqueClassificadoPorCalibre;
