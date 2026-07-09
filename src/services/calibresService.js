@@ -1,226 +1,213 @@
-// Serviço de Calibres.
-//
-// Etapa 9:
-// - Listar calibres
-// - Listar calibres ativos
-// - Cadastrar calibre
-// - Editar calibre
-// - Excluir calibre
-// - Validar código duplicado
-//
-// Não usamos dados fictícios.
-// Tudo vem do Supabase.
-
 import { supabase } from "./supabaseClient";
 
-// Lista todos os calibres cadastrados.
-export async function listarCalibres() {
-  const { data, error } = await supabase
-    .from("calibres")
-    .select(`
-      id,
-      codigo,
-      nome,
-      tipo,
-      ordem,
-      observacao,
-      ativo,
-      criado_em,
-      atualizado_em
-    `)
-    .order("ordem", { ascending: true })
-    .order("codigo", { ascending: true });
+function normalizarTipoCalibre(valor) {
+  const texto = String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
-  if (error) {
-    throw error;
+  if (texto.includes("ind")) {
+    return "industria";
   }
 
-  return data || [];
+  return "comercial";
 }
 
-// Lista somente calibres ativos.
-// Usado nos selects das outras telas.
-export async function listarCalibresAtivos() {
-  const { data, error } = await supabase
-    .from("calibres")
-    .select(`
-      id,
-      codigo,
-      nome,
-      tipo,
-      ordem,
-      observacao,
-      ativo,
-      criado_em,
-      atualizado_em
-    `)
-    .eq("ativo", true)
-    .order("ordem", { ascending: true })
-    .order("codigo", { ascending: true });
+function labelTipoCalibre(valor) {
+  const tipo = normalizarTipoCalibre(valor);
 
-  if (error) {
-    throw error;
+  if (tipo === "industria") {
+    return "Indústria";
   }
 
-  return data || [];
+  return "Comercial";
 }
 
-// Normaliza o código antes de salvar.
-// Exemplo:
-// c4 vira C4
-// ind vira IND
-function normalizarCodigo(codigo) {
-  return String(codigo || "").trim().toUpperCase();
+function tratarErroCalibre(error) {
+  const mensagem = error?.message || "";
+
+  if (mensagem.includes("tipo_calibre")) {
+    return "O tipo do calibre precisa ser Comercial ou Indústria. O sistema corrigiu o envio para o formato aceito pelo banco.";
+  }
+
+  if (
+    mensagem.includes("violates foreign key constraint") ||
+    mensagem.includes("still referenced") ||
+    mensagem.includes("foreign key")
+  ) {
+    return "Não foi possível excluir este calibre porque ele já foi usado em lançamentos. Nesse caso, inative o calibre em vez de excluir.";
+  }
+
+  if (
+    mensagem.includes("duplicate key") ||
+    mensagem.includes("unique constraint") ||
+    error?.code === "23505"
+  ) {
+    return "Já existe um calibre cadastrado com esse código ou nome.";
+  }
+
+  return mensagem || "Não foi possível processar o calibre.";
 }
 
-// Verifica se já existe calibre com o mesmo código.
-// Se estiver editando, ignora o próprio ID.
-export async function verificarCodigoCalibreDuplicado(codigo, idIgnorado = null) {
-  const codigoNormalizado = normalizarCodigo(codigo);
+function montarPayloadCalibre(dados) {
+  const codigo = String(dados.codigo || "").trim();
+  const nome = String(dados.nome || "").trim();
+  const tipo = normalizarTipoCalibre(dados.tipo);
+  const ordem = Number(dados.ordem);
 
+  if (!codigo) {
+    throw new Error("Informe o código do calibre.");
+  }
+
+  if (!nome) {
+    throw new Error("Informe o nome do calibre.");
+  }
+
+  if (!Number.isFinite(ordem) || ordem <= 0) {
+    throw new Error("Informe uma ordem válida maior que zero.");
+  }
+
+  return {
+    codigo,
+    nome,
+    tipo,
+    ordem,
+    ativo: dados.ativo === true || dados.ativo === "true" || dados.ativo === "sim",
+    observacao: dados.observacao ? String(dados.observacao).trim() : null,
+  };
+}
+
+function normalizarCalibre(item) {
+  if (!item) return item;
+
+  return {
+    ...item,
+    tipo: normalizarTipoCalibre(item.tipo),
+    tipo_label: labelTipoCalibre(item.tipo),
+  };
+}
+
+export async function listarCalibres(filtros = {}) {
   let query = supabase
     .from("calibres")
-    .select("id, codigo")
-    .ilike("codigo", codigoNormalizado)
-    .limit(1);
+    .select("*")
+    .order("ordem", { ascending: true })
+    .order("codigo", { ascending: true });
 
-  if (idIgnorado) {
-    query = query.neq("id", idIgnorado);
+  if (filtros.ativo === true || filtros.ativo === "sim") {
+    query = query.eq("ativo", true);
+  }
+
+  if (filtros.ativo === false || filtros.ativo === "nao") {
+    query = query.eq("ativo", false);
+  }
+
+  if (filtros.busca) {
+    query = query.or(
+      `codigo.ilike.%${filtros.busca}%,nome.ilike.%${filtros.busca}%`
+    );
   }
 
   const { data, error } = await query;
 
   if (error) {
-    throw error;
+    throw new Error(tratarErroCalibre(error));
   }
 
-  return data && data.length > 0;
+  return (data || []).map(normalizarCalibre);
 }
 
-// Cadastra novo calibre.
-export async function cadastrarCalibre(dados) {
-  const codigoNormalizado = normalizarCodigo(dados.codigo);
-
-  const duplicado = await verificarCodigoCalibreDuplicado(codigoNormalizado);
-
-  if (duplicado) {
-    throw new Error("Já existe um calibre cadastrado com esse código.");
-  }
-
-  const payload = {
-    codigo: codigoNormalizado,
-    nome: String(dados.nome || "").trim(),
-    tipo: dados.tipo,
-    ordem: Number(dados.ordem || 0),
-    observacao: dados.observacao || null,
-    ativo: dados.ativo === true || dados.ativo === "true",
-  };
-
-  const { data, error } = await supabase
-    .from("calibres")
-    .insert(payload)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === "23505") {
-      throw new Error("Já existe um calibre cadastrado com esse código.");
-    }
-
-    throw error;
-  }
-
-  return data;
+export async function listarCalibresAtivos() {
+  return listarCalibres({ ativo: true });
 }
 
-// Edita calibre existente.
-export async function editarCalibre(id, dados) {
-  const codigoNormalizado = normalizarCodigo(dados.codigo);
-
-  const duplicado = await verificarCodigoCalibreDuplicado(
-    codigoNormalizado,
-    id
-  );
-
-  if (duplicado) {
-    throw new Error("Já existe outro calibre cadastrado com esse código.");
-  }
-
-  const payload = {
-    codigo: codigoNormalizado,
-    nome: String(dados.nome || "").trim(),
-    tipo: dados.tipo,
-    ordem: Number(dados.ordem || 0),
-    observacao: dados.observacao || null,
-    ativo: dados.ativo === true || dados.ativo === "true",
-  };
-
+export async function buscarCalibrePorId(id) {
   const { data, error } = await supabase
     .from("calibres")
-    .update(payload)
+    .select("*")
     .eq("id", id)
-    .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === "23505") {
-      throw new Error("Já existe outro calibre cadastrado com esse código.");
-    }
-
-    throw error;
+    throw new Error(tratarErroCalibre(error));
   }
 
-  return data;
+  return normalizarCalibre(data);
 }
 
-// Exclui calibre.
-// Se o calibre já foi usado em lançamentos, o banco pode bloquear.
-// Nesse caso, o correto é inativar.
-export async function excluirCalibre(id) {
-  const { error } = await supabase
-    .from("calibres")
-    .delete()
-    .eq("id", id);
+export async function cadastrarCalibre(dados) {
+  try {
+    const payload = montarPayloadCalibre(dados);
 
-  if (error) {
-    if (error.code === "23503") {
-      throw new Error(
-        "Este calibre já foi usado em lançamentos. Para manter o histórico, inative o calibre em vez de excluir."
-      );
+    const { data, error } = await supabase
+      .from("calibres")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
     }
 
-    throw error;
+    return normalizarCalibre(data);
+  } catch (error) {
+    throw new Error(tratarErroCalibre(error));
+  }
+}
+
+export async function editarCalibre(id, dados) {
+  try {
+    const payload = montarPayloadCalibre(dados);
+
+    const { data, error } = await supabase
+      .from("calibres")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return normalizarCalibre(data);
+  } catch (error) {
+    throw new Error(tratarErroCalibre(error));
+  }
+}
+
+export async function excluirCalibre(id) {
+  const { error } = await supabase.from("calibres").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(tratarErroCalibre(error));
   }
 
   return true;
 }
 
-// Calcula resumo dos calibres cadastrados.
+export async function alternarStatusCalibre(id, ativo) {
+  const { data, error } = await supabase
+    .from("calibres")
+    .update({ ativo: Boolean(ativo) })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(tratarErroCalibre(error));
+  }
+
+  return normalizarCalibre(data);
+}
+
 export function calcularResumoCalibres(calibres = []) {
-  const totalCadastrados = calibres.length;
-
-  const ativos = calibres.filter((item) => item.ativo).length;
-
-  const inativos = calibres.filter((item) => !item.ativo).length;
-
-  const ultimaAtualizacao = calibres.reduce((ultima, item) => {
-    const dataItem = item.atualizado_em || item.criado_em;
-
-    if (!dataItem) {
-      return ultima;
-    }
-
-    if (!ultima) {
-      return dataItem;
-    }
-
-    return new Date(dataItem) > new Date(ultima) ? dataItem : ultima;
-  }, null);
-
   return {
-    totalCadastrados,
-    ativos,
-    inativos,
-    ultimaAtualizacao,
+    total: calibres.length,
+    ativos: calibres.filter((item) => item.ativo).length,
+    inativos: calibres.filter((item) => !item.ativo).length,
   };
 }
+
+export { labelTipoCalibre, normalizarTipoCalibre };

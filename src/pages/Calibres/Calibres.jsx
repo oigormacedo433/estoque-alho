@@ -28,13 +28,15 @@ import {
   calcularResumoCalibres,
   editarCalibre,
   excluirCalibre,
+  labelTipoCalibre,
   listarCalibres,
+  normalizarTipoCalibre,
 } from "../../services/calibresService";
 
 const FORM_INICIAL = {
   codigo: "",
   nome: "",
-  tipo: "Comercial",
+  tipo: "comercial",
   ordem: "",
   ativo: "true",
   observacao: "",
@@ -45,20 +47,18 @@ function formatarNumero(valor) {
 }
 
 function tipoVariant(tipo) {
-  const valor = String(tipo || "").toLowerCase();
+  const valor = normalizarTipoCalibre(tipo);
 
-  if (valor.includes("ind")) return "warning";
+  if (valor === "industria") return "warning";
 
   return "info";
 }
 
 function Calibres() {
   const [calibres, setCalibres] = useState([]);
-
   const [form, setForm] = useState(FORM_INICIAL);
 
   const [editandoId, setEditandoId] = useState(null);
-
   const [calibreParaExcluir, setCalibreParaExcluir] = useState(null);
 
   const [carregando, setCarregando] = useState(true);
@@ -105,10 +105,21 @@ function Calibres() {
   }
 
   function validarFormulario() {
-    if (!form.codigo) return "Informe o código do calibre.";
-    if (!form.nome) return "Informe o nome do calibre.";
-    if (!form.tipo) return "Informe o tipo do calibre.";
-    if (!form.ordem) return "Informe a ordem do calibre.";
+    if (!String(form.codigo || "").trim()) {
+      return "Informe o código do calibre.";
+    }
+
+    if (!String(form.nome || "").trim()) {
+      return "Informe o nome do calibre.";
+    }
+
+    if (!String(form.tipo || "").trim()) {
+      return "Informe o tipo do calibre.";
+    }
+
+    if (!form.ordem) {
+      return "Informe a ordem do calibre.";
+    }
 
     if (Number(form.ordem) <= 0) {
       return "A ordem precisa ser maior que zero.";
@@ -130,7 +141,7 @@ function Calibres() {
     setForm({
       codigo: calibre.codigo || "",
       nome: calibre.nome || "",
-      tipo: calibre.tipo || "Comercial",
+      tipo: normalizarTipoCalibre(calibre.tipo),
       ordem: String(calibre.ordem || ""),
       ativo: calibre.ativo ? "true" : "false",
       observacao: calibre.observacao || "",
@@ -163,6 +174,7 @@ function Calibres() {
 
       const payload = {
         ...form,
+        tipo: normalizarTipoCalibre(form.tipo),
         ativo: form.ativo === "true",
       };
 
@@ -241,7 +253,11 @@ function Calibres() {
     {
       key: "tipo",
       label: "Tipo",
-      render: (value) => <Badge variant={tipoVariant(value)}>{value || "-"}</Badge>,
+      render: (value) => (
+        <Badge variant={tipoVariant(value)}>
+          {labelTipoCalibre(value)}
+        </Badge>
+      ),
     },
     {
       key: "ordem",
@@ -376,8 +392,8 @@ function Calibres() {
               value={form.tipo}
               onChange={atualizarCampo}
               options={[
-                { value: "Comercial", label: "Comercial" },
-                { value: "Indústria", label: "Indústria" },
+                { value: "comercial", label: "Comercial" },
+                { value: "industria", label: "Indústria" },
               ]}
               placeholder="Selecione o tipo"
             />
@@ -515,7 +531,7 @@ function Calibres() {
                   Tipo
                 </p>
                 <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {calibreParaExcluir.tipo || "-"}
+                  {labelTipoCalibre(calibreParaExcluir.tipo)}
                 </p>
               </div>
 
