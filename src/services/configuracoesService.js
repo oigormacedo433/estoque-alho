@@ -13,6 +13,66 @@
 import { supabase } from "./supabaseClient";
 
 // =========================================================
+// FUNÇÕES AUXILIARES
+// =========================================================
+
+function numeroSeguro(valor, fallback = 0) {
+  if (valor === undefined || valor === null || valor === "") {
+    return fallback;
+  }
+
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return fallback;
+  }
+
+  return convertido;
+}
+
+function numeroPositivoSeguro(valor, fallback = 10) {
+  if (valor === undefined || valor === null || valor === "") {
+    return fallback;
+  }
+
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido) || convertido <= 0) {
+    return fallback;
+  }
+
+  return convertido;
+}
+
+function textoSeguro(valor, fallback = "") {
+  if (valor === undefined || valor === null) {
+    return fallback;
+  }
+
+  const texto = String(valor).trim();
+
+  if (!texto) {
+    return fallback;
+  }
+
+  return texto;
+}
+
+function booleanoSeguro(valor, fallback = false) {
+  if (valor === undefined || valor === null || valor === "") {
+    return fallback;
+  }
+
+  return (
+    valor === true ||
+    valor === "true" ||
+    valor === "sim" ||
+    valor === 1 ||
+    valor === "1"
+  );
+}
+
+// =========================================================
 // CONFIGURAÇÕES PRINCIPAIS
 // =========================================================
 
@@ -27,38 +87,109 @@ export async function buscarConfiguracoes() {
     throw error;
   }
 
-  return data;
+  if (!data) {
+    return {
+      estoque_minimo_por_calibre: 0,
+      peso_caixa_final_kg: 10,
+      peso_padrao_caixa_final_kg: 10,
+      alerta_estoque_baixo: true,
+      unidade_principal: "caixas",
+      embalagem_padrao: "caixa",
+      permitir_lancamento_palete: true,
+      exigir_conferencia_recebimento: false,
+      prazo_alerta_conferencia_horas: 24,
+      atualizacao_automatica_painel: true,
+    };
+  }
+
+  return {
+    ...data,
+
+    estoque_minimo_por_calibre: numeroSeguro(
+      data.estoque_minimo_por_calibre,
+      0
+    ),
+
+    peso_caixa_final_kg: numeroPositivoSeguro(
+      data.peso_caixa_final_kg ?? data.peso_padrao_caixa_final_kg,
+      10
+    ),
+
+    peso_padrao_caixa_final_kg: numeroPositivoSeguro(
+      data.peso_padrao_caixa_final_kg ?? data.peso_caixa_final_kg,
+      10
+    ),
+
+    alerta_estoque_baixo: data.alerta_estoque_baixo !== false,
+  };
 }
 
 export async function salvarConfiguracoes(dados) {
+  const configuracaoAtual = await buscarConfiguracoes();
+
+  const idConfiguracao = dados.id || configuracaoAtual?.id;
+
   const payload = {
-    caixas_por_palete: Number(dados.caixas_por_palete),
-    peso_caixa_final_kg: Number(dados.peso_caixa_final_kg),
-    unidade_principal: String(dados.unidade_principal || "").trim(),
-    embalagem_padrao: String(dados.embalagem_padrao || "").trim(),
-    permitir_lancamento_palete:
-      dados.permitir_lancamento_palete === true ||
-      dados.permitir_lancamento_palete === "true",
-    exigir_conferencia_recebimento:
-      dados.exigir_conferencia_recebimento === true ||
-      dados.exigir_conferencia_recebimento === "true",
-    estoque_minimo_por_calibre: Number(dados.estoque_minimo_por_calibre),
-    prazo_alerta_conferencia_horas: Number(
-      dados.prazo_alerta_conferencia_horas
+    // ÚNICO CAMPO DO ESTOQUE MÍNIMO
+    estoque_minimo_por_calibre: numeroSeguro(
+      dados.estoque_minimo_por_calibre,
+      configuracaoAtual?.estoque_minimo_por_calibre ?? 0
     ),
-    atualizacao_automatica_painel:
-      dados.atualizacao_automatica_painel === true ||
-      dados.atualizacao_automatica_painel === "true",
-    alerta_estoque_baixo:
-      dados.alerta_estoque_baixo === true ||
-      dados.alerta_estoque_baixo === "true",
+
+    // ÚNICO CAMPO DO PESO PADRÃO
+    peso_caixa_final_kg: numeroPositivoSeguro(
+      dados.peso_caixa_final_kg ?? dados.peso_padrao_caixa_final_kg,
+      configuracaoAtual?.peso_caixa_final_kg ??
+        configuracaoAtual?.peso_padrao_caixa_final_kg ??
+        10
+    ),
+
+    // ÚNICO CAMPO DO ALERTA
+    alerta_estoque_baixo: booleanoSeguro(
+      dados.alerta_estoque_baixo,
+      configuracaoAtual?.alerta_estoque_baixo ?? true
+    ),
   };
 
-  if (dados.id) {
+  // Só adiciona os campos antigos se for criar a primeira configuração.
+  // Em atualização, não mexe neles.
+  if (!idConfiguracao) {
+    payload.unidade_principal = textoSeguro(
+      dados.unidade_principal,
+      "caixas"
+    );
+
+    payload.embalagem_padrao = textoSeguro(
+      dados.embalagem_padrao,
+      "caixa"
+    );
+
+    payload.permitir_lancamento_palete = booleanoSeguro(
+      dados.permitir_lancamento_palete,
+      true
+    );
+
+    payload.exigir_conferencia_recebimento = booleanoSeguro(
+      dados.exigir_conferencia_recebimento,
+      false
+    );
+
+    payload.prazo_alerta_conferencia_horas = numeroPositivoSeguro(
+      dados.prazo_alerta_conferencia_horas,
+      24
+    );
+
+    payload.atualizacao_automatica_painel = booleanoSeguro(
+      dados.atualizacao_automatica_painel,
+      true
+    );
+  }
+
+  if (idConfiguracao) {
     const { data, error } = await supabase
       .from("configuracoes")
       .update(payload)
-      .eq("id", dados.id)
+      .eq("id", idConfiguracao)
       .select()
       .single();
 
@@ -66,7 +197,11 @@ export async function salvarConfiguracoes(dados) {
       throw error;
     }
 
-    return data;
+    return {
+      ...data,
+      peso_padrao_caixa_final_kg:
+        data.peso_padrao_caixa_final_kg ?? data.peso_caixa_final_kg ?? 10,
+    };
   }
 
   const { data, error } = await supabase
@@ -79,7 +214,11 @@ export async function salvarConfiguracoes(dados) {
     throw error;
   }
 
-  return data;
+  return {
+    ...data,
+    peso_padrao_caixa_final_kg:
+      data.peso_padrao_caixa_final_kg ?? data.peso_caixa_final_kg ?? 10,
+  };
 }
 
 // =========================================================
@@ -352,10 +491,26 @@ export function calcularResumoConfiguracoes({
 
   return {
     caixasPorPalete: configuracoes?.caixas_por_palete || 0,
-    pesoCaixaFinalKg: configuracoes?.peso_caixa_final_kg || 0,
+
+    pesoCaixaFinalKg:
+      configuracoes?.peso_caixa_final_kg ||
+      configuracoes?.peso_padrao_caixa_final_kg ||
+      0,
+
     unidadesAtivas,
     fazendasAtivas,
     responsaveisAtivos,
     ultimaAtualizacao: configuracoes?.atualizado_em || configuracoes?.criado_em,
   };
 }
+
+// =========================================================
+// ALIASES DE COMPATIBILIDADE
+// =========================================================
+
+export const buscarConfiguracoesGerais = buscarConfiguracoes;
+export const salvarConfiguracoesGerais = salvarConfiguracoes;
+export const atualizarConfiguracoesGerais = salvarConfiguracoes;
+export const obterConfiguracoesGerais = buscarConfiguracoes;
+export const obterConfiguracoes = buscarConfiguracoes;
+export const atualizarConfiguracoes = salvarConfiguracoes;

@@ -17,93 +17,157 @@ import {
   CheckCircle,
   Edit,
   MapPinned,
-  Plus,
   RefreshCcw,
   Save,
-  ToggleLeft,
-  ToggleRight,
+  Settings,
   Trash2,
   UserRound,
   X,
 } from "lucide-react";
 
-import {
-  buscarConfiguracoes,
-  cadastrarFazenda,
-  cadastrarResponsavel,
-  editarFazenda,
-  editarResponsavel,
-  excluirFazenda,
-  excluirResponsavel,
-  listarFazendas,
-  listarResponsaveis,
-  salvarConfiguracoes,
-} from "../../services/configuracoesService";
+import { supabase } from "../../services/supabaseClient";
 
-import {
-  alternarStatusAreaFazenda,
-  cadastrarAreaFazenda,
-  calcularResumoAreas,
-  editarAreaFazenda,
-  excluirAreaFazenda,
-  listarAreasFazenda,
-} from "../../services/areasFazendaService";
+const ABA_AREAS = "areas";
+const ABA_FAZENDAS = "fazendas";
+const ABA_RESPONSAVEIS = "responsaveis";
+const ABA_PARAMETROS = "parametros";
+
+const FORM_CADASTRO_INICIAL = {
+  nome: "",
+  ativo: "true",
+  observacao: "",
+};
+
+const FORM_PARAMETROS_INICIAL = {
+  estoque_minimo_por_calibre: "0",
+  peso_caixa_final_kg: "10",
+  alerta_estoque_baixo: true,
+};
 
 function formatarNumero(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
+function booleano(valor) {
+  return valor === true || valor === "true" || valor === "sim" || valor === 1 || valor === "1";
+}
+
+function numeroCampo(valor, fallback = 0) {
+  if (valor === "" || valor === null || valor === undefined) {
+    return fallback;
+  }
+
+  const numero = Number(valor);
+
+  if (!Number.isFinite(numero)) {
+    return fallback;
+  }
+
+  return numero;
+}
+
+function textoObservacao(item) {
+  return item?.observacao || item?.descricao || "-";
+}
+
+function normalizarParametros(configuracoes) {
+  return {
+    estoque_minimo_por_calibre: String(
+      configuracoes?.estoque_minimo_por_calibre ?? 0
+    ),
+
+    peso_caixa_final_kg: String(
+      configuracoes?.peso_caixa_final_kg ??
+        configuracoes?.peso_padrao_caixa_final_kg ??
+        10
+    ),
+
+    alerta_estoque_baixo: configuracoes?.alerta_estoque_baixo !== false,
+  };
+}
+
+function montarPayloadCadastro(form) {
+  return {
+    nome: String(form.nome || "").trim(),
+    ativo: booleano(form.ativo),
+    observacao: form.observacao ? String(form.observacao).trim() : null,
+  };
+}
+
+function montarPayloadCadastroComDescricao(form) {
+  return {
+    nome: String(form.nome || "").trim(),
+    ativo: booleano(form.ativo),
+    descricao: form.observacao ? String(form.observacao).trim() : null,
+  };
+}
+
+function erroAmigavel(error, entidade = "registro") {
+  const mensagem = error?.message || "";
+
+  if (error?.code === "23505" || mensagem.includes("duplicate key")) {
+    return `Já existe ${entidade} com esse nome.`;
+  }
+
+  if (error?.code === "23503" || mensagem.includes("foreign key")) {
+    return `Este ${entidade} já foi usado em lançamentos. Inative em vez de excluir.`;
+  }
+
+  if (mensagem.includes("estoque_minimo_por_calibre")) {
+    return "Não foi possível salvar o estoque mínimo. Confira a estrutura da tabela configurações.";
+  }
+
+  if (mensagem.includes("peso_caixa_final_kg")) {
+    return "Não foi possível salvar o peso padrão da caixa final. Confira a estrutura da tabela configurações.";
+  }
+
+  return mensagem || `Não foi possível salvar ${entidade}.`;
+}
+
+function AbaBotao({ ativa, children, onClick }) {
+  return (
+    <Button
+      type="button"
+      variant={ativa ? "primary" : "secondary"}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
 function Configuracoes() {
-  const [abaAtiva, setAbaAtiva] = useState("areas");
+  const [abaAtiva, setAbaAtiva] = useState(ABA_AREAS);
 
-  const [configuracoes, setConfiguracoes] = useState({
-    estoque_minimo_por_calibre: "",
-    alerta_estoque_baixo: true,
-    peso_caixa_final_kg: "",
-  });
-
+  const [areas, setAreas] = useState([]);
   const [fazendas, setFazendas] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
-  const [areas, setAreas] = useState([]);
+  const [configuracoes, setConfiguracoes] = useState(null);
+
+  const [formArea, setFormArea] = useState(FORM_CADASTRO_INICIAL);
+  const [formFazenda, setFormFazenda] = useState(FORM_CADASTRO_INICIAL);
+  const [formResponsavel, setFormResponsavel] = useState(FORM_CADASTRO_INICIAL);
+  const [formParametros, setFormParametros] = useState(FORM_PARAMETROS_INICIAL);
+
+  const [editandoAreaId, setEditandoAreaId] = useState(null);
+  const [editandoFazendaId, setEditandoFazendaId] = useState(null);
+  const [editandoResponsavelId, setEditandoResponsavelId] = useState(null);
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
-  const [fazendaEditandoId, setFazendaEditandoId] = useState(null);
-  const [responsavelEditandoId, setResponsavelEditandoId] = useState(null);
-  const [areaEditandoId, setAreaEditandoId] = useState(null);
-
-  const [formFazenda, setFormFazenda] = useState({
-    nome: "",
-    ativo: true,
-  });
-
-  const [formResponsavel, setFormResponsavel] = useState({
-    nome: "",
-    ativo: true,
-  });
-
-  const [formArea, setFormArea] = useState({
-    fazenda_id: "",
-    nome: "",
-    descricao: "",
-    ativo: true,
-  });
-
-  const resumoAreas = useMemo(() => {
-    return calcularResumoAreas(areas);
-  }, [areas]);
-
-  const fazendaOptions = useMemo(() => {
-    return fazendas
-      .filter((fazenda) => fazenda.ativo !== false)
-      .map((fazenda) => ({
-        value: fazenda.id,
-        label: fazenda.nome,
-      }));
-  }, [fazendas]);
+  const resumo = useMemo(() => {
+    return {
+      areas: areas.length,
+      areasAtivas: areas.filter((item) => item.ativo).length,
+      fazendas: fazendas.length,
+      fazendasAtivas: fazendas.filter((item) => item.ativo).length,
+      responsaveis: responsaveis.length,
+      responsaveisAtivos: responsaveis.filter((item) => item.ativo).length,
+    };
+  }, [areas, fazendas, responsaveis]);
 
   async function carregarDados() {
     try {
@@ -112,28 +176,46 @@ function Configuracoes() {
       setSucesso("");
 
       const [
-        configuracoesBanco,
-        fazendasBanco,
-        responsaveisBanco,
-        areasBanco,
+        areasResponse,
+        fazendasResponse,
+        responsaveisResponse,
+        configuracoesResponse,
       ] = await Promise.all([
-        buscarConfiguracoes(),
-        listarFazendas(),
-        listarResponsaveis(),
-        listarAreasFazenda(),
+        supabase
+          .from("areas_fazenda")
+          .select("*")
+          .order("nome", { ascending: true }),
+
+        supabase
+          .from("fazendas")
+          .select("*")
+          .order("nome", { ascending: true }),
+
+        supabase
+          .from("responsaveis")
+          .select("*")
+          .order("nome", { ascending: true }),
+
+        supabase
+          .from("configuracoes")
+          .select("*")
+          .limit(1)
+          .maybeSingle(),
       ]);
 
-      setConfiguracoes({
-        estoque_minimo_por_calibre:
-          configuracoesBanco?.estoque_minimo_por_calibre ?? "",
-        alerta_estoque_baixo:
-          configuracoesBanco?.alerta_estoque_baixo ?? true,
-        peso_caixa_final_kg: configuracoesBanco?.peso_caixa_final_kg ?? "",
-      });
+      if (areasResponse.error) throw areasResponse.error;
+      if (fazendasResponse.error) throw fazendasResponse.error;
+      if (responsaveisResponse.error) throw responsaveisResponse.error;
+      if (configuracoesResponse.error) throw configuracoesResponse.error;
 
-      setFazendas(fazendasBanco || []);
-      setResponsaveis(responsaveisBanco || []);
-      setAreas(areasBanco || []);
+      const configuracaoBanco = configuracoesResponse.data || null;
+
+      setAreas(areasResponse.data || []);
+      setFazendas(fazendasResponse.data || []);
+      setResponsaveis(responsaveisResponse.data || []);
+      setConfiguracoes(configuracaoBanco);
+
+      setFormParametros(normalizarParametros(configuracaoBanco));
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
       setErro(error.message || "Não foi possível carregar as configurações.");
@@ -146,40 +228,12 @@ function Configuracoes() {
     carregarDados();
   }, []);
 
-  function atualizarConfiguracao(event) {
-    const { name, value, type, checked } = event.target;
-
-    setConfiguracoes((estadoAtual) => ({
-      ...estadoAtual,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-
+  function limparMensagens() {
     setErro("");
+    setSucesso("");
   }
 
-  function atualizarFazenda(event) {
-    const { name, value } = event.target;
-
-    setFormFazenda((estadoAtual) => ({
-      ...estadoAtual,
-      [name]: value,
-    }));
-
-    setErro("");
-  }
-
-  function atualizarResponsavel(event) {
-    const { name, value } = event.target;
-
-    setFormResponsavel((estadoAtual) => ({
-      ...estadoAtual,
-      [name]: value,
-    }));
-
-    setErro("");
-  }
-
-  function atualizarArea(event) {
+  function atualizarFormArea(event) {
     const { name, value } = event.target;
 
     setFormArea((estadoAtual) => ({
@@ -187,226 +241,313 @@ function Configuracoes() {
       [name]: value,
     }));
 
-    setErro("");
+    limparMensagens();
   }
 
-  async function salvarConfig(event) {
-    event.preventDefault();
+  function atualizarFormFazenda(event) {
+    const { name, value } = event.target;
 
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
+    setFormFazenda((estadoAtual) => ({
+      ...estadoAtual,
+      [name]: value,
+    }));
 
-      await salvarConfiguracoes(configuracoes);
+    limparMensagens();
+  }
 
-      setSucesso("Configurações salvas com sucesso.");
+  function atualizarFormResponsavel(event) {
+    const { name, value } = event.target;
 
-      await carregarDados();
-    } catch (error) {
-      console.error("Erro ao salvar configurações:", error);
-      setErro(error.message || "Não foi possível salvar as configurações.");
-    } finally {
-      setSalvando(false);
+    setFormResponsavel((estadoAtual) => ({
+      ...estadoAtual,
+      [name]: value,
+    }));
+
+    limparMensagens();
+  }
+
+  function atualizarFormParametros(event) {
+    const { name, value, checked, type } = event.target;
+
+    setFormParametros((estadoAtual) => ({
+      ...estadoAtual,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+
+    limparMensagens();
+  }
+
+  function validarCadastro(form, entidade) {
+    if (!String(form.nome || "").trim()) {
+      return `Informe o nome de ${entidade}.`;
     }
+
+    return "";
   }
 
-  async function salvarFazenda(event) {
-    event.preventDefault();
-
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
-
-      if (fazendaEditandoId) {
-        await editarFazenda(fazendaEditandoId, formFazenda);
-        setSucesso("Fazenda atualizada com sucesso.");
-      } else {
-        await cadastrarFazenda(formFazenda);
-        setSucesso("Fazenda cadastrada com sucesso.");
-      }
-
-      setFazendaEditandoId(null);
-      setFormFazenda({ nome: "", ativo: true });
-
-      await carregarDados();
-    } catch (error) {
-      setErro(error.message || "Não foi possível salvar a fazenda.");
-    } finally {
-      setSalvando(false);
-    }
+  function cancelarArea() {
+    setEditandoAreaId(null);
+    setFormArea(FORM_CADASTRO_INICIAL);
+    limparMensagens();
   }
 
-  async function salvarResponsavel(event) {
-    event.preventDefault();
-
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
-
-      if (responsavelEditandoId) {
-        await editarResponsavel(responsavelEditandoId, formResponsavel);
-        setSucesso("Responsável atualizado com sucesso.");
-      } else {
-        await cadastrarResponsavel(formResponsavel);
-        setSucesso("Responsável cadastrado com sucesso.");
-      }
-
-      setResponsavelEditandoId(null);
-      setFormResponsavel({ nome: "", ativo: true });
-
-      await carregarDados();
-    } catch (error) {
-      setErro(error.message || "Não foi possível salvar o responsável.");
-    } finally {
-      setSalvando(false);
-    }
+  function cancelarFazenda() {
+    setEditandoFazendaId(null);
+    setFormFazenda(FORM_CADASTRO_INICIAL);
+    limparMensagens();
   }
 
-  async function salvarArea(event) {
-    event.preventDefault();
-
-    try {
-      setSalvando(true);
-      setErro("");
-      setSucesso("");
-
-      if (areaEditandoId) {
-        await editarAreaFazenda(areaEditandoId, formArea);
-        setSucesso("Área / Pivô atualizada com sucesso.");
-      } else {
-        await cadastrarAreaFazenda(formArea);
-        setSucesso("Área / Pivô cadastrada com sucesso.");
-      }
-
-      setAreaEditandoId(null);
-      setFormArea({
-        fazenda_id: "",
-        nome: "",
-        descricao: "",
-        ativo: true,
-      });
-
-      await carregarDados();
-    } catch (error) {
-      setErro(error.message || "Não foi possível salvar a Área / Pivô.");
-    } finally {
-      setSalvando(false);
-    }
+  function cancelarResponsavel() {
+    setEditandoResponsavelId(null);
+    setFormResponsavel(FORM_CADASTRO_INICIAL);
+    limparMensagens();
   }
 
-  function editarFazendaSelecionada(fazenda) {
-    setFazendaEditandoId(fazenda.id);
-    setFormFazenda({
-      nome: fazenda.nome || "",
-      ativo: fazenda.ativo !== false,
-    });
-  }
-
-  function editarResponsavelSelecionado(responsavel) {
-    setResponsavelEditandoId(responsavel.id);
-    setFormResponsavel({
-      nome: responsavel.nome || "",
-      ativo: responsavel.ativo !== false,
-    });
-  }
-
-  function editarAreaSelecionada(area) {
-    setAreaEditandoId(area.id);
+  function iniciarEdicaoArea(item) {
+    setEditandoAreaId(item.id);
     setFormArea({
-      fazenda_id: area.fazenda_id || "",
-      nome: area.nome || "",
-      descricao: area.descricao || "",
-      ativo: area.ativo !== false,
+      nome: item.nome || "",
+      ativo: item.ativo ? "true" : "false",
+      observacao: item.observacao || item.descricao || "",
     });
+    setAbaAtiva(ABA_AREAS);
+    limparMensagens();
   }
 
-  async function removerFazenda(id) {
-    const confirmar = window.confirm("Deseja excluir esta fazenda?");
-    if (!confirmar) return;
+  function iniciarEdicaoFazenda(item) {
+    setEditandoFazendaId(item.id);
+    setFormFazenda({
+      nome: item.nome || "",
+      ativo: item.ativo ? "true" : "false",
+      observacao: item.observacao || item.descricao || "",
+    });
+    setAbaAtiva(ABA_FAZENDAS);
+    limparMensagens();
+  }
+
+  function iniciarEdicaoResponsavel(item) {
+    setEditandoResponsavelId(item.id);
+    setFormResponsavel({
+      nome: item.nome || "",
+      ativo: item.ativo ? "true" : "false",
+      observacao: item.observacao || item.descricao || "",
+    });
+    setAbaAtiva(ABA_RESPONSAVEIS);
+    limparMensagens();
+  }
+
+  async function salvarCadastroGenerico({
+    event,
+    tabela,
+    form,
+    editandoId,
+    entidade,
+    onCancel,
+  }) {
+    event.preventDefault();
 
     try {
-      await excluirFazenda(id);
-      setSucesso("Fazenda excluída com sucesso.");
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const mensagemErro = validarCadastro(form, entidade);
+
+      if (mensagemErro) {
+        setErro(mensagemErro);
+        return;
+      }
+
+      const payload = montarPayloadCadastro(form);
+
+      let response;
+
+      if (editandoId) {
+        response = await supabase
+          .from(tabela)
+          .update(payload)
+          .eq("id", editandoId)
+          .select()
+          .single();
+      } else {
+        response = await supabase
+          .from(tabela)
+          .insert(payload)
+          .select()
+          .single();
+      }
+
+      if (
+        response.error &&
+        String(response.error.message || "").includes("observacao")
+      ) {
+        const payloadDescricao = montarPayloadCadastroComDescricao(form);
+
+        if (editandoId) {
+          response = await supabase
+            .from(tabela)
+            .update(payloadDescricao)
+            .eq("id", editandoId)
+            .select()
+            .single();
+        } else {
+          response = await supabase
+            .from(tabela)
+            .insert(payloadDescricao)
+            .select()
+            .single();
+        }
+      }
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      setSucesso(
+        editandoId
+          ? `${entidade} atualizado com sucesso.`
+          : `${entidade} cadastrado com sucesso.`
+      );
+
+      onCancel();
       await carregarDados();
     } catch (error) {
-      setErro(error.message || "Não foi possível excluir a fazenda.");
+      console.error(`Erro ao salvar ${entidade}:`, error);
+      setErro(erroAmigavel(error, entidade));
+    } finally {
+      setSalvando(false);
     }
   }
 
-  async function removerResponsavel(id) {
-    const confirmar = window.confirm("Deseja excluir este responsável?");
-    if (!confirmar) return;
-
-    try {
-      await excluirResponsavel(id);
-      setSucesso("Responsável excluído com sucesso.");
-      await carregarDados();
-    } catch (error) {
-      setErro(error.message || "Não foi possível excluir o responsável.");
-    }
-  }
-
-  async function removerArea(id) {
+  async function excluirCadastroGenerico({ tabela, id, entidade }) {
     const confirmar = window.confirm(
-      "Deseja excluir esta Área / Pivô? Se ela já foi usada em lançamentos, prefira inativar."
+      `Tem certeza que deseja excluir este ${entidade}? Se ele já foi usado em lançamentos, inative em vez de excluir.`
     );
 
     if (!confirmar) return;
 
     try {
-      await excluirAreaFazenda(id);
-      setSucesso("Área / Pivô excluída com sucesso.");
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const { error } = await supabase.from(tabela).delete().eq("id", id);
+
+      if (error) {
+        throw error;
+      }
+
+      setSucesso(`${entidade} excluído com sucesso.`);
       await carregarDados();
     } catch (error) {
-      setErro(error.message || "Não foi possível excluir a Área / Pivô.");
+      console.error(`Erro ao excluir ${entidade}:`, error);
+      setErro(erroAmigavel(error, entidade));
+    } finally {
+      setSalvando(false);
     }
   }
 
-  async function alternarArea(area) {
+  async function salvarParametros(event) {
+    event.preventDefault();
+
     try {
-      await alternarStatusAreaFazenda(area.id, !area.ativo);
-      setSucesso(
-        area.ativo
-          ? "Área / Pivô inativada com sucesso."
-          : "Área / Pivô ativada com sucesso."
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      const estoqueMinimo = numeroCampo(
+        formParametros.estoque_minimo_por_calibre,
+        0
       );
 
-      await carregarDados();
+      const pesoPadrao = numeroCampo(formParametros.peso_caixa_final_kg, 10);
+
+      if (estoqueMinimo < 0) {
+        setErro("O estoque mínimo não pode ser negativo.");
+        return;
+      }
+
+      if (pesoPadrao <= 0) {
+        setErro("O peso padrão da caixa final precisa ser maior que zero.");
+        return;
+      }
+
+      const payload = {
+        estoque_minimo_por_calibre: estoqueMinimo,
+        peso_caixa_final_kg: pesoPadrao,
+        alerta_estoque_baixo: Boolean(formParametros.alerta_estoque_baixo),
+      };
+
+      let response;
+
+      if (configuracoes?.id) {
+        response = await supabase
+          .from("configuracoes")
+          .update(payload)
+          .eq("id", configuracoes.id)
+          .select()
+          .single();
+      } else {
+        response = await supabase
+          .from("configuracoes")
+          .insert({
+            ...payload,
+            unidade_principal: "caixas",
+            embalagem_padrao: "caixa",
+            permitir_lancamento_palete: true,
+            exigir_conferencia_recebimento: false,
+            prazo_alerta_conferencia_horas: 24,
+            atualizacao_automatica_painel: true,
+          })
+          .select()
+          .single();
+      }
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      setConfiguracoes(response.data);
+
+      setFormParametros({
+        estoque_minimo_por_calibre: String(estoqueMinimo),
+        peso_caixa_final_kg: String(pesoPadrao),
+        alerta_estoque_baixo: Boolean(formParametros.alerta_estoque_baixo),
+      });
+
+      setSucesso("Parâmetros gerais salvos com sucesso.");
     } catch (error) {
-      setErro(error.message || "Não foi possível alterar o status da área.");
+      console.error("Erro ao salvar parâmetros:", error);
+      setErro(erroAmigavel(error, "parâmetro"));
+    } finally {
+      setSalvando(false);
     }
   }
 
-  const columnsAreas = [
+  const colunasAreas = [
     {
       key: "nome",
       label: "Área / Pivô",
-      render: (value, row) => (
-        <div>
-          <p className="font-bold text-[var(--color-text-primary)]">{value}</p>
-          <p className="text-xs font-semibold text-[var(--color-text-muted)]">
-            {row.descricao || "Sem descrição"}
-          </p>
-        </div>
+      render: (value) => (
+        <p className="font-black text-[var(--color-text-primary)]">
+          {value || "-"}
+        </p>
       ),
-    },
-    {
-      key: "fazendas",
-      label: "Fazenda",
-      render: (value) => value?.nome || "-",
     },
     {
       key: "ativo",
       label: "Status",
       render: (value) =>
         value ? (
-          <Badge variant="success">Ativa</Badge>
+          <Badge variant="success">Ativo</Badge>
         ) : (
-          <Badge variant="danger">Inativa</Badge>
+          <Badge variant="warning">Inativo</Badge>
         ),
+    },
+    {
+      key: "observacao",
+      label: "Observação",
+      render: (_, row) => textoObservacao(row),
     },
     {
       key: "acoes",
@@ -417,7 +558,8 @@ function Configuracoes() {
             type="button"
             size="sm"
             variant="secondary"
-            onClick={() => editarAreaSelecionada(row)}
+            disabled={salvando}
+            onClick={() => iniciarEdicaoArea(row)}
           >
             <Edit size={16} />
             Editar
@@ -426,18 +568,15 @@ function Configuracoes() {
           <Button
             type="button"
             size="sm"
-            variant="secondary"
-            onClick={() => alternarArea(row)}
-          >
-            {row.ativo ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
-            {row.ativo ? "Inativar" : "Ativar"}
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
             variant="danger"
-            onClick={() => removerArea(row.id)}
+            disabled={salvando}
+            onClick={() =>
+              excluirCadastroGenerico({
+                tabela: "areas_fazenda",
+                id: row.id,
+                entidade: "Área / Pivô",
+              })
+            }
           >
             <Trash2 size={16} />
             Excluir
@@ -447,54 +586,15 @@ function Configuracoes() {
     },
   ];
 
-  const columnsFazendas = [
+  const colunasFazendas = [
     {
       key: "nome",
       label: "Fazenda",
-    },
-    {
-      key: "ativo",
-      label: "Status",
-      render: (value) =>
-        value ? (
-          <Badge variant="success">Ativa</Badge>
-        ) : (
-          <Badge variant="danger">Inativa</Badge>
-        ),
-    },
-    {
-      key: "acoes",
-      label: "Ações",
-      render: (_, row) => (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => editarFazendaSelecionada(row)}
-          >
-            <Edit size={16} />
-            Editar
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            variant="danger"
-            onClick={() => removerFazenda(row.id)}
-          >
-            <Trash2 size={16} />
-            Excluir
-          </Button>
-        </div>
+      render: (value) => (
+        <p className="font-black text-[var(--color-text-primary)]">
+          {value || "-"}
+        </p>
       ),
-    },
-  ];
-
-  const columnsResponsaveis = [
-    {
-      key: "nome",
-      label: "Responsável",
     },
     {
       key: "ativo",
@@ -503,19 +603,25 @@ function Configuracoes() {
         value ? (
           <Badge variant="success">Ativo</Badge>
         ) : (
-          <Badge variant="danger">Inativo</Badge>
+          <Badge variant="warning">Inativo</Badge>
         ),
+    },
+    {
+      key: "observacao",
+      label: "Observação",
+      render: (_, row) => textoObservacao(row),
     },
     {
       key: "acoes",
       label: "Ações",
       render: (_, row) => (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            onClick={() => editarResponsavelSelecionado(row)}
+            disabled={salvando}
+            onClick={() => iniciarEdicaoFazenda(row)}
           >
             <Edit size={16} />
             Editar
@@ -525,7 +631,76 @@ function Configuracoes() {
             type="button"
             size="sm"
             variant="danger"
-            onClick={() => removerResponsavel(row.id)}
+            disabled={salvando}
+            onClick={() =>
+              excluirCadastroGenerico({
+                tabela: "fazendas",
+                id: row.id,
+                entidade: "Fazenda",
+              })
+            }
+          >
+            <Trash2 size={16} />
+            Excluir
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const colunasResponsaveis = [
+    {
+      key: "nome",
+      label: "Responsável",
+      render: (value) => (
+        <p className="font-black text-[var(--color-text-primary)]">
+          {value || "-"}
+        </p>
+      ),
+    },
+    {
+      key: "ativo",
+      label: "Status",
+      render: (value) =>
+        value ? (
+          <Badge variant="success">Ativo</Badge>
+        ) : (
+          <Badge variant="warning">Inativo</Badge>
+        ),
+    },
+    {
+      key: "observacao",
+      label: "Observação",
+      render: (_, row) => textoObservacao(row),
+    },
+    {
+      key: "acoes",
+      label: "Ações",
+      render: (_, row) => (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={salvando}
+            onClick={() => iniciarEdicaoResponsavel(row)}
+          >
+            <Edit size={16} />
+            Editar
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            disabled={salvando}
+            onClick={() =>
+              excluirCadastroGenerico({
+                tabela: "responsaveis",
+                id: row.id,
+                entidade: "Responsável",
+              })
+            }
           >
             <Trash2 size={16} />
             Excluir
@@ -540,7 +715,7 @@ function Configuracoes() {
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Áreas / Pivôs"
-          value={formatarNumero(resumoAreas.total)}
+          value={formatarNumero(resumo.areas)}
           description="Cadastradas"
           icon={MapPinned}
           variant="info"
@@ -548,7 +723,7 @@ function Configuracoes() {
 
         <KpiCard
           title="Áreas ativas"
-          value={formatarNumero(resumoAreas.ativas)}
+          value={formatarNumero(resumo.areasAtivas)}
           description="Disponíveis para lançamento"
           icon={CheckCircle}
           variant="success"
@@ -556,7 +731,7 @@ function Configuracoes() {
 
         <KpiCard
           title="Fazendas"
-          value={formatarNumero(fazendas.length)}
+          value={formatarNumero(resumo.fazendas)}
           description="Cadastradas"
           icon={Building2}
           variant="info"
@@ -564,16 +739,14 @@ function Configuracoes() {
 
         <KpiCard
           title="Responsáveis"
-          value={formatarNumero(responsaveis.length)}
+          value={formatarNumero(resumo.responsaveis)}
           description="Conferentes / operadores"
           icon={UserRound}
           variant="info"
         />
       </section>
 
-      {erro && (
-        <AlertBox variant="danger" title="Atenção" description={erro} />
-      )}
+      {erro && <AlertBox variant="danger" title="Atenção" description={erro} />}
 
       {sucesso && (
         <AlertBox
@@ -585,81 +758,98 @@ function Configuracoes() {
 
       <Card>
         <div className="flex flex-wrap gap-3">
-          {[
-            { id: "areas", label: "Áreas / Pivôs" },
-            { id: "fazendas", label: "Fazendas" },
-            { id: "responsaveis", label: "Responsáveis" },
-            { id: "geral", label: "Parâmetros gerais" },
-          ].map((aba) => (
-            <Button
-              key={aba.id}
-              type="button"
-              variant={abaAtiva === aba.id ? "primary" : "secondary"}
-              onClick={() => setAbaAtiva(aba.id)}
-            >
-              {aba.label}
-            </Button>
-          ))}
+          <AbaBotao
+            ativa={abaAtiva === ABA_AREAS}
+            onClick={() => setAbaAtiva(ABA_AREAS)}
+          >
+            Áreas / Pivôs
+          </AbaBotao>
+
+          <AbaBotao
+            ativa={abaAtiva === ABA_FAZENDAS}
+            onClick={() => setAbaAtiva(ABA_FAZENDAS)}
+          >
+            Fazendas
+          </AbaBotao>
+
+          <AbaBotao
+            ativa={abaAtiva === ABA_RESPONSAVEIS}
+            onClick={() => setAbaAtiva(ABA_RESPONSAVEIS)}
+          >
+            Responsáveis
+          </AbaBotao>
+
+          <AbaBotao
+            ativa={abaAtiva === ABA_PARAMETROS}
+            onClick={() => setAbaAtiva(ABA_PARAMETROS)}
+          >
+            Parâmetros gerais
+          </AbaBotao>
         </div>
       </Card>
 
-      {abaAtiva === "areas" && (
+      {abaAtiva === ABA_AREAS && (
         <>
           <Card>
-            <div>
-              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-                {areaEditandoId ? "Editar Área / Pivô" : "Cadastrar Área / Pivô"}
-              </h3>
+            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+              {editandoAreaId ? "Editar Área / Pivô" : "Nova Área / Pivô"}
+            </h3>
 
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Cadastre as áreas, pivôs ou talhões vinculados a cada fazenda.
-              </p>
-            </div>
+            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+              Cadastre as áreas usadas no Produto Final e na Saída/Venda.
+            </p>
 
-            <form onSubmit={salvarArea}>
+            <form
+              onSubmit={(event) =>
+                salvarCadastroGenerico({
+                  event,
+                  tabela: "areas_fazenda",
+                  form: formArea,
+                  editandoId: editandoAreaId,
+                  entidade: "Área / Pivô",
+                  onCancel: cancelarArea,
+                })
+              }
+            >
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Select
-                  label="Fazenda"
-                  name="fazenda_id"
-                  value={formArea.fazenda_id}
-                  onChange={atualizarArea}
-                  options={fazendaOptions}
-                  placeholder="Selecione a fazenda"
-                />
-
                 <Input
                   label="Nome da Área / Pivô"
                   name="nome"
                   value={formArea.nome}
-                  onChange={atualizarArea}
-                  placeholder="Ex: Área 01 - Pivô Central"
+                  onChange={atualizarFormArea}
+                  placeholder="Ex: Área 01, Pivô 02..."
+                />
+
+                <Select
+                  label="Status"
+                  name="ativo"
+                  value={formArea.ativo}
+                  onChange={atualizarFormArea}
+                  options={[
+                    { value: "true", label: "Ativo" },
+                    { value: "false", label: "Inativo" },
+                  ]}
+                  placeholder="Selecione o status"
                 />
 
                 <div className="md:col-span-2">
                   <Textarea
-                    label="Descrição / Observação"
-                    name="descricao"
-                    value={formArea.descricao}
-                    onChange={atualizarArea}
-                    placeholder="Ex: área plantada no pivô norte, talhão 07..."
+                    label="Observação"
+                    name="observacao"
+                    value={formArea.observacao}
+                    onChange={atualizarFormArea}
+                    placeholder="Observações sobre a área..."
                   />
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                {areaEditandoId && (
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                {editandoAreaId && (
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => {
-                      setAreaEditandoId(null);
-                      setFormArea({
-                        fazenda_id: "",
-                        nome: "",
-                        descricao: "",
-                        ativo: true,
-                      });
-                    }}
+                    disabled={salvando}
+                    onClick={cancelarArea}
                   >
                     <X size={16} />
                     Cancelar
@@ -667,12 +857,12 @@ function Configuracoes() {
                 )}
 
                 <Button type="submit" variant="primary" disabled={salvando}>
-                  {areaEditandoId ? <Save size={16} /> : <Plus size={16} />}
+                  <Save size={16} />
                   {salvando
                     ? "Salvando..."
-                    : areaEditandoId
-                      ? "Salvar alterações"
-                      : "Cadastrar área"}
+                    : editandoAreaId
+                      ? "Salvar Área / Pivô"
+                      : "Cadastrar Área / Pivô"}
                 </Button>
               </div>
             </form>
@@ -681,23 +871,24 @@ function Configuracoes() {
           <Card>
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+                <h3 className="text-xl font-black text-[var(--color-text-primary)]">
                   Áreas / Pivôs cadastrados
                 </h3>
 
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                  Essas opções aparecem nos lançamentos de chegada, classificação
-                  e produto final.
+                <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  Lista de áreas disponíveis no sistema.
                 </p>
               </div>
 
               <Badge variant="info">
-                {carregando ? "Carregando" : `${formatarNumero(areas.length)} áreas`}
+                {carregando
+                  ? "Carregando"
+                  : `${formatarNumero(areas.length)} registros`}
               </Badge>
             </div>
 
             <DataTable
-              columns={columnsAreas}
+              columns={colunasAreas}
               data={areas}
               emptyMessage="Nenhuma Área / Pivô cadastrada."
             />
@@ -705,47 +896,107 @@ function Configuracoes() {
         </>
       )}
 
-      {abaAtiva === "fazendas" && (
+      {abaAtiva === ABA_FAZENDAS && (
         <>
           <Card>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              {fazendaEditandoId ? "Editar fazenda" : "Cadastrar fazenda"}
+            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+              {editandoFazendaId ? "Editar fazenda" : "Nova fazenda"}
             </h3>
 
-            <form onSubmit={salvarFazenda}>
+            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+              Cadastre as fazendas/origens usadas na chegada e classificação.
+            </p>
+
+            <form
+              onSubmit={(event) =>
+                salvarCadastroGenerico({
+                  event,
+                  tabela: "fazendas",
+                  form: formFazenda,
+                  editandoId: editandoFazendaId,
+                  entidade: "Fazenda",
+                  onCancel: cancelarFazenda,
+                })
+              }
+            >
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input
                   label="Nome da fazenda"
                   name="nome"
                   value={formFazenda.nome}
-                  onChange={atualizarFazenda}
+                  onChange={atualizarFormFazenda}
+                  placeholder="Ex: Fazenda São José"
                 />
+
+                <Select
+                  label="Status"
+                  name="ativo"
+                  value={formFazenda.ativo}
+                  onChange={atualizarFormFazenda}
+                  options={[
+                    { value: "true", label: "Ativo" },
+                    { value: "false", label: "Inativo" },
+                  ]}
+                  placeholder="Selecione o status"
+                />
+
+                <div className="md:col-span-2">
+                  <Textarea
+                    label="Observação"
+                    name="observacao"
+                    value={formFazenda.observacao}
+                    onChange={atualizarFormFazenda}
+                    placeholder="Observações sobre a fazenda..."
+                  />
+                </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                {fazendaEditandoId && (
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                {editandoFazendaId && (
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => {
-                      setFazendaEditandoId(null);
-                      setFormFazenda({ nome: "", ativo: true });
-                    }}
+                    disabled={salvando}
+                    onClick={cancelarFazenda}
                   >
+                    <X size={16} />
                     Cancelar
                   </Button>
                 )}
 
                 <Button type="submit" variant="primary" disabled={salvando}>
-                  Salvar
+                  <Save size={16} />
+                  {salvando
+                    ? "Salvando..."
+                    : editandoFazendaId
+                      ? "Salvar fazenda"
+                      : "Cadastrar fazenda"}
                 </Button>
               </div>
             </form>
           </Card>
 
           <Card>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                  Fazendas cadastradas
+                </h3>
+
+                <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  Lista de fazendas/origens do sistema.
+                </p>
+              </div>
+
+              <Badge variant="info">
+                {carregando
+                  ? "Carregando"
+                  : `${formatarNumero(fazendas.length)} registros`}
+              </Badge>
+            </div>
+
             <DataTable
-              columns={columnsFazendas}
+              columns={colunasFazendas}
               data={fazendas}
               emptyMessage="Nenhuma fazenda cadastrada."
             />
@@ -753,49 +1004,107 @@ function Configuracoes() {
         </>
       )}
 
-      {abaAtiva === "responsaveis" && (
+      {abaAtiva === ABA_RESPONSAVEIS && (
         <>
           <Card>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              {responsavelEditandoId
-                ? "Editar responsável"
-                : "Cadastrar responsável"}
+            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+              {editandoResponsavelId ? "Editar responsável" : "Novo responsável"}
             </h3>
 
-            <form onSubmit={salvarResponsavel}>
+            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+              Cadastre responsáveis, conferentes ou operadores.
+            </p>
+
+            <form
+              onSubmit={(event) =>
+                salvarCadastroGenerico({
+                  event,
+                  tabela: "responsaveis",
+                  form: formResponsavel,
+                  editandoId: editandoResponsavelId,
+                  entidade: "Responsável",
+                  onCancel: cancelarResponsavel,
+                })
+              }
+            >
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Input
                   label="Nome do responsável"
                   name="nome"
                   value={formResponsavel.nome}
-                  onChange={atualizarResponsavel}
+                  onChange={atualizarFormResponsavel}
+                  placeholder="Ex: João Silva"
                 />
+
+                <Select
+                  label="Status"
+                  name="ativo"
+                  value={formResponsavel.ativo}
+                  onChange={atualizarFormResponsavel}
+                  options={[
+                    { value: "true", label: "Ativo" },
+                    { value: "false", label: "Inativo" },
+                  ]}
+                  placeholder="Selecione o status"
+                />
+
+                <div className="md:col-span-2">
+                  <Textarea
+                    label="Observação"
+                    name="observacao"
+                    value={formResponsavel.observacao}
+                    onChange={atualizarFormResponsavel}
+                    placeholder="Observações sobre o responsável..."
+                  />
+                </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                {responsavelEditandoId && (
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                {editandoResponsavelId && (
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => {
-                      setResponsavelEditandoId(null);
-                      setFormResponsavel({ nome: "", ativo: true });
-                    }}
+                    disabled={salvando}
+                    onClick={cancelarResponsavel}
                   >
+                    <X size={16} />
                     Cancelar
                   </Button>
                 )}
 
                 <Button type="submit" variant="primary" disabled={salvando}>
-                  Salvar
+                  <Save size={16} />
+                  {salvando
+                    ? "Salvando..."
+                    : editandoResponsavelId
+                      ? "Salvar responsável"
+                      : "Cadastrar responsável"}
                 </Button>
               </div>
             </form>
           </Card>
 
           <Card>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                  Responsáveis cadastrados
+                </h3>
+
+                <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  Lista de responsáveis disponíveis para lançamento.
+                </p>
+              </div>
+
+              <Badge variant="info">
+                {carregando
+                  ? "Carregando"
+                  : `${formatarNumero(responsaveis.length)} registros`}
+              </Badge>
+            </div>
+
             <DataTable
-              columns={columnsResponsaveis}
+              columns={colunasResponsaveis}
               data={responsaveis}
               emptyMessage="Nenhum responsável cadastrado."
             />
@@ -803,57 +1112,78 @@ function Configuracoes() {
         </>
       )}
 
-      {abaAtiva === "geral" && (
+      {abaAtiva === ABA_PARAMETROS && (
         <Card>
-          <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-            Parâmetros gerais
-          </h3>
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                Parâmetros gerais
+              </h3>
 
-          <form onSubmit={salvarConfig}>
-            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+              <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+                Configure somente os parâmetros usados atualmente no sistema.
+              </p>
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
+              <Settings size={24} />
+            </div>
+          </div>
+
+          <form onSubmit={salvarParametros}>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <Input
                 label="Estoque mínimo por calibre"
                 name="estoque_minimo_por_calibre"
                 type="number"
-                value={configuracoes.estoque_minimo_por_calibre}
-                onChange={atualizarConfiguracao}
+                value={formParametros.estoque_minimo_por_calibre}
+                onChange={atualizarFormParametros}
+                placeholder="Ex: 100"
               />
 
               <Input
                 label="Peso padrão da caixa final"
                 name="peso_caixa_final_kg"
                 type="number"
-                value={configuracoes.peso_caixa_final_kg}
-                onChange={atualizarConfiguracao}
+                value={formParametros.peso_caixa_final_kg}
+                onChange={atualizarFormParametros}
+                placeholder="Ex: 10"
               />
+
+              <label className="flex items-center gap-3 md:col-span-2">
+                <input
+                  type="checkbox"
+                  name="alerta_estoque_baixo"
+                  checked={Boolean(formParametros.alerta_estoque_baixo)}
+                  onChange={atualizarFormParametros}
+                  className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-green-primary)]"
+                />
+
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">
+                  Ativar alerta de estoque baixo
+                </span>
+              </label>
             </div>
 
-            <label className="mt-5 flex items-center gap-3 text-sm font-semibold text-[var(--color-text-primary)]">
-              <input
-                type="checkbox"
-                name="alerta_estoque_baixo"
-                checked={Boolean(configuracoes.alerta_estoque_baixo)}
-                onChange={atualizarConfiguracao}
-              />
-              Ativar alerta de estoque baixo
-            </label>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={carregando || salvando}
+                onClick={carregarDados}
+              >
+                <RefreshCcw size={16} />
+                Atualizar dados
+              </Button>
 
-            <div className="mt-6 flex justify-end">
               <Button type="submit" variant="primary" disabled={salvando}>
                 <Save size={16} />
-                Salvar configurações
+                {salvando ? "Salvando..." : "Salvar configurações"}
               </Button>
             </div>
           </form>
         </Card>
       )}
-
-      <Card>
-        <Button type="button" variant="secondary" onClick={carregarDados}>
-          <RefreshCcw size={16} />
-          Atualizar dados
-        </Button>
-      </Card>
     </div>
   );
 }
