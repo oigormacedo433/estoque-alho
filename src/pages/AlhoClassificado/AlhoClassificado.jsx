@@ -29,8 +29,6 @@ import {
   X,
 } from "lucide-react";
 
-import { supabase } from "../../services/supabaseClient";
-
 import { listarFazendasAtivas } from "../../services/fazendasService";
 import { listarResponsaveisAtivos } from "../../services/responsaveisService";
 import { listarCalibresAtivos } from "../../services/calibresService";
@@ -40,13 +38,13 @@ import {
   cadastrarAlhoClassificado,
   calcularResumoAlhoClassificado,
   editarAlhoClassificado,
+  excluirAlhoClassificado,
   listarAlhoClassificado,
 } from "../../services/alhoClassificadoService";
 
 function obterDataAtual() {
   const data = new Date();
   const dataLocal = new Date(data.getTime() - data.getTimezoneOffset() * 60000);
-
   return dataLocal.toISOString().slice(0, 10);
 }
 
@@ -56,17 +54,13 @@ function obterHoraAtual() {
 
 function formatarData(data) {
   if (!data) return "-";
-
   const [ano, mes, dia] = String(data).split("-");
-
   if (!ano || !mes || !dia) return data;
-
   return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora) {
   if (!hora) return "-";
-
   return String(hora).slice(0, 5);
 }
 
@@ -76,12 +70,7 @@ function formatarNumero(valor) {
 
 function numero(valor) {
   const convertido = Number(valor);
-
-  if (!Number.isFinite(convertido)) {
-    return 0;
-  }
-
-  return convertido;
+  return Number.isFinite(convertido) ? convertido : 0;
 }
 
 function normalizarTexto(valor) {
@@ -89,19 +78,77 @@ function normalizarTexto(valor) {
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function obterFazendaIdDaArea(area) {
+  return area?.fazenda_id || area?.fazendaId || area?.fazendas?.id || "";
+}
+
+function obterFazendaIdRegistro(registro) {
+  return registro?.fazenda_id || registro?.fazendas?.id || "";
 }
 
 function obterFazendaNome(registro) {
   return registro?.fazendas?.nome || registro?.fazenda_nome || "-";
 }
 
-function obterFazendaId(registro) {
-  return registro?.fazenda_id || registro?.fazendas?.id || "";
+function encontrarAreaPorId(areaId, areas = []) {
+  if (!areaId) return null;
+
+  return (
+    areas.find(
+      (area) =>
+        area.id === areaId ||
+        area.area_id === areaId ||
+        area.area_fazenda_id === areaId
+    ) || null
+  );
 }
 
-function obterAreaIdDireto(registro) {
+function encontrarAreaPorNome(nome, fazendaId, areas = []) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  if (!nomeNormalizado) return null;
+
   return (
+    areas.find((area) => {
+      const mesmoNome = normalizarTexto(area.nome) === nomeNormalizado;
+      const areaFazendaId = obterFazendaIdDaArea(area);
+      const mesmaFazenda = !fazendaId || !areaFazendaId || areaFazendaId === fazendaId;
+
+      return mesmoNome && mesmaFazenda;
+    }) || null
+  );
+}
+
+function obterAreaResolvida(registro, areas = []) {
+  const areaId =
+    registro?.area_fazenda_id ||
+    registro?.area_id ||
+    registro?.areas_fazenda?.id ||
+    "";
+
+  const areaPorId = encontrarAreaPorId(areaId, areas);
+
+  if (areaPorId) return areaPorId;
+
+  if (registro?.areas_fazenda?.nome) return registro.areas_fazenda;
+
+  const fazendaId = obterFazendaIdRegistro(registro);
+  const areaPeloLote = encontrarAreaPorNome(registro?.lote, fazendaId, areas);
+
+  if (areaPeloLote) return areaPeloLote;
+
+  return null;
+}
+
+function obterAreaId(registro, areas = []) {
+  const area = obterAreaResolvida(registro, areas);
+
+  return (
+    area?.id ||
     registro?.area_fazenda_id ||
     registro?.area_id ||
     registro?.areas_fazenda?.id ||
@@ -109,116 +156,48 @@ function obterAreaIdDireto(registro) {
   );
 }
 
-function obterAreaFazendaId(area) {
-  return area?.fazenda_id || area?.fazendas?.id || "";
-}
-
-function areaPertenceFazenda(area, fazendaId) {
-  if (!fazendaId) return true;
-
-  const areaFazendaId = obterAreaFazendaId(area);
-
-  if (!areaFazendaId) return true;
-
-  return String(areaFazendaId) === String(fazendaId);
-}
-
-function encontrarAreaPorId(areas, areaId) {
-  if (!areaId) return null;
-
-  return areas.find((area) => String(area.id) === String(areaId)) || null;
-}
-
-function encontrarAreaPorNome(areas, nome) {
-  const nomeNormalizado = normalizarTexto(nome);
-
-  if (!nomeNormalizado) return null;
+function obterAreaNome(registro, areas = []) {
+  const area = obterAreaResolvida(registro, areas);
 
   return (
-    areas.find((area) => normalizarTexto(area.nome) === nomeNormalizado) || null
+    area?.nome ||
+    registro?.area_nome ||
+    registro?.area_fazenda_nome ||
+    "-"
   );
 }
 
-function resolverAreaDoRegistro(registro, areas) {
-  const areaIdDireto = obterAreaIdDireto(registro);
-
-  if (areaIdDireto) {
-    const areaEncontrada = encontrarAreaPorId(areas, areaIdDireto);
-
-    if (areaEncontrada) return areaEncontrada;
-
-    if (registro?.areas_fazenda?.nome) {
-      return {
-        id: areaIdDireto,
-        nome: registro.areas_fazenda.nome,
-        fazenda_id: registro.areas_fazenda.fazenda_id,
-        fazendas: registro.areas_fazenda.fazendas,
-      };
-    }
-  }
-
-  if (registro?.area_nome || registro?.area_fazenda_nome) {
-    const areaPorNome =
-      encontrarAreaPorNome(areas, registro.area_nome) ||
-      encontrarAreaPorNome(areas, registro.area_fazenda_nome);
-
-    if (areaPorNome) return areaPorNome;
-
-    return {
-      id: "",
-      nome: registro.area_nome || registro.area_fazenda_nome,
-    };
-  }
-
-  const loteComoArea = encontrarAreaPorNome(areas, registro?.lote);
-
-  if (loteComoArea) {
-    return loteComoArea;
-  }
-
-  return null;
-}
-
-function obterAreaNome(registro, areas) {
-  const area = resolverAreaDoRegistro(registro, areas);
-
-  return area?.nome || "-";
-}
-
-function obterAreaId(registro, areas) {
-  const areaDireta = obterAreaIdDireto(registro);
-
-  if (areaDireta) return areaDireta;
-
-  const area = resolverAreaDoRegistro(registro, areas);
-
-  return area?.id || "";
-}
-
-function lotePareceSerArea(registro, areas) {
+function loteEhNomeDeArea(registro, areas = []) {
   if (!registro?.lote) return false;
 
-  const areaDireta = obterAreaIdDireto(registro);
+  const fazendaId = obterFazendaIdRegistro(registro);
+  const area = encontrarAreaPorNome(registro.lote, fazendaId, areas);
 
-  if (areaDireta) return false;
-
-  return Boolean(encontrarAreaPorNome(areas, registro.lote));
+  return Boolean(area);
 }
 
-function obterLoteExibicao(registro, areas) {
-  if (lotePareceSerArea(registro, areas)) {
+function obterLoteTabela(registro, areas = []) {
+  if (!registro?.lote) return "-";
+
+  if (loteEhNomeDeArea(registro, areas)) {
     return "-";
   }
 
-  return registro?.lote || "-";
+  return registro.lote;
 }
 
-function obterLoteParaEdicao(registro, areas) {
-  if (lotePareceSerArea(registro, areas)) {
+function obterLoteEdicao(registro, areas = []) {
+  if (!registro?.lote) return "";
+
+  if (loteEhNomeDeArea(registro, areas)) {
     return "";
   }
 
-  return registro?.lote || "";
+  return registro.lote;
+}
+
+function obterCalibreId(registro) {
+  return registro?.calibre_id || registro?.calibres?.id || "";
 }
 
 function obterCalibreNome(registro) {
@@ -233,53 +212,38 @@ function obterCalibreNome(registro) {
   return "-";
 }
 
-function obterCalibreId(registro) {
-  return registro?.calibre_id || registro?.calibres?.id || "";
+function obterResponsavelId(registro) {
+  return registro?.responsavel_id || registro?.responsaveis?.id || "";
 }
 
 function obterResponsavelNome(registro) {
   return registro?.responsaveis?.nome || registro?.responsavel_nome || "-";
 }
 
-function obterResponsavelId(registro) {
-  return registro?.responsavel_id || registro?.responsaveis?.id || "";
-}
-
-function obterValorOrdenacao(registro, campo, areas) {
+function obterValorOrdenacao(registro, campo, areas = []) {
   switch (campo) {
     case "data_classificacao":
       return registro.data_classificacao || "";
-
     case "hora":
       return registro.hora || "";
-
     case "fazenda":
       return obterFazendaNome(registro);
-
     case "area":
       return obterAreaNome(registro, areas);
-
     case "lote":
-      return obterLoteExibicao(registro, areas);
-
+      return obterLoteTabela(registro, areas);
     case "calibre":
       return obterCalibreNome(registro);
-
     case "quantidade_paletes":
       return numero(registro.quantidade_paletes);
-
     case "caixas_por_palete":
       return numero(registro.caixas_por_palete);
-
     case "total_caixas":
       return numero(registro.total_caixas);
-
     case "conferido":
       return registro.conferido ? "Conferido" : "Pendente";
-
     case "responsavel":
       return obterResponsavelNome(registro);
-
     default:
       return "";
   }
@@ -304,23 +268,10 @@ function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
     <button
       type="button"
       onClick={() => onOrdenar(campo)}
-      className="
-        inline-flex
-        items-center
-        gap-1.5
-        rounded-lg
-        text-left
-        font-black
-        uppercase
-        tracking-wide
-        text-[var(--color-text-muted)]
-        transition
-        hover:text-[var(--color-green-primary)]
-      "
+      className="inline-flex items-center gap-1.5 rounded-lg text-left font-black uppercase tracking-wide text-[var(--color-text-muted)] transition hover:text-[var(--color-green-primary)]"
       title={`Ordenar por ${label}`}
     >
       <span>{label}</span>
-
       {!ativo && <ArrowUpDown size={14} />}
       {ativo && direcao === "asc" && <ArrowUp size={14} />}
       {ativo && direcao === "desc" && <ArrowDown size={14} />}
@@ -361,19 +312,17 @@ function AlhoClassificado() {
   const [responsaveis, setResponsaveis] = useState([]);
   const [classificacoes, setClassificacoes] = useState([]);
 
+  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
+
   const [form, setForm] = useState({
     ...FORM_INICIAL,
     data_classificacao: obterDataAtual(),
     hora: obterHoraAtual(),
   });
 
-  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
-
-  const [modalFormularioAberta, setModalFormularioAberta] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
-
   const [registroParaExcluir, setRegistroParaExcluir] = useState(null);
-  const [excluindoId, setExcluindoId] = useState(null);
+  const [modalFormularioAberta, setModalFormularioAberta] = useState(false);
 
   const [ordenacao, setOrdenacao] = useState({
     campo: "data_classificacao",
@@ -382,15 +331,16 @@ function AlhoClassificado() {
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState(null);
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
   const totalAutomatico = useMemo(() => {
-    const paletes = Number(form.quantidade_paletes || 0);
-    const caixasPorPalete = Number(form.caixas_por_palete || 0);
-
-    return paletes * caixasPorPalete;
+    return (
+      Number(form.quantidade_paletes || 0) *
+      Number(form.caixas_por_palete || 0)
+    );
   }, [form.quantidade_paletes, form.caixas_por_palete]);
 
   const totalFinalExibido = useMemo(() => {
@@ -405,10 +355,71 @@ function AlhoClassificado() {
     totalAutomatico,
   ]);
 
+  const fazendaOptions = useMemo(() => {
+    return fazendas.map((fazenda) => ({
+      value: fazenda.id,
+      label: fazenda.nome,
+    }));
+  }, [fazendas]);
+
+  const areasAtivas = useMemo(() => {
+    return areas.filter((area) => area.ativo !== false);
+  }, [areas]);
+
+  const areaOptionsFormulario = useMemo(() => {
+    const fazendaSelecionada = form.fazenda_id;
+
+    const filtradas = fazendaSelecionada
+      ? areasAtivas.filter((area) => {
+          const areaFazendaId = obterFazendaIdDaArea(area);
+          return !areaFazendaId || areaFazendaId === fazendaSelecionada;
+        })
+      : areasAtivas;
+
+    const listaFinal = filtradas.length > 0 ? filtradas : areasAtivas;
+
+    return listaFinal.map((area) => ({
+      value: area.id,
+      label: area.nome,
+    }));
+  }, [areasAtivas, form.fazenda_id]);
+
+  const areaOptionsFiltro = useMemo(() => {
+    const fazendaSelecionada = filtros.fazendaId;
+
+    const filtradas = fazendaSelecionada
+      ? areasAtivas.filter((area) => {
+          const areaFazendaId = obterFazendaIdDaArea(area);
+          return !areaFazendaId || areaFazendaId === fazendaSelecionada;
+        })
+      : areasAtivas;
+
+    const listaFinal = filtradas.length > 0 ? filtradas : areasAtivas;
+
+    return listaFinal.map((area) => ({
+      value: area.id,
+      label: area.nome,
+    }));
+  }, [areasAtivas, filtros.fazendaId]);
+
+  const calibreOptions = useMemo(() => {
+    return calibres.map((calibre) => ({
+      value: calibre.id,
+      label: `${calibre.codigo} — ${calibre.nome}`,
+    }));
+  }, [calibres]);
+
+  const responsavelOptions = useMemo(() => {
+    return responsaveis.map((responsavel) => ({
+      value: responsavel.id,
+      label: responsavel.nome,
+    }));
+  }, [responsaveis]);
+
   const classificacoesFiltradas = useMemo(() => {
     return classificacoes.filter((registro) => {
       const data = registro.data_classificacao || "";
-      const fazendaId = obterFazendaId(registro);
+      const fazendaId = obterFazendaIdRegistro(registro);
       const areaId = obterAreaId(registro, areas);
       const calibreId = obterCalibreId(registro);
       const responsavelId = obterResponsavelId(registro);
@@ -423,13 +434,8 @@ function AlhoClassificado() {
         return false;
       }
 
-      if (filtros.status === "conferido" && !registro.conferido) {
-        return false;
-      }
-
-      if (filtros.status === "pendente" && registro.conferido) {
-        return false;
-      }
+      if (filtros.status === "conferido" && !registro.conferido) return false;
+      if (filtros.status === "pendente" && registro.conferido) return false;
 
       return true;
     });
@@ -452,65 +458,6 @@ function AlhoClassificado() {
   const resumo = useMemo(() => {
     return calcularResumoAlhoClassificado(classificacoesFiltradas);
   }, [classificacoesFiltradas]);
-
-  const fazendaOptions = useMemo(() => {
-    return fazendas.map((fazenda) => ({
-      value: fazenda.id,
-      label: fazenda.nome,
-    }));
-  }, [fazendas]);
-
-  const areasFormulario = useMemo(() => {
-    if (!form.fazenda_id) {
-      return areas;
-    }
-
-    const areasDaFazenda = areas.filter((area) =>
-      areaPertenceFazenda(area, form.fazenda_id)
-    );
-
-    return areasDaFazenda.length > 0 ? areasDaFazenda : areas;
-  }, [areas, form.fazenda_id]);
-
-  const areasFiltro = useMemo(() => {
-    if (!filtros.fazendaId) {
-      return areas;
-    }
-
-    const areasDaFazenda = areas.filter((area) =>
-      areaPertenceFazenda(area, filtros.fazendaId)
-    );
-
-    return areasDaFazenda.length > 0 ? areasDaFazenda : areas;
-  }, [areas, filtros.fazendaId]);
-
-  const areaOptionsFormulario = useMemo(() => {
-    return areasFormulario.map((area) => ({
-      value: area.id,
-      label: area.nome,
-    }));
-  }, [areasFormulario]);
-
-  const areaOptionsFiltro = useMemo(() => {
-    return areasFiltro.map((area) => ({
-      value: area.id,
-      label: area.nome,
-    }));
-  }, [areasFiltro]);
-
-  const calibreOptions = useMemo(() => {
-    return calibres.map((calibre) => ({
-      value: calibre.id,
-      label: `${calibre.codigo} — ${calibre.nome}`,
-    }));
-  }, [calibres]);
-
-  const responsavelOptions = useMemo(() => {
-    return responsaveis.map((responsavel) => ({
-      value: responsavel.id,
-      label: responsavel.nome,
-    }));
-  }, [responsaveis]);
 
   async function carregarDados(limparMensagens = true) {
     try {
@@ -559,20 +506,19 @@ function AlhoClassificado() {
     setSucesso("");
 
     if (name === "fazenda_id") {
-      setForm((estadoAtual) => ({
-        ...estadoAtual,
-        fazenda_id: value,
-        area_fazenda_id: "",
-      }));
+      setForm((estadoAtual) => {
+        const areaAtual = encontrarAreaPorId(estadoAtual.area_fazenda_id, areas);
+        const areaPertenceFazenda =
+          areaAtual && obterFazendaIdDaArea(areaAtual) === value;
 
-      return;
-    }
-
-    if (name === "area_fazenda_id") {
-      setForm((estadoAtual) => ({
-        ...estadoAtual,
-        area_fazenda_id: value,
-      }));
+        return {
+          ...estadoAtual,
+          fazenda_id: value,
+          area_fazenda_id: areaPertenceFazenda
+            ? estadoAtual.area_fazenda_id
+            : "",
+        };
+      });
 
       return;
     }
@@ -617,20 +563,20 @@ function AlhoClassificado() {
   function atualizarFiltro(event) {
     const { name, value } = event.target;
 
-    setFiltros((estadoAtual) => {
-      if (name === "fazendaId") {
-        return {
-          ...estadoAtual,
-          fazendaId: value,
-          areaId: "",
-        };
-      }
-
-      return {
+    if (name === "fazendaId") {
+      setFiltros((estadoAtual) => ({
         ...estadoAtual,
-        [name]: value,
-      };
-    });
+        fazendaId: value,
+        areaId: "",
+      }));
+
+      return;
+    }
+
+    setFiltros((estadoAtual) => ({
+      ...estadoAtual,
+      [name]: value,
+    }));
 
     setErro("");
     setSucesso("");
@@ -734,6 +680,7 @@ function AlhoClassificado() {
         hora: form.hora,
         fazenda_id: form.fazenda_id,
         area_fazenda_id: form.area_fazenda_id,
+        area_id: form.area_fazenda_id,
         lote: form.lote,
         calibre_id: form.calibre_id,
         quantidade_paletes: form.quantidade_paletes,
@@ -770,14 +717,19 @@ function AlhoClassificado() {
   }
 
   function iniciarEdicao(registro) {
+    const areaId = obterAreaId(registro, areas);
+    const area = encontrarAreaPorId(areaId, areas);
+    const fazendaId =
+      obterFazendaIdRegistro(registro) || obterFazendaIdDaArea(area) || "";
+
     setEditandoId(registro.id);
 
     setForm({
       data_classificacao: registro.data_classificacao || obterDataAtual(),
       hora: registro.hora ? String(registro.hora).slice(0, 5) : obterHoraAtual(),
-      fazenda_id: obterFazendaId(registro),
-      area_fazenda_id: obterAreaId(registro, areas),
-      lote: obterLoteParaEdicao(registro, areas),
+      fazenda_id: fazendaId,
+      area_fazenda_id: areaId,
+      lote: obterLoteEdicao(registro, areas),
       calibre_id: obterCalibreId(registro),
       quantidade_paletes: String(registro.quantidade_paletes || ""),
       caixas_por_palete: String(registro.caixas_por_palete || ""),
@@ -806,7 +758,7 @@ function AlhoClassificado() {
 
   function solicitarExclusao(registro) {
     if (!registro?.id) {
-      setErro("Não foi possível identificar o registro para exclusão.");
+      setErro("Não foi possível identificar a classificação para exclusão.");
       return;
     }
 
@@ -825,18 +777,11 @@ function AlhoClassificado() {
     if (!registroParaExcluir?.id) return;
 
     try {
+      setExcluindoId(registroParaExcluir.id);
       setErro("");
       setSucesso("");
-      setExcluindoId(registroParaExcluir.id);
 
-      const { error } = await supabase
-        .from("alho_classificado")
-        .delete()
-        .eq("id", registroParaExcluir.id);
-
-      if (error) {
-        throw error;
-      }
+      await excluirAlhoClassificado(registroParaExcluir.id);
 
       if (editandoId === registroParaExcluir.id) {
         cancelarEdicao();
@@ -848,14 +793,7 @@ function AlhoClassificado() {
       await carregarDados(false);
     } catch (error) {
       console.error("Erro ao excluir classificação:", error);
-
-      if (error.code === "23503") {
-        setErro(
-          "Esta classificação já está vinculada a outro lançamento. Não foi possível excluir."
-        );
-      } else {
-        setErro(error.message || "Não foi possível excluir a classificação.");
-      }
+      setErro(error.message || "Não foi possível excluir a classificação.");
     } finally {
       setExcluindoId(null);
     }
@@ -920,7 +858,7 @@ function AlhoClassificado() {
           onOrdenar={alterarOrdenacao}
         />
       ),
-      render: (_, row) => obterLoteExibicao(row, areas),
+      render: (_, row) => obterLoteTabela(row, areas),
     },
     {
       key: "calibres",
@@ -1055,11 +993,11 @@ function AlhoClassificado() {
 
                 <div>
                   <h3 className="text-xl font-black text-[var(--color-text-primary)]">
-                    Excluir alho classificado?
+                    Excluir classificação?
                   </h3>
 
                   <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
-                    Essa ação remove o lançamento selecionado da classificação.
+                    Essa ação remove o lançamento selecionado de alho classificado.
                     Essa exclusão não pode ser desfeita.
                   </p>
                 </div>
@@ -1088,15 +1026,6 @@ function AlhoClassificado() {
 
                 <div>
                   <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                    Fazenda
-                  </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                    {obterFazendaNome(registroParaExcluir)}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
                     Área / Pivô
                   </p>
                   <p className="mt-1 font-black text-[var(--color-text-primary)]">
@@ -1109,7 +1038,7 @@ function AlhoClassificado() {
                     Lote
                   </p>
                   <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                    {obterLoteExibicao(registroParaExcluir, areas)}
+                    {obterLoteTabela(registroParaExcluir, areas)}
                   </p>
                 </div>
 
@@ -1119,6 +1048,15 @@ function AlhoClassificado() {
                   </p>
                   <p className="mt-1 font-black text-[var(--color-text-primary)]">
                     {obterCalibreNome(registroParaExcluir)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Paletes
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarNumero(registroParaExcluir.quantidade_paletes)}
                   </p>
                 </div>
 
@@ -1205,9 +1143,9 @@ function AlhoClassificado() {
               onChange={atualizarCampo}
               options={areaOptionsFormulario}
               placeholder={
-                form.fazenda_id
+                areaOptionsFormulario.length > 0
                   ? "Selecione a Área / Pivô"
-                  : "Selecione a fazenda primeiro"
+                  : "Nenhuma área cadastrada"
               }
             />
 
@@ -1393,12 +1331,13 @@ function AlhoClassificado() {
             </div>
 
             <div>
-              <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
                 Filtros da classificação
               </h3>
 
-              <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-                Filtre os lançamentos por período, fazenda, área, calibre, status e responsável.
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                Filtre as classificações por período, fazenda, área, calibre,
+                status e responsável.
               </p>
             </div>
           </div>
@@ -1441,7 +1380,9 @@ function AlhoClassificado() {
             value={filtros.areaId}
             onChange={atualizarFiltro}
             options={areaOptionsFiltro}
-            placeholder="Todas as áreas"
+            placeholder={
+              areaOptionsFiltro.length > 0 ? "Todas as áreas" : "Nenhuma área"
+            }
           />
 
           <Select
