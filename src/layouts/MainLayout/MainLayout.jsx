@@ -1,62 +1,35 @@
 import { useState } from "react";
-import { Outlet } from "react-router";
-
-import { useAuth } from "../../contexts/AuthContext";
+import { Outlet, useNavigate } from "react-router";
 
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
+import { supabase } from "../../services/supabaseClient";
+
 function MainLayout() {
-  const { sair, logout } = useAuth();
+  const navigate = useNavigate();
+  const [sidebarAberta, setSidebarAberta] = useState(false);
 
-  const [sidebarMobileAberta, setSidebarMobileAberta] = useState(false);
-
-  async function sairDoSistema() {
-    if (sair) {
-      await sair();
-      return;
-    }
-
-    if (logout) {
-      await logout();
-    }
-  }
-
-  function abrirMenuMobile() {
-    setSidebarMobileAberta(true);
-  }
-
-  function fecharMenuMobile() {
-    setSidebarMobileAberta(false);
+  async function sair() {
+    await supabase.auth.signOut();
+    navigate("/login", { replace: true });
   }
 
   return (
-    <div className="min-h-dvh bg-[var(--color-bg-page)]">
+    <div className="min-h-screen bg-[var(--color-bg-page)]">
       <Sidebar
-        openMobile={sidebarMobileAberta}
-        onCloseMobile={fecharMenuMobile}
-        onLogout={sairDoSistema}
+        mobileOpen={sidebarAberta}
+        onClose={() => setSidebarAberta(false)}
+        onLogout={sair}
       />
 
-      <div className="min-h-dvh w-full transition-all duration-300 lg:pl-[280px]">
-        <Topbar onOpenSidebar={abrirMenuMobile} />
+      <div className="min-h-screen lg:pl-[290px]">
+        <Topbar
+          onMenuClick={() => setSidebarAberta(true)}
+          onMobileMenuClick={() => setSidebarAberta(true)}
+        />
 
-        <main
-          className="
-            mx-auto
-            w-full
-            max-w-[1800px]
-            overflow-visible
-            px-4
-            py-5
-            sm:px-5
-            sm:py-6
-            md:px-6
-            lg:px-7
-            xl:px-8
-            xl:py-8
-          "
-        >
+        <main className="px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>

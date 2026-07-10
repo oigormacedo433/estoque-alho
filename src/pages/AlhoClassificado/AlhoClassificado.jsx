@@ -12,18 +12,29 @@ import {
   Textarea,
 } from "../../components/ui";
 
+import LancamentoModal from "../../components/ui/LancamentoModal";
+
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle,
   Edit,
+  Filter,
   Layers,
   PackageCheck,
+  Plus,
   Save,
+  Trash2,
   X,
 } from "lucide-react";
+
+import { supabase } from "../../services/supabaseClient";
 
 import { listarFazendasAtivas } from "../../services/fazendasService";
 import { listarResponsaveisAtivos } from "../../services/responsaveisService";
 import { listarCalibresAtivos } from "../../services/calibresService";
+import { listarAreasFazendaAtivas } from "../../services/areasFazendaService";
 
 import {
   cadastrarAlhoClassificado,
@@ -63,10 +74,265 @@ function formatarNumero(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function normalizarTexto(valor) {
+  return String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function obterFazendaNome(registro) {
+  return registro?.fazendas?.nome || registro?.fazenda_nome || "-";
+}
+
+function obterFazendaId(registro) {
+  return registro?.fazenda_id || registro?.fazendas?.id || "";
+}
+
+function obterAreaIdDireto(registro) {
+  return (
+    registro?.area_fazenda_id ||
+    registro?.area_id ||
+    registro?.areas_fazenda?.id ||
+    ""
+  );
+}
+
+function obterAreaFazendaId(area) {
+  return area?.fazenda_id || area?.fazendas?.id || "";
+}
+
+function areaPertenceFazenda(area, fazendaId) {
+  if (!fazendaId) return true;
+
+  const areaFazendaId = obterAreaFazendaId(area);
+
+  if (!areaFazendaId) return true;
+
+  return String(areaFazendaId) === String(fazendaId);
+}
+
+function encontrarAreaPorId(areas, areaId) {
+  if (!areaId) return null;
+
+  return areas.find((area) => String(area.id) === String(areaId)) || null;
+}
+
+function encontrarAreaPorNome(areas, nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  if (!nomeNormalizado) return null;
+
+  return (
+    areas.find((area) => normalizarTexto(area.nome) === nomeNormalizado) || null
+  );
+}
+
+function resolverAreaDoRegistro(registro, areas) {
+  const areaIdDireto = obterAreaIdDireto(registro);
+
+  if (areaIdDireto) {
+    const areaEncontrada = encontrarAreaPorId(areas, areaIdDireto);
+
+    if (areaEncontrada) return areaEncontrada;
+
+    if (registro?.areas_fazenda?.nome) {
+      return {
+        id: areaIdDireto,
+        nome: registro.areas_fazenda.nome,
+        fazenda_id: registro.areas_fazenda.fazenda_id,
+        fazendas: registro.areas_fazenda.fazendas,
+      };
+    }
+  }
+
+  if (registro?.area_nome || registro?.area_fazenda_nome) {
+    const areaPorNome =
+      encontrarAreaPorNome(areas, registro.area_nome) ||
+      encontrarAreaPorNome(areas, registro.area_fazenda_nome);
+
+    if (areaPorNome) return areaPorNome;
+
+    return {
+      id: "",
+      nome: registro.area_nome || registro.area_fazenda_nome,
+    };
+  }
+
+  const loteComoArea = encontrarAreaPorNome(areas, registro?.lote);
+
+  if (loteComoArea) {
+    return loteComoArea;
+  }
+
+  return null;
+}
+
+function obterAreaNome(registro, areas) {
+  const area = resolverAreaDoRegistro(registro, areas);
+
+  return area?.nome || "-";
+}
+
+function obterAreaId(registro, areas) {
+  const areaDireta = obterAreaIdDireto(registro);
+
+  if (areaDireta) return areaDireta;
+
+  const area = resolverAreaDoRegistro(registro, areas);
+
+  return area?.id || "";
+}
+
+function lotePareceSerArea(registro, areas) {
+  if (!registro?.lote) return false;
+
+  const areaDireta = obterAreaIdDireto(registro);
+
+  if (areaDireta) return false;
+
+  return Boolean(encontrarAreaPorNome(areas, registro.lote));
+}
+
+function obterLoteExibicao(registro, areas) {
+  if (lotePareceSerArea(registro, areas)) {
+    return "-";
+  }
+
+  return registro?.lote || "-";
+}
+
+function obterLoteParaEdicao(registro, areas) {
+  if (lotePareceSerArea(registro, areas)) {
+    return "";
+  }
+
+  return registro?.lote || "";
+}
+
+function obterCalibreNome(registro) {
+  if (registro?.calibres) {
+    return `${registro.calibres.codigo} — ${registro.calibres.nome}`;
+  }
+
+  if (registro?.calibre_codigo || registro?.calibre_nome) {
+    return `${registro.calibre_codigo || ""} — ${registro.calibre_nome || ""}`;
+  }
+
+  return "-";
+}
+
+function obterCalibreId(registro) {
+  return registro?.calibre_id || registro?.calibres?.id || "";
+}
+
+function obterResponsavelNome(registro) {
+  return registro?.responsaveis?.nome || registro?.responsavel_nome || "-";
+}
+
+function obterResponsavelId(registro) {
+  return registro?.responsavel_id || registro?.responsaveis?.id || "";
+}
+
+function obterValorOrdenacao(registro, campo, areas) {
+  switch (campo) {
+    case "data_classificacao":
+      return registro.data_classificacao || "";
+
+    case "hora":
+      return registro.hora || "";
+
+    case "fazenda":
+      return obterFazendaNome(registro);
+
+    case "area":
+      return obterAreaNome(registro, areas);
+
+    case "lote":
+      return obterLoteExibicao(registro, areas);
+
+    case "calibre":
+      return obterCalibreNome(registro);
+
+    case "quantidade_paletes":
+      return numero(registro.quantidade_paletes);
+
+    case "caixas_por_palete":
+      return numero(registro.caixas_por_palete);
+
+    case "total_caixas":
+      return numero(registro.total_caixas);
+
+    case "conferido":
+      return registro.conferido ? "Conferido" : "Pendente";
+
+    case "responsavel":
+      return obterResponsavelNome(registro);
+
+    default:
+      return "";
+  }
+}
+
+function compararValores(valorA, valorB) {
+  if (typeof valorA === "number" && typeof valorB === "number") {
+    return valorA - valorB;
+  }
+
+  return String(valorA || "").localeCompare(String(valorB || ""), "pt-BR", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
+  const ativo = ordenacao.campo === campo;
+  const direcao = ordenacao.direcao;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOrdenar(campo)}
+      className="
+        inline-flex
+        items-center
+        gap-1.5
+        rounded-lg
+        text-left
+        font-black
+        uppercase
+        tracking-wide
+        text-[var(--color-text-muted)]
+        transition
+        hover:text-[var(--color-green-primary)]
+      "
+      title={`Ordenar por ${label}`}
+    >
+      <span>{label}</span>
+
+      {!ativo && <ArrowUpDown size={14} />}
+      {ativo && direcao === "asc" && <ArrowUp size={14} />}
+      {ativo && direcao === "desc" && <ArrowDown size={14} />}
+    </button>
+  );
+}
+
 const FORM_INICIAL = {
   data_classificacao: "",
   hora: "",
   fazenda_id: "",
+  area_fazenda_id: "",
   lote: "",
   calibre_id: "",
   quantidade_paletes: "",
@@ -78,8 +344,19 @@ const FORM_INICIAL = {
   observacao: "",
 };
 
+const FILTROS_INICIAIS = {
+  dataInicial: "",
+  dataFinal: "",
+  fazendaId: "",
+  areaId: "",
+  calibreId: "",
+  status: "todos",
+  responsavelId: "",
+};
+
 function AlhoClassificado() {
   const [fazendas, setFazendas] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [calibres, setCalibres] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
   const [classificacoes, setClassificacoes] = useState([]);
@@ -90,7 +367,18 @@ function AlhoClassificado() {
     hora: obterHoraAtual(),
   });
 
+  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
+
+  const [modalFormularioAberta, setModalFormularioAberta] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
+
+  const [registroParaExcluir, setRegistroParaExcluir] = useState(null);
+  const [excluindoId, setExcluindoId] = useState(null);
+
+  const [ordenacao, setOrdenacao] = useState({
+    campo: "data_classificacao",
+    direcao: "desc",
+  });
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -117,9 +405,53 @@ function AlhoClassificado() {
     totalAutomatico,
   ]);
 
+  const classificacoesFiltradas = useMemo(() => {
+    return classificacoes.filter((registro) => {
+      const data = registro.data_classificacao || "";
+      const fazendaId = obterFazendaId(registro);
+      const areaId = obterAreaId(registro, areas);
+      const calibreId = obterCalibreId(registro);
+      const responsavelId = obterResponsavelId(registro);
+
+      if (filtros.dataInicial && data < filtros.dataInicial) return false;
+      if (filtros.dataFinal && data > filtros.dataFinal) return false;
+      if (filtros.fazendaId && fazendaId !== filtros.fazendaId) return false;
+      if (filtros.areaId && areaId !== filtros.areaId) return false;
+      if (filtros.calibreId && calibreId !== filtros.calibreId) return false;
+
+      if (filtros.responsavelId && responsavelId !== filtros.responsavelId) {
+        return false;
+      }
+
+      if (filtros.status === "conferido" && !registro.conferido) {
+        return false;
+      }
+
+      if (filtros.status === "pendente" && registro.conferido) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [classificacoes, filtros, areas]);
+
+  const classificacoesOrdenadas = useMemo(() => {
+    const lista = [...classificacoesFiltradas];
+
+    lista.sort((a, b) => {
+      const valorA = obterValorOrdenacao(a, ordenacao.campo, areas);
+      const valorB = obterValorOrdenacao(b, ordenacao.campo, areas);
+      const resultado = compararValores(valorA, valorB);
+
+      return ordenacao.direcao === "asc" ? resultado : resultado * -1;
+    });
+
+    return lista;
+  }, [classificacoesFiltradas, ordenacao, areas]);
+
   const resumo = useMemo(() => {
-    return calcularResumoAlhoClassificado(classificacoes);
-  }, [classificacoes]);
+    return calcularResumoAlhoClassificado(classificacoesFiltradas);
+  }, [classificacoesFiltradas]);
 
   const fazendaOptions = useMemo(() => {
     return fazendas.map((fazenda) => ({
@@ -127,6 +459,44 @@ function AlhoClassificado() {
       label: fazenda.nome,
     }));
   }, [fazendas]);
+
+  const areasFormulario = useMemo(() => {
+    if (!form.fazenda_id) {
+      return areas;
+    }
+
+    const areasDaFazenda = areas.filter((area) =>
+      areaPertenceFazenda(area, form.fazenda_id)
+    );
+
+    return areasDaFazenda.length > 0 ? areasDaFazenda : areas;
+  }, [areas, form.fazenda_id]);
+
+  const areasFiltro = useMemo(() => {
+    if (!filtros.fazendaId) {
+      return areas;
+    }
+
+    const areasDaFazenda = areas.filter((area) =>
+      areaPertenceFazenda(area, filtros.fazendaId)
+    );
+
+    return areasDaFazenda.length > 0 ? areasDaFazenda : areas;
+  }, [areas, filtros.fazendaId]);
+
+  const areaOptionsFormulario = useMemo(() => {
+    return areasFormulario.map((area) => ({
+      value: area.id,
+      label: area.nome,
+    }));
+  }, [areasFormulario]);
+
+  const areaOptionsFiltro = useMemo(() => {
+    return areasFiltro.map((area) => ({
+      value: area.id,
+      label: area.nome,
+    }));
+  }, [areasFiltro]);
 
   const calibreOptions = useMemo(() => {
     return calibres.map((calibre) => ({
@@ -142,25 +512,31 @@ function AlhoClassificado() {
     }));
   }, [responsaveis]);
 
-  async function carregarDados() {
+  async function carregarDados(limparMensagens = true) {
     try {
       setCarregando(true);
-      setErro("");
-      setSucesso("");
+
+      if (limparMensagens) {
+        setErro("");
+        setSucesso("");
+      }
 
       const [
         fazendasBanco,
+        areasBanco,
         calibresBanco,
         responsaveisBanco,
         classificacoesBanco,
       ] = await Promise.all([
         listarFazendasAtivas(),
+        listarAreasFazendaAtivas(),
         listarCalibresAtivos(),
         listarResponsaveisAtivos(),
         listarAlhoClassificado(),
       ]);
 
       setFazendas(fazendasBanco || []);
+      setAreas(areasBanco || []);
       setCalibres(calibresBanco || []);
       setResponsaveis(responsaveisBanco || []);
       setClassificacoes(classificacoesBanco || []);
@@ -181,6 +557,25 @@ function AlhoClassificado() {
 
     setErro("");
     setSucesso("");
+
+    if (name === "fazenda_id") {
+      setForm((estadoAtual) => ({
+        ...estadoAtual,
+        fazenda_id: value,
+        area_fazenda_id: "",
+      }));
+
+      return;
+    }
+
+    if (name === "area_fazenda_id") {
+      setForm((estadoAtual) => ({
+        ...estadoAtual,
+        area_fazenda_id: value,
+      }));
+
+      return;
+    }
 
     if (name === "permitir_edicao_total_caixas") {
       setForm((estadoAtual) => {
@@ -219,10 +614,55 @@ function AlhoClassificado() {
     });
   }
 
+  function atualizarFiltro(event) {
+    const { name, value } = event.target;
+
+    setFiltros((estadoAtual) => {
+      if (name === "fazendaId") {
+        return {
+          ...estadoAtual,
+          fazendaId: value,
+          areaId: "",
+        };
+      }
+
+      return {
+        ...estadoAtual,
+        [name]: value,
+      };
+    });
+
+    setErro("");
+    setSucesso("");
+  }
+
+  function limparFiltros() {
+    setFiltros(FILTROS_INICIAIS);
+    setErro("");
+    setSucesso("");
+  }
+
+  function alterarOrdenacao(campo) {
+    setOrdenacao((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: "asc",
+      };
+    });
+  }
+
   function validarFormulario() {
     if (!form.data_classificacao) return "Informe a data de classificação.";
     if (!form.hora) return "Informe a hora.";
     if (!form.fazenda_id) return "Selecione a fazenda.";
+    if (!form.area_fazenda_id) return "Selecione a Área / Pivô.";
     if (!form.calibre_id) return "Selecione o calibre.";
     if (!form.quantidade_paletes) return "Informe a quantidade de paletes.";
     if (!form.caixas_por_palete) return "Informe as caixas por palete.";
@@ -259,6 +699,20 @@ function AlhoClassificado() {
     });
   }
 
+  function abrirNovoLancamento() {
+    limparFormulario();
+    setErro("");
+    setSucesso("");
+    setModalFormularioAberta(true);
+  }
+
+  function fecharModalFormulario() {
+    if (salvando) return;
+
+    setModalFormularioAberta(false);
+    limparFormulario();
+  }
+
   async function salvarRegistro(event) {
     event.preventDefault();
 
@@ -276,7 +730,14 @@ function AlhoClassificado() {
       setSalvando(true);
 
       const payload = {
-        ...form,
+        data_classificacao: form.data_classificacao,
+        hora: form.hora,
+        fazenda_id: form.fazenda_id,
+        area_fazenda_id: form.area_fazenda_id,
+        lote: form.lote,
+        calibre_id: form.calibre_id,
+        quantidade_paletes: form.quantidade_paletes,
+        caixas_por_palete: form.caixas_por_palete,
         permitir_edicao_total_caixas: Boolean(
           form.permitir_edicao_total_caixas
         ),
@@ -284,6 +745,8 @@ function AlhoClassificado() {
           ? form.total_caixas_manual
           : null,
         conferido: form.conferido === "true",
+        responsavel_id: form.responsavel_id,
+        observacao: form.observacao,
       };
 
       if (editandoId) {
@@ -294,8 +757,10 @@ function AlhoClassificado() {
         setSucesso("Classificação cadastrada com sucesso.");
       }
 
+      setModalFormularioAberta(false);
       limparFormulario();
-      await carregarDados();
+
+      await carregarDados(false);
     } catch (error) {
       console.error("Erro ao salvar classificação:", error);
       setErro(error.message || "Não foi possível salvar a classificação.");
@@ -310,9 +775,10 @@ function AlhoClassificado() {
     setForm({
       data_classificacao: registro.data_classificacao || obterDataAtual(),
       hora: registro.hora ? String(registro.hora).slice(0, 5) : obterHoraAtual(),
-      fazenda_id: registro.fazenda_id || "",
-      lote: registro.lote || "",
-      calibre_id: registro.calibre_id || "",
+      fazenda_id: obterFazendaId(registro),
+      area_fazenda_id: obterAreaId(registro, areas),
+      lote: obterLoteParaEdicao(registro, areas),
+      calibre_id: obterCalibreId(registro),
       quantidade_paletes: String(registro.quantidade_paletes || ""),
       caixas_por_palete: String(registro.caixas_por_palete || ""),
       permitir_edicao_total_caixas: Boolean(
@@ -322,64 +788,186 @@ function AlhoClassificado() {
         ? String(registro.total_caixas_manual || registro.total_caixas || "")
         : "",
       conferido: registro.conferido ? "true" : "false",
-      responsavel_id: registro.responsavel_id || "",
+      responsavel_id: obterResponsavelId(registro),
       observacao: registro.observacao || "",
     });
 
     setErro("");
     setSucesso("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setModalFormularioAberta(true);
   }
 
   function cancelarEdicao() {
     limparFormulario();
     setErro("");
     setSucesso("");
+    setModalFormularioAberta(false);
+  }
+
+  function solicitarExclusao(registro) {
+    if (!registro?.id) {
+      setErro("Não foi possível identificar o registro para exclusão.");
+      return;
+    }
+
+    setRegistroParaExcluir(registro);
+    setErro("");
+    setSucesso("");
+  }
+
+  function cancelarExclusao() {
+    if (excluindoId) return;
+
+    setRegistroParaExcluir(null);
+  }
+
+  async function confirmarExclusao() {
+    if (!registroParaExcluir?.id) return;
+
+    try {
+      setErro("");
+      setSucesso("");
+      setExcluindoId(registroParaExcluir.id);
+
+      const { error } = await supabase
+        .from("alho_classificado")
+        .delete()
+        .eq("id", registroParaExcluir.id);
+
+      if (error) {
+        throw error;
+      }
+
+      if (editandoId === registroParaExcluir.id) {
+        cancelarEdicao();
+      }
+
+      setRegistroParaExcluir(null);
+      setSucesso("Classificação excluída com sucesso.");
+
+      await carregarDados(false);
+    } catch (error) {
+      console.error("Erro ao excluir classificação:", error);
+
+      if (error.code === "23503") {
+        setErro(
+          "Esta classificação já está vinculada a outro lançamento. Não foi possível excluir."
+        );
+      } else {
+        setErro(error.message || "Não foi possível excluir a classificação.");
+      }
+    } finally {
+      setExcluindoId(null);
+    }
   }
 
   const columns = [
     {
       key: "data_classificacao",
-      label: "Data",
+      label: (
+        <CabecalhoOrdenavel
+          label="Data"
+          campo="data_classificacao"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarData(value),
     },
     {
       key: "hora",
-      label: "Hora",
+      label: (
+        <CabecalhoOrdenavel
+          label="Hora"
+          campo="hora"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarHora(value),
     },
     {
       key: "fazendas",
-      label: "Fazenda",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Fazenda"
+          campo="fazenda"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterFazendaNome(row),
+    },
+    {
+      key: "areas_fazenda",
+      label: (
+        <CabecalhoOrdenavel
+          label="Área / Pivô"
+          campo="area"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterAreaNome(row, areas),
     },
     {
       key: "lote",
-      label: "Lote",
-      render: (value) => value || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Lote"
+          campo="lote"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterLoteExibicao(row, areas),
     },
     {
       key: "calibres",
-      label: "Calibre",
-      render: (value) => (value ? `${value.codigo} — ${value.nome}` : "-"),
+      label: (
+        <CabecalhoOrdenavel
+          label="Calibre"
+          campo="calibre"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterCalibreNome(row),
     },
     {
       key: "quantidade_paletes",
-      label: "Paletes",
+      label: (
+        <CabecalhoOrdenavel
+          label="Paletes"
+          campo="quantidade_paletes"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarNumero(value),
     },
     {
       key: "caixas_por_palete",
-      label: "Caixas por palete",
+      label: (
+        <CabecalhoOrdenavel
+          label="Caixas por palete"
+          campo="caixas_por_palete"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarNumero(value),
     },
     {
       key: "total_caixas",
-      label: "Total de caixas",
+      label: (
+        <CabecalhoOrdenavel
+          label="Total de caixas"
+          campo="total_caixas"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value, row) => (
         <div>
           <p className="font-black text-[var(--color-text-primary)]">
@@ -396,7 +984,14 @@ function AlhoClassificado() {
     },
     {
       key: "conferido",
-      label: "Status",
+      label: (
+        <CabecalhoOrdenavel
+          label="Status"
+          campo="conferido"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) =>
         value ? (
           <Badge variant="success">Conferido</Badge>
@@ -406,8 +1001,15 @@ function AlhoClassificado() {
     },
     {
       key: "responsaveis",
-      label: "Responsável",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Responsável"
+          campo="responsavel"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterResponsavelNome(row),
     },
     {
       key: "acoes",
@@ -418,11 +1020,22 @@ function AlhoClassificado() {
             type="button"
             size="sm"
             variant="secondary"
-            disabled={salvando}
+            disabled={salvando || Boolean(excluindoId)}
             onClick={() => iniciarEdicao(row)}
           >
             <Edit size={16} />
             Editar
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            disabled={salvando || excluindoId === row.id}
+            onClick={() => solicitarExclusao(row)}
+          >
+            <Trash2 size={16} />
+            {excluindoId === row.id ? "Excluindo..." : "Excluir"}
           </Button>
         </div>
       ),
@@ -431,56 +1044,132 @@ function AlhoClassificado() {
 
   return (
     <div className="space-y-8">
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <KpiCard
-          title="Classificações"
-          value={formatarNumero(resumo.totalRegistros)}
-          description="Registros cadastrados"
-          icon={Layers}
-          variant="info"
-        />
+      {registroParaExcluir && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600">
+                  <Trash2 size={24} />
+                </div>
 
-        <KpiCard
-          title="Paletes"
-          value={formatarNumero(resumo.totalPaletes)}
-          description="Total classificado"
-          icon={PackageCheck}
-          variant="success"
-        />
+                <div>
+                  <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                    Excluir alho classificado?
+                  </h3>
 
-        <KpiCard
-          title="Caixas"
-          value={formatarNumero(resumo.totalCaixas)}
-          description="Total final classificado"
-          icon={CheckCircle}
-          variant="success"
-        />
-      </section>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
+                    Essa ação remove o lançamento selecionado da classificação.
+                    Essa exclusão não pode ser desfeita.
+                  </p>
+                </div>
+              </div>
 
-      {erro && <AlertBox variant="danger" title="Atenção" description={erro} />}
+              <button
+                type="button"
+                disabled={Boolean(excluindoId)}
+                onClick={cancelarExclusao}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-      {sucesso && (
-        <AlertBox
-          variant="success"
-          title="Operação concluída"
-          description={sucesso}
-        />
+            <div className="p-6">
+              <div className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-5 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Data
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarData(registroParaExcluir.data_classificacao)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Fazenda
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterFazendaNome(registroParaExcluir)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Área / Pivô
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterAreaNome(registroParaExcluir, areas)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Lote
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterLoteExibicao(registroParaExcluir, areas)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Calibre
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterCalibreNome(registroParaExcluir)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Total de caixas
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarNumero(registroParaExcluir.total_caixas)} caixas
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={Boolean(excluindoId)}
+                  onClick={cancelarExclusao}
+                >
+                  Cancelar
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={Boolean(excluindoId)}
+                  onClick={confirmarExclusao}
+                >
+                  <Trash2 size={16} />
+                  {excluindoId ? "Excluindo..." : "Confirmar exclusão"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
-              {editandoId ? "Editar alho classificado" : "Novo alho classificado"}
-            </h3>
-
-            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-              Lance a classificação por calibre.
-            </p>
+      <LancamentoModal
+        open={modalFormularioAberta}
+        title={editandoId ? "Editar alho classificado" : "Novo alho classificado"}
+        description="Lance a classificação por fazenda, área, calibre e quantidade."
+        badge={editandoId ? <Badge variant="warning">Editando</Badge> : null}
+        disabled={salvando}
+        onClose={fecharModalFormulario}
+      >
+        {erro && (
+          <div className="mb-5">
+            <AlertBox variant="danger" title="Atenção" description={erro} />
           </div>
-
-          {editandoId && <Badge variant="warning">Editando</Badge>}
-        </div>
+        )}
 
         <form onSubmit={salvarRegistro}>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -507,6 +1196,19 @@ function AlhoClassificado() {
               onChange={atualizarCampo}
               options={fazendaOptions}
               placeholder="Selecione a fazenda"
+            />
+
+            <Select
+              label="Área / Pivô"
+              name="area_fazenda_id"
+              value={form.area_fazenda_id}
+              onChange={atualizarCampo}
+              options={areaOptionsFormulario}
+              placeholder={
+                form.fazenda_id
+                  ? "Selecione a Área / Pivô"
+                  : "Selecione a fazenda primeiro"
+              }
             />
 
             <Input
@@ -621,38 +1323,182 @@ function AlhoClassificado() {
                 onClick={cancelarEdicao}
               >
                 <X size={16} />
+                Cancelar edição
+              </Button>
+            )}
+
+            {!editandoId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={salvando}
+                onClick={fecharModalFormulario}
+              >
+                <X size={16} />
                 Cancelar
               </Button>
             )}
 
             <Button type="submit" variant="primary" disabled={salvando}>
               <Save size={16} />
-              {salvando
-                ? "Salvando..."
-                : editandoId
-                  ? "Salvar classificação"
-                  : "Salvar classificação"}
+              {salvando ? "Salvando..." : "Salvar classificação"}
             </Button>
           </div>
         </form>
+      </LancamentoModal>
+
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <KpiCard
+          title="Classificações"
+          value={formatarNumero(resumo.totalRegistros)}
+          description="Registros encontrados"
+          icon={Layers}
+          variant="info"
+        />
+
+        <KpiCard
+          title="Paletes"
+          value={formatarNumero(resumo.totalPaletes)}
+          description="Total filtrado"
+          icon={PackageCheck}
+          variant="success"
+        />
+
+        <KpiCard
+          title="Caixas"
+          value={formatarNumero(resumo.totalCaixas)}
+          description="Total final classificado"
+          icon={CheckCircle}
+          variant="success"
+        />
+      </section>
+
+      {erro && !modalFormularioAberta && (
+        <AlertBox variant="danger" title="Atenção" description={erro} />
+      )}
+
+      {sucesso && (
+        <AlertBox
+          variant="success"
+          title="Operação concluída"
+          description={sucesso}
+        />
+      )}
+
+      <Card>
+        <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
+              <Filter size={22} />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                Filtros da classificação
+              </h3>
+
+              <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
+                Filtre os lançamentos por período, fazenda, área, calibre, status e responsável.
+              </p>
+            </div>
+          </div>
+
+          <Button type="button" variant="primary" onClick={abrirNovoLancamento}>
+            <Plus size={16} />
+            Novo lançamento
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <Input
+            label="Data inicial"
+            name="dataInicial"
+            type="date"
+            value={filtros.dataInicial}
+            onChange={atualizarFiltro}
+          />
+
+          <Input
+            label="Data final"
+            name="dataFinal"
+            type="date"
+            value={filtros.dataFinal}
+            onChange={atualizarFiltro}
+          />
+
+          <Select
+            label="Fazenda"
+            name="fazendaId"
+            value={filtros.fazendaId}
+            onChange={atualizarFiltro}
+            options={fazendaOptions}
+            placeholder="Todas as fazendas"
+          />
+
+          <Select
+            label="Área / Pivô"
+            name="areaId"
+            value={filtros.areaId}
+            onChange={atualizarFiltro}
+            options={areaOptionsFiltro}
+            placeholder="Todas as áreas"
+          />
+
+          <Select
+            label="Calibre"
+            name="calibreId"
+            value={filtros.calibreId}
+            onChange={atualizarFiltro}
+            options={calibreOptions}
+            placeholder="Todos os calibres"
+          />
+
+          <Select
+            label="Status"
+            name="status"
+            value={filtros.status}
+            onChange={atualizarFiltro}
+            options={[
+              { value: "todos", label: "Todos" },
+              { value: "conferido", label: "Conferidos" },
+              { value: "pendente", label: "Pendentes" },
+            ]}
+          />
+
+          <Select
+            label="Responsável"
+            name="responsavelId"
+            value={filtros.responsavelId}
+            onChange={atualizarFiltro}
+            options={responsavelOptions}
+            placeholder="Todos os responsáveis"
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Button type="button" variant="secondary" onClick={limparFiltros}>
+            <X size={16} />
+            Limpar filtros
+          </Button>
+        </div>
       </Card>
 
       <Card>
         <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h3 className="text-xl font-black text-[var(--color-text-primary)]">
-              Classificações recentes
+              Classificações registradas
             </h3>
 
             <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-              Histórico recente de classificações lançadas.
+              Clique no nome de uma coluna para ordenar os lançamentos.
             </p>
           </div>
 
           <Badge variant="info">
             {carregando
               ? "Carregando"
-              : `${formatarNumero(classificacoes.length)} registros`}
+              : `${formatarNumero(classificacoesFiltradas.length)} registros`}
           </Badge>
         </div>
 
@@ -663,8 +1509,8 @@ function AlhoClassificado() {
         ) : (
           <DataTable
             columns={columns}
-            data={classificacoes}
-            emptyMessage="Nenhuma classificação cadastrada."
+            data={classificacoesOrdenadas}
+            emptyMessage="Nenhuma classificação encontrada para os filtros aplicados."
           />
         )}
       </Card>

@@ -1,16 +1,3 @@
-// Tela Consulta Chegada da Fazenda.
-//
-// Etapa 12:
-// - Filtros por período, fazenda, lote, responsável e conferência
-// - Resumo do período
-// - Tabela de recebimentos
-// - Detalhe rápido
-// - Ações visualizar, editar e excluir
-// - Paginação
-//
-// Tudo vem do Supabase.
-// Não usamos dados fictícios.
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -18,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmModal,
   DataTable,
   Input,
   KpiCard,
@@ -26,22 +14,26 @@ import {
 } from "../../components/ui";
 
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle,
-  ClipboardList,
   Eye,
   Package,
   Pencil,
+  Scale,
   Search,
   Trash2,
-  TriangleAlert,
+  Truck,
   X,
 } from "lucide-react";
 
 import { listarFazendasAtivas } from "../../services/fazendasService";
 import { listarResponsaveisAtivos } from "../../services/responsaveisService";
+import { listarAreasFazendaAtivas } from "../../services/areasFazendaService";
 
 import {
-  calcularResumoChegadas,
+  calcularResumoChegadaFazenda,
   editarChegadaFazenda,
   excluirChegadaFazenda,
   listarChegadasFazenda,
@@ -57,14 +49,17 @@ function obterDataAtual() {
 function formatarData(data) {
   if (!data) return "-";
 
-  const [ano, mes, dia] = data.split("-");
+  const [ano, mes, dia] = String(data).split("-");
+
+  if (!ano || !mes || !dia) return "-";
+
   return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora) {
   if (!hora) return "-";
 
-  return hora.slice(0, 5);
+  return String(hora).slice(0, 5);
 }
 
 function formatarNumero(valor) {
@@ -78,10 +73,160 @@ function formatarKg(valor) {
   })} kg`;
 }
 
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function obterFazendaNome(registro) {
+  return registro?.fazendas?.nome || registro?.fazenda_nome || "-";
+}
+
+function obterAreaNome(registro) {
+  return (
+    registro?.areas_fazenda?.nome ||
+    registro?.area_nome ||
+    registro?.area_fazenda_nome ||
+    "-"
+  );
+}
+
+function obterResponsavelNome(registro) {
+  return registro?.responsaveis?.nome || registro?.responsavel_nome || "-";
+}
+
+function obterValorOrdenacao(registro, campo) {
+  switch (campo) {
+    case "data_recebimento":
+      return registro.data_recebimento || "";
+
+    case "hora":
+      return registro.hora || "";
+
+    case "fazenda":
+      return obterFazendaNome(registro);
+
+    case "area":
+      return obterAreaNome(registro);
+
+    case "lote":
+      return registro.lote || "";
+
+    case "quantidade_caixas":
+      return numero(registro.quantidade_caixas);
+
+    case "media_peso_caixa_kg":
+      return numero(registro.media_peso_caixa_kg);
+
+    case "peso_total_estimado_kg":
+      return numero(registro.peso_total_estimado_kg);
+
+    case "conferido":
+      return registro.conferido ? "Conferido" : "Pendente";
+
+    case "responsavel":
+      return obterResponsavelNome(registro);
+
+    case "observacao":
+      return registro.observacao || "";
+
+    default:
+      return "";
+  }
+}
+
+function compararValores(valorA, valorB) {
+  if (typeof valorA === "number" && typeof valorB === "number") {
+    return valorA - valorB;
+  }
+
+  return String(valorA || "").localeCompare(String(valorB || ""), "pt-BR", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
+  const ativo = ordenacao.campo === campo;
+  const direcao = ordenacao.direcao;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOrdenar(campo)}
+      className="
+        inline-flex
+        items-center
+        gap-1.5
+        rounded-lg
+        text-left
+        font-black
+        uppercase
+        tracking-wide
+        text-[var(--color-text-muted)]
+        transition
+        hover:text-[var(--color-green-primary)]
+      "
+      title={`Ordenar por ${label}`}
+    >
+      <span>{label}</span>
+
+      {!ativo && <ArrowUpDown size={14} />}
+
+      {ativo && direcao === "asc" && <ArrowUp size={14} />}
+
+      {ativo && direcao === "desc" && <ArrowDown size={14} />}
+    </button>
+  );
+}
+
+const FILTROS_INICIAIS = {
+  dataInicial: "",
+  dataFinal: "",
+  fazendaId: "",
+  areaFazendaId: "",
+  responsavelId: "",
+  conferido: "todos",
+};
+
+const FORM_EDICAO_INICIAL = {
+  data_recebimento: "",
+  hora: "",
+  fazenda_id: "",
+  area_fazenda_id: "",
+  lote: "",
+  quantidade_caixas: "",
+  media_peso_caixa_kg: "",
+  conferido: "sim",
+  responsavel_id: "",
+  observacao: "",
+};
+
 function ConsultaChegadaFazenda() {
   const [fazendas, setFazendas] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
   const [registros, setRegistros] = useState([]);
+
+  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
+  const [formEdicao, setFormEdicao] = useState(FORM_EDICAO_INICIAL);
+
+  const [detalheSelecionado, setDetalheSelecionado] = useState(null);
+  const [registroEditandoId, setRegistroEditandoId] = useState(null);
+  const [registroParaExcluir, setRegistroParaExcluir] = useState(null);
+
+  const [ordenacao, setOrdenacao] = useState({
+    campo: "data_recebimento",
+    direcao: "desc",
+  });
+
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
 
   const [carregando, setCarregando] = useState(true);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
@@ -90,32 +235,42 @@ function ConsultaChegadaFazenda() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
-  const [detalheSelecionado, setDetalheSelecionado] = useState(null);
-  const [registroEditandoId, setRegistroEditandoId] = useState(null);
+  const resumo = useMemo(() => {
+    return calcularResumoChegadaFazenda(registros);
+  }, [registros]);
 
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const itensPorPagina = 10;
+  const pesoTotalEdicao = useMemo(() => {
+    const caixas = Number(formEdicao.quantidade_caixas || 0);
+    const pesoMedio = Number(formEdicao.media_peso_caixa_kg || 0);
 
-  const [filtros, setFiltros] = useState({
-    dataInicial: "",
-    dataFinal: "",
-    fazendaId: "",
-    lote: "",
-    responsavelId: "",
-    conferido: "todos",
-  });
+    return caixas * pesoMedio;
+  }, [formEdicao.quantidade_caixas, formEdicao.media_peso_caixa_kg]);
 
-  const [formEdicao, setFormEdicao] = useState({
-    data_recebimento: "",
-    hora: "",
-    fazenda_id: "",
-    lote: "",
-    quantidade_caixas: "",
-    media_peso_caixa_kg: "",
-    conferido: "nao",
-    responsavel_id: "",
-    observacao: "",
-  });
+  const registrosOrdenados = useMemo(() => {
+    const lista = [...registros];
+
+    lista.sort((a, b) => {
+      const valorA = obterValorOrdenacao(a, ordenacao.campo);
+      const valorB = obterValorOrdenacao(b, ordenacao.campo);
+
+      const resultado = compararValores(valorA, valorB);
+
+      return ordenacao.direcao === "asc" ? resultado : resultado * -1;
+    });
+
+    return lista;
+  }, [registros, ordenacao]);
+
+  const totalPaginas = useMemo(() => {
+    return Math.max(1, Math.ceil(registrosOrdenados.length / itensPorPagina));
+  }, [registrosOrdenados.length]);
+
+  const registrosPaginados = useMemo(() => {
+    const inicio = (paginaAtual - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+
+    return registrosOrdenados.slice(inicio, fim);
+  }, [registrosOrdenados, paginaAtual]);
 
   const fazendaOptions = useMemo(() => {
     return fazendas.map((fazenda) => ({
@@ -124,6 +279,13 @@ function ConsultaChegadaFazenda() {
     }));
   }, [fazendas]);
 
+  const areaOptions = useMemo(() => {
+    return areas.map((area) => ({
+      value: area.id,
+      label: area.nome,
+    }));
+  }, [areas]);
+
   const responsavelOptions = useMemo(() => {
     return responsaveis.map((responsavel) => ({
       value: responsavel.id,
@@ -131,36 +293,16 @@ function ConsultaChegadaFazenda() {
     }));
   }, [responsaveis]);
 
-  const resumo = useMemo(() => {
-    return calcularResumoChegadas(registros);
-  }, [registros]);
-
-  const totalPaginas = useMemo(() => {
-    return Math.max(1, Math.ceil(registros.length / itensPorPagina));
-  }, [registros.length]);
-
-  const registrosPaginados = useMemo(() => {
-    const inicio = (paginaAtual - 1) * itensPorPagina;
-    const fim = inicio + itensPorPagina;
-
-    return registros.slice(inicio, fim);
-  }, [registros, paginaAtual]);
-
-  const pesoTotalEstimadoEdicao = useMemo(() => {
-    const caixas = Number(formEdicao.quantidade_caixas || 0);
-    const mediaPeso = Number(formEdicao.media_peso_caixa_kg || 0);
-
-    return caixas * mediaPeso;
-  }, [formEdicao.quantidade_caixas, formEdicao.media_peso_caixa_kg]);
-
   async function carregarOpcoes() {
-    const [fazendasBanco, responsaveisBanco] = await Promise.all([
+    const [fazendasBanco, areasBanco, responsaveisBanco] = await Promise.all([
       listarFazendasAtivas(),
+      listarAreasFazendaAtivas(),
       listarResponsaveisAtivos(),
     ]);
 
-    setFazendas(fazendasBanco);
-    setResponsaveis(responsaveisBanco);
+    setFazendas(fazendasBanco || []);
+    setAreas(areasBanco || []);
+    setResponsaveis(responsaveisBanco || []);
   }
 
   function montarFiltrosParaBusca(filtrosAtuais) {
@@ -168,7 +310,7 @@ function ConsultaChegadaFazenda() {
       dataInicial: filtrosAtuais.dataInicial || "",
       dataFinal: filtrosAtuais.dataFinal || "",
       fazendaId: filtrosAtuais.fazendaId || "",
-      lote: filtrosAtuais.lote || "",
+      areaFazendaId: filtrosAtuais.areaFazendaId || "",
       responsavelId: filtrosAtuais.responsavelId || "",
       conferido:
         filtrosAtuais.conferido === "todos" ? "" : filtrosAtuais.conferido,
@@ -181,24 +323,22 @@ function ConsultaChegadaFazenda() {
       setErro("");
       setSucesso("");
 
-      const dados = await listarChegadasFazenda(
+      const registrosBanco = await listarChegadasFazenda(
         montarFiltrosParaBusca(filtrosAtuais)
       );
 
-      setRegistros(dados);
+      setRegistros(registrosBanco || []);
       setPaginaAtual(1);
 
-      if (dados.length === 0) {
+      if ((registrosBanco || []).length === 0) {
         setDetalheSelecionado(null);
       }
-
-      setSucesso("Consulta carregada com dados reais do banco.");
     } catch (error) {
       console.error("Erro ao consultar chegada da fazenda:", error);
 
       setErro(
         error.message ||
-          "Não foi possível consultar os recebimentos. Confira as permissões no Supabase."
+          "Não foi possível consultar as chegadas da fazenda. Confira as permissões no Supabase."
       );
     } finally {
       setCarregando(false);
@@ -212,16 +352,15 @@ function ConsultaChegadaFazenda() {
 
       await carregarOpcoes();
 
-      const dados = await listarChegadasFazenda();
+      const registrosBanco = await listarChegadasFazenda();
 
-      setRegistros(dados);
+      setRegistros(registrosBanco || []);
       setPaginaAtual(1);
     } catch (error) {
-      console.error("Erro ao carregar consulta:", error);
+      console.error("Erro ao carregar consulta de chegada da fazenda:", error);
 
       setErro(
-        error.message ||
-          "Não foi possível carregar a consulta de chegada da fazenda."
+        error.message || "Não foi possível carregar a consulta de chegada."
       );
     } finally {
       setCarregando(false);
@@ -241,6 +380,7 @@ function ConsultaChegadaFazenda() {
     }));
 
     setErro("");
+    setSucesso("");
   }
 
   function aplicarFiltros() {
@@ -257,22 +397,31 @@ function ConsultaChegadaFazenda() {
   }
 
   function limparFiltros() {
-    const filtrosLimpos = {
-      dataInicial: "",
-      dataFinal: "",
-      fazendaId: "",
-      lote: "",
-      responsavelId: "",
-      conferido: "todos",
-    };
-
-    setFiltros(filtrosLimpos);
+    setFiltros(FILTROS_INICIAIS);
     setDetalheSelecionado(null);
     setRegistroEditandoId(null);
     setErro("");
     setSucesso("");
 
-    carregarRegistros(filtrosLimpos);
+    carregarRegistros(FILTROS_INICIAIS);
+  }
+
+  function alterarOrdenacao(campo) {
+    setOrdenacao((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: "asc",
+      };
+    });
+
+    setPaginaAtual(1);
   }
 
   function visualizarRegistro(registro) {
@@ -288,20 +437,21 @@ function ConsultaChegadaFazenda() {
   function iniciarEdicao(registro) {
     setErro("");
     setSucesso("");
+
     setDetalheSelecionado(registro);
     setRegistroEditandoId(registro.id);
 
     setFormEdicao({
       data_recebimento: registro.data_recebimento || obterDataAtual(),
       hora: formatarHora(registro.hora),
-      fazenda_id: registro.fazendas?.id || registro.fazenda_id || "",
+      fazenda_id: registro.fazenda_id || registro.fazendas?.id || "",
+      area_fazenda_id:
+        registro.area_fazenda_id || registro.areas_fazenda?.id || "",
       lote: registro.lote || "",
       quantidade_caixas: String(registro.quantidade_caixas || ""),
-      media_peso_caixa_kg: registro.media_peso_caixa_kg
-        ? String(registro.media_peso_caixa_kg)
-        : "",
+      media_peso_caixa_kg: String(registro.media_peso_caixa_kg || ""),
       conferido: registro.conferido ? "sim" : "nao",
-      responsavel_id: registro.responsaveis?.id || registro.responsavel_id || "",
+      responsavel_id: registro.responsavel_id || registro.responsaveis?.id || "",
       observacao: registro.observacao || "",
     });
 
@@ -313,6 +463,7 @@ function ConsultaChegadaFazenda() {
 
   function cancelarEdicao() {
     setRegistroEditandoId(null);
+    setFormEdicao(FORM_EDICAO_INICIAL);
   }
 
   function atualizarFormEdicao(event) {
@@ -324,11 +475,12 @@ function ConsultaChegadaFazenda() {
     }));
 
     setErro("");
+    setSucesso("");
   }
 
   function validarEdicao() {
     if (!formEdicao.data_recebimento) {
-      return "Informe a data do recebimento.";
+      return "Informe a data de recebimento.";
     }
 
     if (!formEdicao.hora) {
@@ -336,22 +488,31 @@ function ConsultaChegadaFazenda() {
     }
 
     if (!formEdicao.fazenda_id) {
-      return "Selecione a fazenda/origem.";
+      return "Selecione a fazenda.";
+    }
+
+    if (!formEdicao.area_fazenda_id) {
+      return "Selecione a Área / Pivô.";
     }
 
     if (!formEdicao.quantidade_caixas) {
-      return "Informe a quantidade de caixas recebidas.";
+      return "Informe a quantidade de caixas.";
     }
 
     if (Number(formEdicao.quantidade_caixas) <= 0) {
       return "A quantidade de caixas precisa ser maior que zero.";
     }
 
-    if (
-      formEdicao.media_peso_caixa_kg &&
-      Number(formEdicao.media_peso_caixa_kg) <= 0
-    ) {
-      return "A média de peso da caixa precisa ser maior que zero.";
+    if (!formEdicao.media_peso_caixa_kg) {
+      return "Informe o peso médio por caixa.";
+    }
+
+    if (Number(formEdicao.media_peso_caixa_kg) <= 0) {
+      return "O peso médio por caixa precisa ser maior que zero.";
+    }
+
+    if (!formEdicao.responsavel_id) {
+      return "Selecione o responsável.";
     }
 
     return "";
@@ -373,61 +534,67 @@ function ConsultaChegadaFazenda() {
 
       setSalvandoEdicao(true);
 
-      const payload = {
+      await editarChegadaFazenda(registroEditandoId, {
         ...formEdicao,
         conferido: formEdicao.conferido === "sim",
-      };
+      });
 
-      await editarChegadaFazenda(registroEditandoId, payload);
-
-      setSucesso("Recebimento atualizado com sucesso.");
+      setSucesso("Chegada da fazenda atualizada com sucesso.");
       setRegistroEditandoId(null);
+      setFormEdicao(FORM_EDICAO_INICIAL);
 
       await carregarRegistros(filtros);
     } catch (error) {
-      console.error("Erro ao editar recebimento:", error);
+      console.error("Erro ao editar chegada da fazenda:", error);
 
-      setErro(error.message || "Não foi possível editar o recebimento.");
+      setErro(error.message || "Não foi possível editar a chegada da fazenda.");
     } finally {
       setSalvandoEdicao(false);
     }
   }
 
-  async function excluirRegistro(registro) {
-    const confirmar = window.confirm(
-      `Tem certeza que deseja excluir este recebimento?\n\nData: ${formatarData(
-        registro.data_recebimento
-      )}\nFazenda: ${registro.fazendas?.nome || "-"}\nCaixas: ${formatarNumero(
-        registro.quantidade_caixas
-      )}\n\nEssa ação apaga o registro do banco.`
-    );
+  function solicitarExclusao(registro) {
+    setRegistroParaExcluir(registro);
+    setErro("");
+    setSucesso("");
+  }
 
-    if (!confirmar) {
+  function cancelarExclusao() {
+    if (excluindoId) {
+      return;
+    }
+
+    setRegistroParaExcluir(null);
+  }
+
+  async function confirmarExclusao() {
+    if (!registroParaExcluir) {
       return;
     }
 
     try {
       setErro("");
       setSucesso("");
-      setExcluindoId(registro.id);
+      setExcluindoId(registroParaExcluir.id);
 
-      await excluirChegadaFazenda(registro.id);
+      await excluirChegadaFazenda(registroParaExcluir.id);
 
-      if (detalheSelecionado?.id === registro.id) {
+      if (detalheSelecionado?.id === registroParaExcluir.id) {
         setDetalheSelecionado(null);
       }
 
-      if (registroEditandoId === registro.id) {
+      if (registroEditandoId === registroParaExcluir.id) {
         setRegistroEditandoId(null);
       }
 
-      setSucesso("Recebimento excluído com sucesso.");
+      setRegistroParaExcluir(null);
+      setSucesso("Chegada da fazenda excluída com sucesso.");
 
       await carregarRegistros(filtros);
     } catch (error) {
-      console.error("Erro ao excluir recebimento:", error);
+      console.error("Erro ao excluir chegada da fazenda:", error);
 
-      setErro(error.message || "Não foi possível excluir o recebimento.");
+      setErro(error.message || "Não foi possível excluir a chegada da fazenda.");
     } finally {
       setExcluindoId(null);
     }
@@ -444,47 +611,139 @@ function ConsultaChegadaFazenda() {
   const columns = [
     {
       key: "data_recebimento",
-      label: "Data",
+      label: (
+        <CabecalhoOrdenavel
+          label="Data"
+          campo="data_recebimento"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarData(value),
     },
     {
       key: "hora",
-      label: "Hora",
+      label: (
+        <CabecalhoOrdenavel
+          label="Hora"
+          campo="hora"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarHora(value),
     },
     {
       key: "fazendas",
-      label: "Fazenda / Origem",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Fazenda"
+          campo="fazenda"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterFazendaNome(row),
+    },
+    {
+      key: "areas_fazenda",
+      label: (
+        <CabecalhoOrdenavel
+          label="Área / Pivô"
+          campo="area"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterAreaNome(row),
     },
     {
       key: "lote",
-      label: "Lote",
+      label: (
+        <CabecalhoOrdenavel
+          label="Lote / Carga"
+          campo="lote"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => value || "-",
     },
     {
       key: "quantidade_caixas",
-      label: "Caixas recebidas",
+      label: (
+        <CabecalhoOrdenavel
+          label="Caixas"
+          campo="quantidade_caixas"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => `${formatarNumero(value)} caixas`,
     },
     {
+      key: "media_peso_caixa_kg",
+      label: (
+        <CabecalhoOrdenavel
+          label="Peso médio"
+          campo="media_peso_caixa_kg"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (value) => formatarKg(value),
+    },
+    {
+      key: "peso_total_estimado_kg",
+      label: (
+        <CabecalhoOrdenavel
+          label="Peso estimado"
+          campo="peso_total_estimado_kg"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (value) => formatarKg(value),
+    },
+    {
       key: "conferido",
-      label: "Conferido",
+      label: (
+        <CabecalhoOrdenavel
+          label="Status"
+          campo="conferido"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) =>
         value ? (
-          <Badge variant="success">Sim</Badge>
+          <Badge variant="success">Conferido</Badge>
         ) : (
-          <Badge variant="warning">Não</Badge>
+          <Badge variant="warning">Pendente</Badge>
         ),
     },
     {
       key: "responsaveis",
-      label: "Responsável",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Responsável"
+          campo="responsavel"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterResponsavelNome(row),
     },
     {
       key: "observacao",
-      label: "Observação",
+      label: (
+        <CabecalhoOrdenavel
+          label="Observação"
+          campo="observacao"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => value || "-",
     },
     {
@@ -496,6 +755,7 @@ function ConsultaChegadaFazenda() {
             type="button"
             variant="secondary"
             size="sm"
+            disabled={salvandoEdicao || excluindoId === row.id}
             onClick={() => visualizarRegistro(row)}
           >
             <Eye size={16} />
@@ -518,7 +778,7 @@ function ConsultaChegadaFazenda() {
             variant="danger"
             size="sm"
             disabled={salvandoEdicao || excluindoId === row.id}
-            onClick={() => excluirRegistro(row)}
+            onClick={() => solicitarExclusao(row)}
           >
             <Trash2 size={16} />
             {excluindoId === row.id ? "Excluindo..." : "Excluir"}
@@ -530,12 +790,83 @@ function ConsultaChegadaFazenda() {
 
   return (
     <div className="space-y-8">
+      <ConfirmModal
+        open={Boolean(registroParaExcluir)}
+        title="Excluir chegada da fazenda?"
+        description="Essa ação remove o lançamento selecionado do histórico de chegada. Essa exclusão não pode ser desfeita."
+        confirmLabel="Confirmar exclusão"
+        cancelLabel="Cancelar"
+        variant="danger"
+        loading={Boolean(excluindoId)}
+        onCancel={cancelarExclusao}
+        onConfirm={confirmarExclusao}
+        details={
+          registroParaExcluir ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Data
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarData(registroParaExcluir.data_recebimento)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Fazenda
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {obterFazendaNome(registroParaExcluir)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Área / Pivô
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {obterAreaNome(registroParaExcluir)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Lote / Carga
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {registroParaExcluir.lote || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Quantidade
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarNumero(registroParaExcluir.quantidade_caixas)} caixas
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  Peso estimado
+                </p>
+                <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  {formatarKg(registroParaExcluir.peso_total_estimado_kg)}
+                </p>
+              </div>
+            </div>
+          ) : null
+        }
+      />
+
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Recebimentos"
           value={formatarNumero(resumo.totalRegistros)}
-          description="Registros no período"
-          icon={ClipboardList}
+          description="Registros encontrados"
+          icon={Truck}
           variant="info"
         />
 
@@ -548,29 +879,23 @@ function ConsultaChegadaFazenda() {
         />
 
         <KpiCard
-          title="Conferidos"
-          value={formatarNumero(resumo.totalConferidos)}
-          description="Registros conferidos"
-          icon={CheckCircle}
+          title="Peso estimado"
+          value={formatarKg(resumo.pesoTotalEstimadoKg)}
+          description="Peso total filtrado"
+          icon={Scale}
           variant="success"
         />
 
         <KpiCard
-          title="Pendentes"
-          value={formatarNumero(resumo.totalPendentes)}
-          description="Aguardando conferência"
-          icon={TriangleAlert}
-          variant={resumo.totalPendentes > 0 ? "warning" : "success"}
+          title="Conferidos"
+          value={formatarNumero(resumo.conferidos)}
+          description={`${formatarNumero(resumo.pendentes)} pendentes`}
+          icon={CheckCircle}
+          variant="info"
         />
       </section>
 
-      {erro && (
-        <AlertBox
-          variant="danger"
-          title="Atenção"
-          description={erro}
-        />
-      )}
+      {erro && <AlertBox variant="danger" title="Atenção" description={erro} />}
 
       {sucesso && (
         <AlertBox
@@ -592,7 +917,8 @@ function ConsultaChegadaFazenda() {
             </h3>
 
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Filtre os recebimentos por período, origem, lote, responsável e conferência.
+              Filtre as chegadas por período, fazenda, Área / Pivô, responsável
+              e status.
             </p>
           </div>
         </div>
@@ -615,20 +941,21 @@ function ConsultaChegadaFazenda() {
           />
 
           <Select
-            label="Fazenda / Origem"
+            label="Fazenda"
             name="fazendaId"
             value={filtros.fazendaId}
             onChange={atualizarFiltro}
             options={fazendaOptions}
-            placeholder="Todas as origens"
+            placeholder="Todas as fazendas"
           />
 
-          <Input
-            label="Lote / Carga"
-            name="lote"
-            value={filtros.lote}
+          <Select
+            label="Área / Pivô"
+            name="areaFazendaId"
+            value={filtros.areaFazendaId}
             onChange={atualizarFiltro}
-            placeholder="Buscar por lote/carga"
+            options={areaOptions}
+            placeholder="Todas as áreas"
           />
 
           <Select
@@ -641,7 +968,7 @@ function ConsultaChegadaFazenda() {
           />
 
           <Select
-            label="Status da conferência"
+            label="Status"
             name="conferido"
             value={filtros.conferido}
             onChange={atualizarFiltro}
@@ -669,11 +996,11 @@ function ConsultaChegadaFazenda() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-                Detalhe rápido do recebimento
+                Detalhe rápido da chegada
               </h3>
 
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Visualização rápida do registro selecionado.
+                Visualização rápida do lançamento selecionado.
               </p>
             </div>
 
@@ -690,17 +1017,29 @@ function ConsultaChegadaFazenda() {
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
-                Fazenda selecionada
+                Fazenda
               </p>
+
               <p className="mt-1 font-bold text-[var(--color-text-primary)]">
-                {detalheSelecionado.fazendas?.nome || "-"}
+                {obterFazendaNome(detalheSelecionado)}
               </p>
             </div>
 
             <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
-                Lote
+                Área / Pivô
               </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {obterAreaNome(detalheSelecionado)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Lote / Carga
+              </p>
+
               <p className="mt-1 font-bold text-[var(--color-text-primary)]">
                 {detalheSelecionado.lote || "-"}
               </p>
@@ -708,8 +1047,9 @@ function ConsultaChegadaFazenda() {
 
             <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
-                Quantidade
+                Caixas recebidas
               </p>
+
               <p className="mt-1 font-bold text-[var(--color-text-primary)]">
                 {formatarNumero(detalheSelecionado.quantidade_caixas)} caixas
               </p>
@@ -717,23 +1057,11 @@ function ConsultaChegadaFazenda() {
 
             <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
-                Status
+                Peso médio
               </p>
-              <div className="mt-1">
-                {detalheSelecionado.conferido ? (
-                  <Badge variant="success">Conferido</Badge>
-                ) : (
-                  <Badge variant="warning">Pendente</Badge>
-                )}
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
-                Responsável
-              </p>
               <p className="mt-1 font-bold text-[var(--color-text-primary)]">
-                {detalheSelecionado.responsaveis?.nome || "-"}
+                {formatarKg(detalheSelecionado.media_peso_caixa_kg)}
               </p>
             </div>
 
@@ -741,8 +1069,40 @@ function ConsultaChegadaFazenda() {
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
                 Peso estimado
               </p>
+
               <p className="mt-1 font-bold text-[var(--color-text-primary)]">
                 {formatarKg(detalheSelecionado.peso_total_estimado_kg)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Data e hora
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {formatarData(detalheSelecionado.data_recebimento)} às{" "}
+                {formatarHora(detalheSelecionado.hora)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Responsável
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {obterResponsavelNome(detalheSelecionado)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
+                Status
+              </p>
+
+              <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+                {detalheSelecionado.conferido ? "Conferido" : "Pendente"}
               </p>
             </div>
 
@@ -750,6 +1110,7 @@ function ConsultaChegadaFazenda() {
               <p className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">
                 Observação
               </p>
+
               <p className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
                 {detalheSelecionado.observacao || "-"}
               </p>
@@ -763,11 +1124,11 @@ function ConsultaChegadaFazenda() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-                Editar recebimento
+                Editar chegada da fazenda
               </h3>
 
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Atualize as informações do recebimento selecionado.
+                Atualize os dados do lançamento de chegada.
               </p>
             </div>
 
@@ -777,7 +1138,7 @@ function ConsultaChegadaFazenda() {
           <form onSubmit={salvarEdicao}>
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
               <Input
-                label="Data do recebimento"
+                label="Data de recebimento"
                 name="data_recebimento"
                 type="date"
                 value={formEdicao.data_recebimento}
@@ -793,12 +1154,21 @@ function ConsultaChegadaFazenda() {
               />
 
               <Select
-                label="Fazenda / Origem"
+                label="Fazenda"
                 name="fazenda_id"
                 value={formEdicao.fazenda_id}
                 onChange={atualizarFormEdicao}
                 options={fazendaOptions}
-                placeholder="Selecione a fazenda/origem"
+                placeholder="Selecione a fazenda"
+              />
+
+              <Select
+                label="Área / Pivô"
+                name="area_fazenda_id"
+                value={formEdicao.area_fazenda_id}
+                onChange={atualizarFormEdicao}
+                options={areaOptions}
+                placeholder="Selecione a Área / Pivô"
               />
 
               <Input
@@ -817,7 +1187,7 @@ function ConsultaChegadaFazenda() {
               />
 
               <Input
-                label="Média de peso da caixa kg"
+                label="Peso médio por caixa em kg"
                 name="media_peso_caixa_kg"
                 type="number"
                 value={formEdicao.media_peso_caixa_kg}
@@ -828,18 +1198,18 @@ function ConsultaChegadaFazenda() {
                 label="Peso total estimado"
                 name="peso_total_estimado"
                 type="text"
-                value={formatarKg(pesoTotalEstimadoEdicao)}
+                value={formatarKg(pesoTotalEdicao)}
                 disabled
               />
 
               <Select
-                label="Conferido?"
+                label="Status"
                 name="conferido"
                 value={formEdicao.conferido}
                 onChange={atualizarFormEdicao}
                 options={[
-                  { value: "sim", label: "Sim" },
-                  { value: "nao", label: "Não" },
+                  { value: "sim", label: "Conferido" },
+                  { value: "nao", label: "Pendente" },
                 ]}
               />
 
@@ -889,11 +1259,11 @@ function ConsultaChegadaFazenda() {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              Recebimentos encontrados
+              Chegadas encontradas
             </h3>
 
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Consulta dos recebimentos lançados no banco.
+              Clique no nome de uma coluna para ordenar os lançamentos.
             </p>
           </div>
 
@@ -906,14 +1276,14 @@ function ConsultaChegadaFazenda() {
 
         {carregando ? (
           <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-8 text-center text-sm font-semibold text-[var(--color-text-muted)]">
-            Carregando recebimentos do banco...
+            Carregando chegadas do banco...
           </div>
         ) : (
           <>
             <DataTable
               columns={columns}
               data={registrosPaginados}
-              emptyMessage="Nenhum recebimento encontrado para os filtros aplicados."
+              emptyMessage="Nenhuma chegada encontrada para os filtros aplicados."
             />
 
             <div className="mt-5 flex flex-col items-center justify-between gap-3 md:flex-row">

@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   Card,
-  ConfirmModal,
   DataTable,
   Input,
   KpiCard,
@@ -13,10 +12,17 @@ import {
   Textarea,
 } from "../../components/ui";
 
+import LancamentoModal from "../../components/ui/LancamentoModal";
+
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Edit,
+  Filter,
   MapPinned,
   PackageCheck,
+  Plus,
   Save,
   Scale,
   Trash2,
@@ -73,6 +79,162 @@ function formatarKg(valor) {
   })} kg`;
 }
 
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function obterAreaId(registro) {
+  return (
+    registro?.area_id ||
+    registro?.area_fazenda_id ||
+    registro?.areas_fazenda?.id ||
+    ""
+  );
+}
+
+function obterAreaNome(registro) {
+  return (
+    registro?.areas_fazenda?.nome ||
+    registro?.area_nome ||
+    registro?.area_fazenda_nome ||
+    "-"
+  );
+}
+
+function obterCalibreId(registro) {
+  return registro?.calibre_id || registro?.calibres?.id || "";
+}
+
+function obterCalibreNome(registro) {
+  if (registro?.calibres) {
+    return `${registro.calibres.codigo} — ${registro.calibres.nome}`;
+  }
+
+  if (registro?.calibre_codigo || registro?.calibre_nome) {
+    return `${registro.calibre_codigo || ""} — ${registro.calibre_nome || ""}`;
+  }
+
+  return "-";
+}
+
+function obterResponsavelId(registro) {
+  return registro?.responsavel_id || registro?.responsaveis?.id || "";
+}
+
+function obterResponsavelNome(registro) {
+  return registro?.responsaveis?.nome || registro?.responsavel_nome || "-";
+}
+
+function obterCliente(registro) {
+  return registro?.cliente || "-";
+}
+
+function obterPedido(registro) {
+  return registro?.numero_pedido || "-";
+}
+
+function obterEstoqueAreaId(item) {
+  return item?.area_id || item?.area_fazenda_id || "";
+}
+
+function obterEstoqueCalibreId(item) {
+  return item?.calibre_id || "";
+}
+
+function obterEstoqueCalibreNome(item) {
+  if (item?.calibre_codigo || item?.calibre_nome) {
+    return `${item.calibre_codigo || ""} — ${item.calibre_nome || ""}`;
+  }
+
+  return "-";
+}
+
+function obterValorOrdenacao(registro, campo) {
+  switch (campo) {
+    case "data_saida":
+      return registro.data_saida || "";
+
+    case "hora":
+      return registro.hora || "";
+
+    case "area":
+      return obterAreaNome(registro);
+
+    case "cliente":
+      return obterCliente(registro);
+
+    case "numero_pedido":
+      return obterPedido(registro);
+
+    case "calibre":
+      return obterCalibreNome(registro);
+
+    case "quantidade_caixas":
+      return numero(registro.quantidade_caixas);
+
+    case "peso_total_kg":
+      return numero(registro.peso_total_kg);
+
+    case "responsavel":
+      return obterResponsavelNome(registro);
+
+    case "observacao":
+      return registro.observacao || "";
+
+    default:
+      return "";
+  }
+}
+
+function compararValores(valorA, valorB) {
+  if (typeof valorA === "number" && typeof valorB === "number") {
+    return valorA - valorB;
+  }
+
+  return String(valorA || "").localeCompare(String(valorB || ""), "pt-BR", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
+  const ativo = ordenacao.campo === campo;
+  const direcao = ordenacao.direcao;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOrdenar(campo)}
+      className="
+        inline-flex
+        items-center
+        gap-1.5
+        rounded-lg
+        text-left
+        font-black
+        uppercase
+        tracking-wide
+        text-[var(--color-text-muted)]
+        transition
+        hover:text-[var(--color-green-primary)]
+      "
+      title={`Ordenar por ${label}`}
+    >
+      <span>{label}</span>
+
+      {!ativo && <ArrowUpDown size={14} />}
+      {ativo && direcao === "asc" && <ArrowUp size={14} />}
+      {ativo && direcao === "desc" && <ArrowDown size={14} />}
+    </button>
+  );
+}
+
 const FORM_INICIAL = {
   data_saida: "",
   hora: "",
@@ -85,6 +247,16 @@ const FORM_INICIAL = {
   observacao: "",
 };
 
+const FILTROS_INICIAIS = {
+  dataInicial: "",
+  dataFinal: "",
+  areaId: "",
+  cliente: "",
+  numeroPedido: "",
+  calibreId: "",
+  responsavelId: "",
+};
+
 function SaidaVenda() {
   const [areas, setAreas] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
@@ -93,12 +265,22 @@ function SaidaVenda() {
 
   const [saldoSelecionado, setSaldoSelecionado] = useState(null);
 
+  const [filtros, setFiltros] = useState(FILTROS_INICIAIS);
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [excluindo, setExcluindo] = useState(false);
+  const [excluindoId, setExcluindoId] = useState(null);
 
   const [editandoId, setEditandoId] = useState(null);
+  const [registroOriginal, setRegistroOriginal] = useState(null);
   const [saidaParaExcluir, setSaidaParaExcluir] = useState(null);
+
+  const [modalFormularioAberta, setModalFormularioAberta] = useState(false);
+
+  const [ordenacao, setOrdenacao] = useState({
+    campo: "data_saida",
+    direcao: "desc",
+  });
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -116,20 +298,66 @@ function SaidaVenda() {
     }));
   }, [areas]);
 
-  const calibreOptions = useMemo(() => {
+  const calibreOptionsFormulario = useMemo(() => {
     const mapa = new Map();
 
     estoqueDisponivel
-      .filter((item) => !form.area_id || item.area_id === form.area_id)
+      .filter((item) => {
+        if (!form.area_id) return true;
+        return obterEstoqueAreaId(item) === form.area_id;
+      })
       .forEach((item) => {
-        mapa.set(item.calibre_id, {
-          value: item.calibre_id,
-          label: `${item.calibre_codigo} — ${item.calibre_nome}`,
+        const calibreId = obterEstoqueCalibreId(item);
+
+        if (!calibreId) return;
+
+        mapa.set(calibreId, {
+          value: calibreId,
+          label: obterEstoqueCalibreNome(item),
         });
       });
 
+    if (registroOriginal?.calibres) {
+      const calibreId = obterCalibreId(registroOriginal);
+
+      if (calibreId && !mapa.has(calibreId)) {
+        mapa.set(calibreId, {
+          value: calibreId,
+          label: obterCalibreNome(registroOriginal),
+        });
+      }
+    }
+
     return Array.from(mapa.values());
-  }, [estoqueDisponivel, form.area_id]);
+  }, [estoqueDisponivel, form.area_id, registroOriginal]);
+
+  const calibreOptionsFiltro = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueDisponivel.forEach((item) => {
+      const calibreId = obterEstoqueCalibreId(item);
+
+      if (!calibreId) return;
+
+      mapa.set(calibreId, {
+        value: calibreId,
+        label: obterEstoqueCalibreNome(item),
+      });
+    });
+
+    saidas.forEach((saida) => {
+      const calibreId = obterCalibreId(saida);
+
+      if (!calibreId) return;
+
+      mapa.set(calibreId, {
+        value: calibreId,
+        label: obterCalibreNome(saida),
+      });
+    });
+
+    return Array.from(mapa.values());
+  }, [estoqueDisponivel, saidas]);
 
   const responsavelOptions = useMemo(() => {
     return responsaveis.map((responsavel) => ({
@@ -138,22 +366,116 @@ function SaidaVenda() {
     }));
   }, [responsaveis]);
 
-  const resumo = useMemo(() => {
-    return calcularResumoSaidasVendas(saidas);
-  }, [saidas]);
+  const saldoConsiderado = useMemo(() => {
+    let saldoCaixas = Number(saldoSelecionado?.saldo_disponivel_caixas || 0);
+    let pesoDisponivelKg = Number(saldoSelecionado?.peso_disponivel_kg || 0);
+
+    const mesmoRegistro =
+      registroOriginal &&
+      obterAreaId(registroOriginal) === form.area_id &&
+      obterCalibreId(registroOriginal) === form.calibre_id;
+
+    if (mesmoRegistro) {
+      saldoCaixas += Number(registroOriginal.quantidade_caixas || 0);
+      pesoDisponivelKg += Number(registroOriginal.peso_total_kg || 0);
+    }
+
+    const pesoMedio =
+      saldoCaixas > 0 && pesoDisponivelKg > 0
+        ? pesoDisponivelKg / saldoCaixas
+        : 0;
+
+    return {
+      saldoCaixas,
+      pesoDisponivelKg,
+      pesoMedio,
+    };
+  }, [saldoSelecionado, registroOriginal, form.area_id, form.calibre_id]);
 
   const pesoTotalCalculado = useMemo(() => {
     const quantidade = Number(form.quantidade_caixas || 0);
-    const pesoMedio = Number(saldoSelecionado?.peso_medio_por_caixa_kg || 0);
+    const pesoMedio = Number(saldoConsiderado.pesoMedio || 0);
 
     return quantidade * pesoMedio;
-  }, [form.quantidade_caixas, saldoSelecionado]);
+  }, [form.quantidade_caixas, saldoConsiderado.pesoMedio]);
 
-  async function carregarDados() {
+  const quantidadeMaiorQueSaldo = useMemo(() => {
+    const quantidade = Number(form.quantidade_caixas || 0);
+
+    if (!form.area_id || !form.calibre_id || quantidade <= 0) {
+      return false;
+    }
+
+    return quantidade > Number(saldoConsiderado.saldoCaixas || 0);
+  }, [
+    form.area_id,
+    form.calibre_id,
+    form.quantidade_caixas,
+    saldoConsiderado.saldoCaixas,
+  ]);
+
+  const saidasFiltradas = useMemo(() => {
+    return saidas.filter((registro) => {
+      const data = registro.data_saida || "";
+      const areaId = obterAreaId(registro);
+      const calibreId = obterCalibreId(registro);
+      const responsavelId = obterResponsavelId(registro);
+      const cliente = String(registro.cliente || "").toLowerCase();
+      const pedido = String(registro.numero_pedido || "").toLowerCase();
+
+      if (filtros.dataInicial && data < filtros.dataInicial) return false;
+      if (filtros.dataFinal && data > filtros.dataFinal) return false;
+      if (filtros.areaId && areaId !== filtros.areaId) return false;
+      if (filtros.calibreId && calibreId !== filtros.calibreId) return false;
+
+      if (filtros.responsavelId && responsavelId !== filtros.responsavelId) {
+        return false;
+      }
+
+      if (
+        filtros.cliente &&
+        !cliente.includes(String(filtros.cliente).toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (
+        filtros.numeroPedido &&
+        !pedido.includes(String(filtros.numeroPedido).toLowerCase())
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [saidas, filtros]);
+
+  const saidasOrdenadas = useMemo(() => {
+    const lista = [...saidasFiltradas];
+
+    lista.sort((a, b) => {
+      const valorA = obterValorOrdenacao(a, ordenacao.campo);
+      const valorB = obterValorOrdenacao(b, ordenacao.campo);
+      const resultado = compararValores(valorA, valorB);
+
+      return ordenacao.direcao === "asc" ? resultado : resultado * -1;
+    });
+
+    return lista;
+  }, [saidasFiltradas, ordenacao]);
+
+  const resumo = useMemo(() => {
+    return calcularResumoSaidasVendas(saidasFiltradas);
+  }, [saidasFiltradas]);
+
+  async function carregarDados(limparMensagens = true) {
     try {
       setCarregando(true);
-      setErro("");
-      setSucesso("");
+
+      if (limparMensagens) {
+        setErro("");
+        setSucesso("");
+      }
 
       const [areasBanco, responsaveisBanco, estoqueBanco, saidasBanco] =
         await Promise.all([
@@ -216,7 +538,10 @@ function SaidaVenda() {
         });
 
         setEstoqueDisponivel((estadoAtual) => {
-          const outros = estadoAtual.filter((item) => item.area_id !== value);
+          const outros = estadoAtual.filter(
+            (item) => obterEstoqueAreaId(item) !== value
+          );
+
           return [...outros, ...(estoque || [])];
         });
       } catch (error) {
@@ -245,6 +570,40 @@ function SaidaVenda() {
     }));
   }
 
+  function atualizarFiltro(event) {
+    const { name, value } = event.target;
+
+    setFiltros((estadoAtual) => ({
+      ...estadoAtual,
+      [name]: value,
+    }));
+
+    setErro("");
+    setSucesso("");
+  }
+
+  function limparFiltros() {
+    setFiltros(FILTROS_INICIAIS);
+    setErro("");
+    setSucesso("");
+  }
+
+  function alterarOrdenacao(campo) {
+    setOrdenacao((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: "asc",
+      };
+    });
+  }
+
   function validarFormulario() {
     if (!form.data_saida) return "Informe a data da saída.";
     if (!form.hora) return "Informe a hora.";
@@ -259,17 +618,45 @@ function SaidaVenda() {
 
     if (!form.responsavel_id) return "Selecione o responsável.";
 
-    const saldo = Number(saldoSelecionado?.saldo_disponivel_caixas || 0);
+    const saldo = Number(saldoConsiderado.saldoCaixas || 0);
 
     if (saldo <= 0) {
       return "Não existe saldo disponível para esta Área / Pivô e calibre.";
     }
 
     if (Number(form.quantidade_caixas) > saldo) {
-      return `Estoque insuficiente nesta área. Saldo disponível: ${saldo} caixas.`;
+      return `Estoque insuficiente nesta área. Saldo disponível: ${formatarNumero(
+        saldo
+      )} caixas.`;
     }
 
     return "";
+  }
+
+  function limparFormulario() {
+    setEditandoId(null);
+    setRegistroOriginal(null);
+    setSaldoSelecionado(null);
+
+    setForm({
+      ...FORM_INICIAL,
+      data_saida: obterDataAtual(),
+      hora: obterHoraAtual(),
+    });
+  }
+
+  function abrirNovoLancamento() {
+    limparFormulario();
+    setErro("");
+    setSucesso("");
+    setModalFormularioAberta(true);
+  }
+
+  function fecharModalFormulario() {
+    if (salvando) return;
+
+    setModalFormularioAberta(false);
+    limparFormulario();
   }
 
   async function salvarRegistro(event) {
@@ -288,24 +675,30 @@ function SaidaVenda() {
 
       setSalvando(true);
 
+      const payload = {
+        data_saida: form.data_saida,
+        hora: form.hora,
+        area_id: form.area_id,
+        cliente: form.cliente,
+        numero_pedido: form.numero_pedido,
+        calibre_id: form.calibre_id,
+        quantidade_caixas: form.quantidade_caixas,
+        responsavel_id: form.responsavel_id,
+        observacao: form.observacao,
+      };
+
       if (editandoId) {
-        await editarSaidaVenda(editandoId, form);
+        await editarSaidaVenda(editandoId, payload);
         setSucesso("Saída/Venda atualizada com sucesso.");
       } else {
-        await cadastrarSaidaVenda(form);
+        await cadastrarSaidaVenda(payload);
         setSucesso("Saída/Venda cadastrada com sucesso.");
       }
 
-      setEditandoId(null);
-      setSaldoSelecionado(null);
+      setModalFormularioAberta(false);
+      limparFormulario();
 
-      setForm({
-        ...FORM_INICIAL,
-        data_saida: obterDataAtual(),
-        hora: obterHoraAtual(),
-      });
-
-      await carregarDados();
+      await carregarDados(false);
     } catch (error) {
       console.error("Erro ao salvar saída/venda:", error);
       setErro(error.message || "Não foi possível salvar a saída/venda.");
@@ -316,48 +709,49 @@ function SaidaVenda() {
 
   async function iniciarEdicao(registro) {
     setEditandoId(registro.id);
+    setRegistroOriginal(registro);
 
     const novoForm = {
       data_saida: registro.data_saida || obterDataAtual(),
       hora: registro.hora ? String(registro.hora).slice(0, 5) : obterHoraAtual(),
-      area_id: registro.area_id || "",
+      area_id: obterAreaId(registro),
       cliente: registro.cliente || "",
       numero_pedido: registro.numero_pedido || "",
-      calibre_id: registro.calibre_id || "",
+      calibre_id: obterCalibreId(registro),
       quantidade_caixas: String(registro.quantidade_caixas || ""),
-      responsavel_id: registro.responsavel_id || "",
+      responsavel_id: obterResponsavelId(registro),
       observacao: registro.observacao || "",
     };
 
     setForm(novoForm);
+    setErro("");
+    setSucesso("");
+    setModalFormularioAberta(true);
 
     await atualizarSaldo(novoForm.area_id, novoForm.calibre_id);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
   }
 
   function cancelarEdicao() {
-    setEditandoId(null);
-    setSaldoSelecionado(null);
-
-    setForm({
-      ...FORM_INICIAL,
-      data_saida: obterDataAtual(),
-      hora: obterHoraAtual(),
-    });
+    limparFormulario();
+    setErro("");
+    setSucesso("");
+    setModalFormularioAberta(false);
   }
 
   function abrirModalExcluir(registro) {
+    if (!registro?.id) {
+      setErro("Não foi possível identificar a saída para exclusão.");
+      return;
+    }
+
     setSaidaParaExcluir(registro);
     setErro("");
     setSucesso("");
   }
 
   function fecharModalExcluir() {
-    if (excluindo) return;
+    if (excluindoId) return;
+
     setSaidaParaExcluir(null);
   }
 
@@ -365,73 +759,148 @@ function SaidaVenda() {
     if (!saidaParaExcluir?.id) return;
 
     try {
-      setExcluindo(true);
+      setExcluindoId(saidaParaExcluir.id);
       setErro("");
       setSucesso("");
 
       await excluirSaidaVenda(saidaParaExcluir.id);
-
-      setSucesso("Saída/Venda excluída com sucesso.");
 
       if (editandoId === saidaParaExcluir.id) {
         cancelarEdicao();
       }
 
       setSaidaParaExcluir(null);
+      setSucesso("Saída/Venda excluída com sucesso.");
 
-      await carregarDados();
+      await carregarDados(false);
     } catch (error) {
+      console.error("Erro ao excluir saída/venda:", error);
       setErro(error.message || "Não foi possível excluir a saída/venda.");
     } finally {
-      setExcluindo(false);
+      setExcluindoId(null);
     }
   }
 
   const columns = [
     {
       key: "data_saida",
-      label: "Data",
+      label: (
+        <CabecalhoOrdenavel
+          label="Data"
+          campo="data_saida"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarData(value),
     },
     {
       key: "hora",
-      label: "Hora",
+      label: (
+        <CabecalhoOrdenavel
+          label="Hora"
+          campo="hora"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarHora(value),
     },
     {
       key: "areas_fazenda",
-      label: "Área / Pivô",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Área / Pivô"
+          campo="area"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterAreaNome(row),
     },
     {
       key: "cliente",
-      label: "Cliente",
+      label: (
+        <CabecalhoOrdenavel
+          label="Cliente"
+          campo="cliente"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => value || "-",
     },
     {
       key: "numero_pedido",
-      label: "Pedido/Carga",
+      label: (
+        <CabecalhoOrdenavel
+          label="Pedido / Carga"
+          campo="numero_pedido"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => value || "-",
     },
     {
       key: "calibres",
-      label: "Calibre",
-      render: (value) => (value ? `${value.codigo} — ${value.nome}` : "-"),
+      label: (
+        <CabecalhoOrdenavel
+          label="Calibre"
+          campo="calibre"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterCalibreNome(row),
     },
     {
       key: "quantidade_caixas",
-      label: "Caixas",
+      label: (
+        <CabecalhoOrdenavel
+          label="Caixas"
+          campo="quantidade_caixas"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => `${formatarNumero(value)} caixas`,
     },
     {
       key: "peso_total_kg",
-      label: "Peso",
+      label: (
+        <CabecalhoOrdenavel
+          label="Peso"
+          campo="peso_total_kg"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
       render: (value) => formatarKg(value),
     },
     {
       key: "responsaveis",
-      label: "Responsável",
-      render: (value) => value?.nome || "-",
+      label: (
+        <CabecalhoOrdenavel
+          label="Responsável"
+          campo="responsavel"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (_, row) => obterResponsavelNome(row),
+    },
+    {
+      key: "observacao",
+      label: (
+        <CabecalhoOrdenavel
+          label="Observação"
+          campo="observacao"
+          ordenacao={ordenacao}
+          onOrdenar={alterarOrdenacao}
+        />
+      ),
+      render: (value) => value || "-",
     },
     {
       key: "acoes",
@@ -442,7 +911,7 @@ function SaidaVenda() {
             type="button"
             size="sm"
             variant="secondary"
-            disabled={salvando || excluindo}
+            disabled={salvando || Boolean(excluindoId)}
             onClick={() => iniciarEdicao(row)}
           >
             <Edit size={16} />
@@ -453,11 +922,11 @@ function SaidaVenda() {
             type="button"
             size="sm"
             variant="danger"
-            disabled={salvando || excluindo}
+            disabled={salvando || excluindoId === row.id}
             onClick={() => abrirModalExcluir(row)}
           >
             <Trash2 size={16} />
-            Excluir
+            {excluindoId === row.id ? "Excluindo..." : "Excluir"}
           </Button>
         </div>
       ),
@@ -466,67 +935,144 @@ function SaidaVenda() {
 
   return (
     <div className="space-y-8">
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          title="Saídas"
-          value={formatarNumero(resumo.totalRegistros)}
-          description="Registros cadastrados"
-          icon={Truck}
-          variant="info"
-        />
+      {saidaParaExcluir && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600">
+                  <Trash2 size={24} />
+                </div>
 
-        <KpiCard
-          title="Caixas expedidas"
-          value={formatarNumero(resumo.totalCaixas)}
-          description="Total de caixas"
-          icon={PackageCheck}
-          variant="warning"
-        />
+                <div>
+                  <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                    Excluir saída?
+                  </h3>
 
-        <KpiCard
-          title="Peso expedido"
-          value={formatarKg(resumo.pesoTotalKg)}
-          description="Peso total"
-          icon={Scale}
-          variant="warning"
-        />
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
+                    Essa ação remove a saída selecionada. Ao confirmar, o saldo
+                    disponível volta automaticamente no cálculo do estoque.
+                  </p>
+                </div>
+              </div>
 
-        <KpiCard
-          title="Áreas com saída"
-          value={formatarNumero(resumo.areasComSaida)}
-          description="Áreas movimentadas"
-          icon={MapPinned}
-          variant="info"
-        />
-      </section>
+              <button
+                type="button"
+                disabled={Boolean(excluindoId)}
+                onClick={fecharModalExcluir}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-      {erro && <AlertBox variant="danger" title="Atenção" description={erro} />}
+            <div className="p-6">
+              <div className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-5 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Data
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarData(saidaParaExcluir.data_saida)}
+                  </p>
+                </div>
 
-      {sucesso && (
-        <AlertBox
-          variant="success"
-          title="Operação concluída"
-          description={sucesso}
-        />
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Área / Pivô
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterAreaNome(saidaParaExcluir)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Cliente
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {saidaParaExcluir.cliente || "-"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Pedido / Carga
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {saidaParaExcluir.numero_pedido || "-"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Calibre
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {obterCalibreNome(saidaParaExcluir)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Quantidade
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarNumero(saidaParaExcluir.quantidade_caixas)} caixas
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                    Peso
+                  </p>
+                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                    {formatarKg(saidaParaExcluir.peso_total_kg)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={Boolean(excluindoId)}
+                  onClick={fecharModalExcluir}
+                >
+                  Cancelar
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={Boolean(excluindoId)}
+                  onClick={confirmarExclusao}
+                >
+                  <Trash2 size={16} />
+                  {excluindoId ? "Excluindo..." : "Confirmar exclusão"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
-              {editandoId ? "Editar saída / venda" : "Nova saída / venda"}
-            </h3>
-
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              A saída baixa o estoque da Área / Pivô e calibre selecionados.
-            </p>
+      <LancamentoModal
+        open={modalFormularioAberta}
+        title={editandoId ? "Editar saída / venda" : "Nova saída / venda"}
+        description="A saída baixa o estoque da Área / Pivô e calibre selecionados."
+        badge={editandoId ? <Badge variant="warning">Editando</Badge> : null}
+        disabled={salvando}
+        onClose={fecharModalFormulario}
+      >
+        {erro && (
+          <div className="mb-5">
+            <AlertBox variant="danger" title="Atenção" description={erro} />
           </div>
-
-          {editandoId && <Badge variant="warning">Editando</Badge>}
-        </div>
+        )}
 
         <form onSubmit={salvarRegistro}>
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Input
               label="Data da saída"
               name="data_saida"
@@ -557,7 +1103,7 @@ function SaidaVenda() {
               name="calibre_id"
               value={form.calibre_id}
               onChange={atualizarCampo}
-              options={calibreOptions}
+              options={calibreOptionsFormulario}
               placeholder={
                 form.area_id
                   ? "Selecione o calibre disponível nesta área"
@@ -596,6 +1142,13 @@ function SaidaVenda() {
               disabled
             />
 
+            <Input
+              label="Saldo disponível considerado"
+              name="saldo_disponivel"
+              value={`${formatarNumero(saldoConsiderado.saldoCaixas)} caixas`}
+              disabled
+            />
+
             <Select
               label="Responsável"
               name="responsavel_id"
@@ -608,12 +1161,20 @@ function SaidaVenda() {
             <div className="md:col-span-2">
               {saldoSelecionado ? (
                 <AlertBox
-                  variant="info"
-                  title="Saldo disponível nesta área"
-                  description={`${saldoSelecionado.area_nome} / ${saldoSelecionado.calibre_codigo} — ${saldoSelecionado.calibre_nome}: ${formatarNumero(
-                    saldoSelecionado.saldo_disponivel_caixas
+                  variant={quantidadeMaiorQueSaldo ? "danger" : "info"}
+                  title={
+                    quantidadeMaiorQueSaldo
+                      ? "Estoque insuficiente"
+                      : "Saldo disponível nesta área"
+                  }
+                  description={`${obterAreaNome({
+                    areas_fazenda: { nome: saldoSelecionado.area_nome },
+                  })} / ${saldoSelecionado.calibre_codigo} — ${
+                    saldoSelecionado.calibre_nome
+                  }: ${formatarNumero(
+                    saldoConsiderado.saldoCaixas
                   )} caixas disponíveis (${formatarKg(
-                    saldoSelecionado.peso_disponivel_kg
+                    saldoConsiderado.pesoDisponivelKg
                   )}).`}
                 />
               ) : (
@@ -645,20 +1206,172 @@ function SaidaVenda() {
                 onClick={cancelarEdicao}
               >
                 <X size={16} />
+                Cancelar edição
+              </Button>
+            )}
+
+            {!editandoId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={salvando}
+                onClick={fecharModalFormulario}
+              >
+                <X size={16} />
                 Cancelar
               </Button>
             )}
 
-            <Button type="submit" variant="primary" disabled={salvando}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={salvando || quantidadeMaiorQueSaldo}
+            >
               <Save size={16} />
-              {salvando
-                ? "Salvando..."
-                : editandoId
-                  ? "Salvar alterações"
-                  : "Salvar saída"}
+              {salvando ? "Salvando..." : "Salvar saída"}
             </Button>
           </div>
         </form>
+      </LancamentoModal>
+
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Saídas"
+          value={formatarNumero(resumo.totalRegistros)}
+          description="Registros encontrados"
+          icon={Truck}
+          variant="info"
+        />
+
+        <KpiCard
+          title="Caixas expedidas"
+          value={formatarNumero(resumo.totalCaixas)}
+          description="Total filtrado"
+          icon={PackageCheck}
+          variant="warning"
+        />
+
+        <KpiCard
+          title="Peso expedido"
+          value={formatarKg(resumo.pesoTotalKg)}
+          description="Peso total filtrado"
+          icon={Scale}
+          variant="warning"
+        />
+
+        <KpiCard
+          title="Áreas com saída"
+          value={formatarNumero(resumo.areasComSaida)}
+          description="Áreas movimentadas"
+          icon={MapPinned}
+          variant="info"
+        />
+      </section>
+
+      {erro && !modalFormularioAberta && (
+        <AlertBox variant="danger" title="Atenção" description={erro} />
+      )}
+
+      {sucesso && (
+        <AlertBox
+          variant="success"
+          title="Operação concluída"
+          description={sucesso}
+        />
+      )}
+
+      <Card>
+        <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
+              <Filter size={22} />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-[var(--color-text-primary)]">
+                Filtros de saída
+              </h3>
+
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                Filtre as saídas por período, área, cliente, pedido/carga,
+                calibre e responsável.
+              </p>
+            </div>
+          </div>
+
+          <Button type="button" variant="primary" onClick={abrirNovoLancamento}>
+            <Plus size={16} />
+            Novo lançamento
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <Input
+            label="Data inicial"
+            name="dataInicial"
+            type="date"
+            value={filtros.dataInicial}
+            onChange={atualizarFiltro}
+          />
+
+          <Input
+            label="Data final"
+            name="dataFinal"
+            type="date"
+            value={filtros.dataFinal}
+            onChange={atualizarFiltro}
+          />
+
+          <Select
+            label="Área / Pivô"
+            name="areaId"
+            value={filtros.areaId}
+            onChange={atualizarFiltro}
+            options={areaOptions}
+            placeholder="Todas as áreas"
+          />
+
+          <Input
+            label="Cliente"
+            name="cliente"
+            value={filtros.cliente}
+            onChange={atualizarFiltro}
+            placeholder="Buscar por cliente"
+          />
+
+          <Input
+            label="Pedido / Carga"
+            name="numeroPedido"
+            value={filtros.numeroPedido}
+            onChange={atualizarFiltro}
+            placeholder="Buscar por pedido ou carga"
+          />
+
+          <Select
+            label="Calibre"
+            name="calibreId"
+            value={filtros.calibreId}
+            onChange={atualizarFiltro}
+            options={calibreOptionsFiltro}
+            placeholder="Todos os calibres"
+          />
+
+          <Select
+            label="Responsável"
+            name="responsavelId"
+            value={filtros.responsavelId}
+            onChange={atualizarFiltro}
+            options={responsavelOptions}
+            placeholder="Todos os responsáveis"
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Button type="button" variant="secondary" onClick={limparFiltros}>
+            <X size={16} />
+            Limpar filtros
+          </Button>
+        </div>
       </Card>
 
       <Card>
@@ -669,14 +1382,14 @@ function SaidaVenda() {
             </h3>
 
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Histórico de saídas com Área / Pivô vinculada.
+              Clique no nome de uma coluna para ordenar os lançamentos.
             </p>
           </div>
 
           <Badge variant="info">
             {carregando
               ? "Carregando"
-              : `${formatarNumero(saidas.length)} registros`}
+              : `${formatarNumero(saidasFiltradas.length)} registros`}
           </Badge>
         </div>
 
@@ -687,93 +1400,11 @@ function SaidaVenda() {
         ) : (
           <DataTable
             columns={columns}
-            data={saidas}
-            emptyMessage="Nenhuma saída cadastrada."
+            data={saidasOrdenadas}
+            emptyMessage="Nenhuma saída encontrada para os filtros aplicados."
           />
         )}
       </Card>
-
-      <ConfirmModal
-        open={Boolean(saidaParaExcluir)}
-        title="Excluir saída?"
-        description="Essa ação remove a saída selecionada. Ao confirmar, o saldo disponível volta automaticamente no cálculo do estoque."
-        variant="danger"
-        confirmLabel="Confirmar exclusão"
-        cancelLabel="Cancelar"
-        loading={excluindo}
-        onCancel={fecharModalExcluir}
-        onConfirm={confirmarExclusao}
-        details={
-          saidaParaExcluir ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Data
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {formatarData(saidaParaExcluir.data_saida)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Área / Pivô
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {saidaParaExcluir.areas_fazenda?.nome || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Cliente
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {saidaParaExcluir.cliente || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Pedido / Carga
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {saidaParaExcluir.numero_pedido || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Calibre
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {saidaParaExcluir.calibres
-                    ? `${saidaParaExcluir.calibres.codigo} — ${saidaParaExcluir.calibres.nome}`
-                    : "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Quantidade
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {formatarNumero(saidaParaExcluir.quantidade_caixas)} caixas
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                  Peso
-                </p>
-                <p className="mt-1 font-black text-[var(--color-text-primary)]">
-                  {formatarKg(saidaParaExcluir.peso_total_kg)}
-                </p>
-              </div>
-            </div>
-          ) : null
-        }
-      />
     </div>
   );
 }
