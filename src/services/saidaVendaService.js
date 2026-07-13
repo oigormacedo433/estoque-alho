@@ -1,120 +1,111 @@
 import { supabase } from "./supabaseClient";
 
-import {
-  campoObrigatorio,
-  inteiroMaiorQueZero,
-  mensagemErroSupabase,
-  textoObrigatorio,
-  validarData,
-  validarHora,
-} from "../utils/validacoes";
-
-function obterHoraAtual() {
-  return new Date().toTimeString().slice(0, 5);
+function texto(valor) {
+  const tratado = String(valor || "").trim();
+  return tratado || null;
 }
 
-function calcularPesoMedioPorCaixa(estoque) {
-  const saldoCaixas = Number(estoque?.saldo_disponivel_caixas || 0);
-  const pesoDisponivelKg = Number(estoque?.peso_disponivel_kg || 0);
+function numero(valor) {
+  const convertido = Number(valor);
 
-  if (saldoCaixas <= 0 || pesoDisponivelKg <= 0) {
+  if (!Number.isFinite(convertido)) {
     return 0;
   }
 
-  return pesoDisponivelKg / saldoCaixas;
+  return convertido;
 }
 
-async function validarAreaAtiva(areaId) {
-  campoObrigatorio(areaId, "Área / Pivô");
+function formatarNumero(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR");
+}
+
+function obterAreaId(valor) {
+  return valor?.area_id || valor?.area_fazenda_id || "";
+}
+
+function tratarErroSupabase(error) {
+  const mensagem = String(error?.message || "");
+
+  if (mensagem.includes("Could not find the function")) {
+    return new Error(
+      "A função de salvar saída ainda não foi carregada pelo Supabase. Rode o SQL da função e atualize a página com Ctrl + F5."
+    );
+  }
+
+  if (mensagem.includes("salvar_saida_venda_com_itens")) {
+    return new Error(
+      "A função de salvar saída não está disponível no Supabase. Rode o SQL completo da Saída/Venda."
+    );
+  }
+
+  if (mensagem.includes("permission denied")) {
+    return new Error(
+      "Sem permissão no Supabase para salvar ou consultar saídas. Rode o SQL completo da Saída/Venda."
+    );
+  }
+
+  return new Error(mensagem || "Não foi possível salvar a saída/venda.");
+}
+
+async function buscarPorIds(tabela, ids, colunas = "*") {
+  const idsLimpos = Array.from(new Set((ids || []).filter(Boolean)));
+
+  if (idsLimpos.length === 0) {
+    return [];
+  }
 
   const { data, error } = await supabase
-    .from("areas_fazenda")
-    .select("id, ativo")
-    .eq("id", areaId)
-    .maybeSingle();
+    .from(tabela)
+    .select(colunas)
+    .in("id", idsLimpos);
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
-  if (!data) {
-    throw new Error("Área / Pivô não encontrada.");
-  }
-
-  if (!data.ativo) {
-    throw new Error("Não é permitido usar Área / Pivô inativa.");
-  }
-
-  return true;
+  return data || [];
 }
 
-async function validarCalibreAtivo(calibreId) {
-  campoObrigatorio(calibreId, "Calibre");
-
-  const { data, error } = await supabase
-    .from("calibres")
-    .select("id, ativo")
-    .eq("id", calibreId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(mensagemErroSupabase(error));
-  }
-
-  if (!data) {
-    throw new Error("Calibre não encontrado.");
-  }
-
-  if (!data.ativo) {
-    throw new Error("Não é permitido usar calibre inativo em novo lançamento.");
-  }
-
-  return true;
+function normalizarEstoque(item) {
+  return {
+    ...item,
+    area_id: item.area_id || item.area_fazenda_id || "",
+    area_fazenda_id: item.area_fazenda_id || item.area_id || "",
+    area_nome: item.area_nome || "-",
+    calibre_id: item.calibre_id || "",
+    calibre_codigo: item.calibre_codigo || "-",
+    calibre_nome: item.calibre_nome || "-",
+    produto_final_caixas: numero(item.produto_final_caixas),
+    produto_final_kg: numero(item.produto_final_kg),
+    saidas_caixas: numero(item.saidas_caixas),
+    saidas_kg: numero(item.saidas_kg),
+    saldo_disponivel_caixas: numero(item.saldo_disponivel_caixas),
+    peso_disponivel_kg: numero(item.peso_disponivel_kg),
+    peso_medio_por_caixa_kg: numero(item.peso_medio_por_caixa_kg),
+  };
 }
 
-export async function listarEstoqueDisponivelSaida(filtros = {}) {
+export async function listarEstoqueDisponivelSaida(opcoes = {}) {
+  const areaId = opcoes.areaId || opcoes.area_id || "";
+
   let query = supabase
     .from("vw_estoque_area_atual")
-    .select(`
-      area_id,
-      area_nome,
-      area_ativa,
-      calibre_id,
-      calibre_codigo,
-      calibre_nome,
-      calibre_tipo,
-      calibre_ordem,
-      produto_final_caixas,
-      produto_final_peso_kg,
-      saidas_caixas,
-      saidas_peso_kg,
-      saldo_disponivel_caixas,
-      peso_disponivel_kg,
-      estoque_minimo_por_calibre,
-      status_estoque_area
-    `)
+    .select("*")
     .gt("saldo_disponivel_caixas", 0)
     .order("area_nome", { ascending: true })
-    .order("calibre_ordem", { ascending: true });
+    .order("calibre_codigo", { ascending: true });
 
-  if (filtros.areaId) {
-    query = query.eq("area_id", filtros.areaId);
-  }
-
-  if (filtros.calibreId) {
-    query = query.eq("calibre_id", filtros.calibreId);
+  if (areaId) {
+    query = query.eq("area_id", areaId);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
-  return (data || []).map((item) => ({
-    ...item,
-    peso_medio_por_caixa_kg: calcularPesoMedioPorCaixa(item),
-  }));
+  return (data || []).map(normalizarEstoque);
 }
 
 export async function buscarSaldoDisponivelPorAreaCalibre(areaId, calibreId) {
@@ -124,405 +115,355 @@ export async function buscarSaldoDisponivelPorAreaCalibre(areaId, calibreId) {
 
   const { data, error } = await supabase
     .from("vw_estoque_area_atual")
-    .select(`
-      area_id,
-      area_nome,
-      calibre_id,
-      calibre_codigo,
-      calibre_nome,
-      produto_final_caixas,
-      produto_final_peso_kg,
-      saidas_caixas,
-      saidas_peso_kg,
-      saldo_disponivel_caixas,
-      peso_disponivel_kg,
-      status_estoque_area
-    `)
+    .select("*")
     .eq("area_id", areaId)
     .eq("calibre_id", calibreId)
     .maybeSingle();
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
   if (!data) {
     return null;
   }
 
-  return {
-    ...data,
-    peso_medio_por_caixa_kg: calcularPesoMedioPorCaixa(data),
-  };
+  return normalizarEstoque(data);
 }
 
-export async function buscarSaldoDisponivelPorCalibre(calibreId) {
+async function carregarItensSaidas(saidaIds) {
+  const idsLimpos = Array.from(new Set((saidaIds || []).filter(Boolean)));
+
+  if (idsLimpos.length === 0) {
+    return [];
+  }
+
   const { data, error } = await supabase
-    .from("vw_estoque_atual")
-    .select(`
-      calibre_id,
-      calibre_codigo,
-      calibre_nome,
-      produto_final_caixas,
-      saidas_caixas,
-      saldo_disponivel_caixas,
-      peso_disponivel_kg,
-      status_estoque
-    `)
-    .eq("calibre_id", calibreId)
-    .maybeSingle();
+    .from("saida_venda_itens")
+    .select("*")
+    .in("saida_venda_id", idsLimpos);
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
-  if (!data) {
-    return null;
+  const itens = data || [];
+  const calibreIds = itens.map((item) => item.calibre_id).filter(Boolean);
+
+  const calibres = await buscarPorIds(
+    "calibres",
+    calibreIds,
+    "id, codigo, nome, tipo, ativo"
+  );
+
+  return itens.map((item) => {
+    const calibre = calibres.find((calibreItem) => {
+      return calibreItem.id === item.calibre_id;
+    });
+
+    return {
+      ...item,
+      quantidade_caixas: numero(item.quantidade_caixas),
+      peso_por_caixa_kg: numero(item.peso_por_caixa_kg),
+      peso_total_kg: numero(item.peso_total_kg),
+      calibres: calibre || null,
+      calibre_codigo: calibre?.codigo || "-",
+      calibre_nome: calibre?.nome || "-",
+      calibre_tipo: calibre?.tipo || "",
+    };
+  });
+}
+
+function montarItensPorCalibre(itens) {
+  const mapa = {};
+
+  (itens || []).forEach((item) => {
+    if (!item.calibre_id) return;
+
+    mapa[item.calibre_id] = {
+      ...item,
+      quantidade_caixas: numero(item.quantidade_caixas),
+      peso_total_kg: numero(item.peso_total_kg),
+    };
+  });
+
+  return mapa;
+}
+
+function normalizarSaida(saida, itens, areas, responsaveis, calibresLegacy) {
+  const areaId = obterAreaId(saida);
+  const area = areas.find((item) => item.id === areaId) || null;
+  const responsavel =
+    responsaveis.find((item) => item.id === saida.responsavel_id) || null;
+
+  let itensDaSaida = itens.filter((item) => item.saida_venda_id === saida.id);
+
+  if (itensDaSaida.length === 0 && saida.calibre_id) {
+    const calibre =
+      calibresLegacy.find((item) => item.id === saida.calibre_id) || null;
+
+    itensDaSaida = [
+      {
+        id: `${saida.id}-${saida.calibre_id}`,
+        saida_venda_id: saida.id,
+        calibre_id: saida.calibre_id,
+        quantidade_caixas: numero(saida.quantidade_caixas),
+        peso_por_caixa_kg: numero(saida.peso_por_caixa_kg),
+        peso_total_kg: numero(saida.peso_total_kg),
+        calibres: calibre,
+        calibre_codigo: calibre?.codigo || "-",
+        calibre_nome: calibre?.nome || "-",
+        calibre_tipo: calibre?.tipo || "",
+      },
+    ];
   }
+
+  const quantidadeTotalItens = itensDaSaida.reduce((total, item) => {
+    return total + numero(item.quantidade_caixas);
+  }, 0);
+
+  const pesoTotalItens = itensDaSaida.reduce((total, item) => {
+    return total + numero(item.peso_total_kg);
+  }, 0);
+
+  const quantidadeTotal =
+    numero(saida.quantidade_total_caixas) ||
+    quantidadeTotalItens ||
+    numero(saida.quantidade_caixas);
+
+  const pesoTotal = numero(saida.peso_total_kg) || pesoTotalItens;
 
   return {
-    ...data,
-    peso_medio_por_caixa_kg: calcularPesoMedioPorCaixa(data),
+    ...saida,
+    area_id: areaId,
+    area_fazenda_id: areaId,
+    quantidade_total_caixas: quantidadeTotal,
+    quantidade_caixas: quantidadeTotal,
+    peso_total_kg: pesoTotal,
+    areas_fazenda: area,
+    area_nome: area?.nome || "-",
+    responsaveis: responsavel,
+    responsavel_nome: responsavel?.nome || "-",
+    itens: itensDaSaida,
+    itens_por_calibre: montarItensPorCalibre(itensDaSaida),
   };
 }
 
 export async function listarSaidasVendas(filtros = {}) {
-  let query = supabase
+  const { data, error } = await supabase
     .from("saidas_vendas")
-    .select(`
-      id,
-      data_saida,
-      hora,
-      area_id,
-      cliente,
-      numero_pedido,
-      calibre_id,
-      quantidade_caixas,
-      peso_por_caixa_kg,
-      peso_total_kg,
-      responsavel_id,
-      observacao,
-      criado_em,
-      atualizado_em,
-      areas_fazenda (
-        id,
-        nome,
-        descricao,
-        ativo
-      ),
-      calibres (
-        id,
-        codigo,
-        nome,
-        tipo,
-        ordem,
-        ativo
-      ),
-      responsaveis (
-        id,
-        nome
-      )
-    `)
+    .select("*")
     .order("data_saida", { ascending: false })
     .order("hora", { ascending: false });
 
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  const saidas = data || [];
+  const saidaIds = saidas.map((saida) => saida.id);
+
+  const itens = await carregarItensSaidas(saidaIds);
+
+  const areaIds = saidas.map((saida) => obterAreaId(saida)).filter(Boolean);
+  const responsavelIds = saidas
+    .map((saida) => saida.responsavel_id)
+    .filter(Boolean);
+
+  const calibresLegacyIds = saidas
+    .map((saida) => saida.calibre_id)
+    .filter(Boolean);
+
+  const [areas, responsaveis, calibresLegacy] = await Promise.all([
+    buscarPorIds("areas_fazenda", areaIds, "id, nome, fazenda_id, ativo"),
+    buscarPorIds("responsaveis", responsavelIds, "id, nome, ativo"),
+    buscarPorIds("calibres", calibresLegacyIds, "id, codigo, nome, tipo, ativo"),
+  ]);
+
+  let lista = saidas.map((saida) =>
+    normalizarSaida(saida, itens, areas, responsaveis, calibresLegacy)
+  );
+
   if (filtros.dataInicial) {
-    query = query.gte("data_saida", filtros.dataInicial);
+    lista = lista.filter((saida) => saida.data_saida >= filtros.dataInicial);
   }
 
   if (filtros.dataFinal) {
-    query = query.lte("data_saida", filtros.dataFinal);
+    lista = lista.filter((saida) => saida.data_saida <= filtros.dataFinal);
   }
 
-  if (filtros.areaId) {
-    query = query.eq("area_id", filtros.areaId);
-  }
-
-  if (filtros.calibreId) {
-    query = query.eq("calibre_id", filtros.calibreId);
-  }
-
-  if (filtros.responsavelId) {
-    query = query.eq("responsavel_id", filtros.responsavelId);
+  if (filtros.areaId || filtros.area_id) {
+    const areaId = filtros.areaId || filtros.area_id;
+    lista = lista.filter((saida) => saida.area_id === areaId);
   }
 
   if (filtros.cliente) {
-    query = query.ilike("cliente", `%${filtros.cliente}%`);
+    const busca = String(filtros.cliente).toLowerCase();
+
+    lista = lista.filter((saida) =>
+      String(saida.cliente || "").toLowerCase().includes(busca)
+    );
   }
 
   if (filtros.numeroPedido) {
-    query = query.ilike("numero_pedido", `%${filtros.numeroPedido}%`);
+    const busca = String(filtros.numeroPedido).toLowerCase();
+
+    lista = lista.filter((saida) =>
+      String(saida.numero_pedido || "").toLowerCase().includes(busca)
+    );
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(mensagemErroSupabase(error));
+  if (filtros.responsavelId) {
+    lista = lista.filter(
+      (saida) => saida.responsavel_id === filtros.responsavelId
+    );
   }
 
-  return data || [];
+  if (filtros.calibreId) {
+    lista = lista.filter((saida) =>
+      (saida.itens || []).some((item) => item.calibre_id === filtros.calibreId)
+    );
+  }
+
+  return lista;
 }
 
 export async function buscarSaidaVendaPorId(id) {
-  const { data, error } = await supabase
-    .from("saidas_vendas")
-    .select(`
-      id,
-      data_saida,
-      hora,
-      area_id,
-      cliente,
-      numero_pedido,
-      calibre_id,
-      quantidade_caixas,
-      peso_por_caixa_kg,
-      peso_total_kg,
-      responsavel_id,
-      observacao,
-      criado_em,
-      atualizado_em
-    `)
-    .eq("id", id)
-    .maybeSingle();
+  const lista = await listarSaidasVendas();
+  return lista.find((saida) => saida.id === id) || null;
+}
+
+function normalizarItensEntrada(dados) {
+  const origem = Array.isArray(dados.itens)
+    ? dados.itens
+    : Array.isArray(dados.divisao_calibres)
+      ? dados.divisao_calibres
+      : Array.isArray(dados.calibres)
+        ? dados.calibres
+        : [];
+
+  return origem
+    .map((item) => ({
+      calibre_id: item.calibre_id || item.calibreId || "",
+      quantidade_caixas:
+        item.quantidade_caixas || item.quantidade || item.caixas || "",
+    }))
+    .filter((item) => item.calibre_id || item.quantidade_caixas);
+}
+
+function montarPayloadRpc(dados) {
+  const areaId = dados.area_id || dados.area_fazenda_id || "";
+  const total =
+    dados.quantidade_total_caixas ||
+    dados.total_saida_caixas ||
+    dados.total_caixas ||
+    dados.quantidade_caixas ||
+    "";
+
+  return {
+    data_saida: dados.data_saida || "",
+    hora: dados.hora || "",
+    area_id: areaId,
+    cliente: texto(dados.cliente),
+    numero_pedido: texto(dados.numero_pedido),
+    quantidade_total_caixas: total,
+    responsavel_id: dados.responsavel_id || "",
+    observacao: texto(dados.observacao),
+    itens: normalizarItensEntrada(dados),
+  };
+}
+
+async function salvarPorRpc(id, dados) {
+  const payload = montarPayloadRpc(dados);
+
+  const { data, error } = await supabase.rpc("salvar_saida_venda_com_itens", {
+    p_saida_id: id || null,
+    p_payload: payload,
+  });
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
   return data;
 }
 
-async function montarDadosSaida(dados) {
-  await validarAreaAtiva(dados.area_id);
-  await validarCalibreAtivo(dados.calibre_id);
-
-  return {
-    data_saida: validarData(dados.data_saida, "Data da saída"),
-    hora: dados.hora ? validarHora(dados.hora, "Hora") : obterHoraAtual(),
-    area_id: campoObrigatorio(dados.area_id, "Área / Pivô"),
-    cliente: textoObrigatorio(dados.cliente, "Cliente"),
-    numero_pedido: dados.numero_pedido ? String(dados.numero_pedido).trim() : null,
-    calibre_id: campoObrigatorio(dados.calibre_id, "Calibre"),
-    quantidade_caixas: inteiroMaiorQueZero(
-      dados.quantidade_caixas,
-      "Quantidade de caixas"
-    ),
-    responsavel_id: campoObrigatorio(dados.responsavel_id, "Responsável"),
-    observacao: dados.observacao ? String(dados.observacao).trim() : null,
-  };
-}
-
 export async function cadastrarSaidaVenda(dados) {
-  try {
-    const dadosValidados = await montarDadosSaida(dados);
-
-    const saldo = await buscarSaldoDisponivelPorAreaCalibre(
-      dadosValidados.area_id,
-      dadosValidados.calibre_id
-    );
-
-    const quantidadeSaida = Number(dadosValidados.quantidade_caixas || 0);
-    const saldoDisponivel = Number(saldo?.saldo_disponivel_caixas || 0);
-    const pesoMedio = Number(saldo?.peso_medio_por_caixa_kg || 0);
-
-    if (!saldo || saldoDisponivel <= 0) {
-      throw new Error("Não existe estoque disponível para esta Área / Pivô e calibre.");
-    }
-
-    if (quantidadeSaida > saldoDisponivel) {
-      throw new Error(
-        `Estoque insuficiente. Saldo disponível nesta área: ${saldoDisponivel} caixas.`
-      );
-    }
-
-    if (pesoMedio <= 0) {
-      throw new Error(
-        "Não foi possível calcular o peso médio disponível desta Área / Pivô."
-      );
-    }
-
-    const payload = {
-      ...dadosValidados,
-      peso_por_caixa_kg: pesoMedio,
-    };
-
-    const { data, error } = await supabase
-      .from("saidas_vendas")
-      .insert(payload)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    throw new Error(mensagemErroSupabase(error));
-  }
+  const id = await salvarPorRpc(null, dados);
+  return buscarSaidaVendaPorId(id);
 }
 
 export async function editarSaidaVenda(id, dados) {
-  try {
-    const dadosValidados = await montarDadosSaida(dados);
-
-    const saidaAnterior = await buscarSaidaVendaPorId(id);
-
-    if (!saidaAnterior) {
-      throw new Error("Saída/Venda não encontrada.");
-    }
-
-    const saldoAtual = await buscarSaldoDisponivelPorAreaCalibre(
-      dadosValidados.area_id,
-      dadosValidados.calibre_id
-    );
-
-    let saldoDisponivel = Number(saldoAtual?.saldo_disponivel_caixas || 0);
-    let pesoDisponivelKg = Number(saldoAtual?.peso_disponivel_kg || 0);
-
-    const mesmaAreaCalibre =
-      saidaAnterior.area_id === dadosValidados.area_id &&
-      saidaAnterior.calibre_id === dadosValidados.calibre_id;
-
-    if (mesmaAreaCalibre) {
-      saldoDisponivel += Number(saidaAnterior.quantidade_caixas || 0);
-      pesoDisponivelKg += Number(saidaAnterior.peso_total_kg || 0);
-    }
-
-    const quantidadeNova = Number(dadosValidados.quantidade_caixas || 0);
-
-    const pesoMedio =
-      saldoDisponivel > 0 && pesoDisponivelKg > 0
-        ? pesoDisponivelKg / saldoDisponivel
-        : 0;
-
-    if (saldoDisponivel <= 0) {
-      throw new Error("Não existe estoque disponível para esta Área / Pivô e calibre.");
-    }
-
-    if (quantidadeNova > saldoDisponivel) {
-      throw new Error(
-        `Estoque insuficiente. Saldo disponível nesta área: ${saldoDisponivel} caixas.`
-      );
-    }
-
-    if (pesoMedio <= 0) {
-      throw new Error(
-        "Não foi possível calcular o peso médio disponível desta Área / Pivô."
-      );
-    }
-
-    const payload = {
-      ...dadosValidados,
-      peso_por_caixa_kg: pesoMedio,
-    };
-
-    const { data, error } = await supabase
-      .from("saidas_vendas")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    throw new Error(mensagemErroSupabase(error));
-  }
+  const idAtualizado = await salvarPorRpc(id, dados);
+  return buscarSaidaVendaPorId(idAtualizado);
 }
 
 export async function excluirSaidaVenda(id) {
-  const { error } = await supabase
-    .from("saidas_vendas")
-    .delete()
-    .eq("id", id);
+  const { error } = await supabase.from("saidas_vendas").delete().eq("id", id);
 
   if (error) {
-    throw new Error(mensagemErroSupabase(error));
+    throw tratarErroSupabase(error);
   }
 
   return true;
 }
 
-export function calcularResumoSaidasVendas(saidas = [], dataAtual = null) {
-  const listaResumo = dataAtual
-    ? saidas.filter((item) => item.data_saida === dataAtual)
-    : saidas;
-
-  const totalRegistros = listaResumo.length;
-
-  const totalCaixas = listaResumo.reduce((total, item) => {
-    return total + Number(item.quantidade_caixas || 0);
-  }, 0);
-
-  const pesoTotalKg = listaResumo.reduce((total, item) => {
-    return total + Number(item.peso_total_kg || 0);
-  }, 0);
-
-  const areasComSaida = new Set(
-    listaResumo.map((item) => item.areas_fazenda?.id || item.area_id).filter(Boolean)
-  ).size;
-
-  const ultimaAtualizacao = saidas.reduce((ultima, item) => {
-    const dataItem = item.atualizado_em || item.criado_em;
-
-    if (!dataItem) return ultima;
-    if (!ultima) return dataItem;
-
-    return new Date(dataItem) > new Date(ultima) ? dataItem : ultima;
-  }, null);
-
-  return {
-    totalRegistros,
-    totalCaixas,
-    pesoTotalKg,
-    areasComSaida,
-    ultimaAtualizacao,
-  };
-}
-
-export function calcularResumoConsultaSaidas(saidas = []) {
+export function calcularResumoSaidasVendas(saidas = []) {
   const totalRegistros = saidas.length;
 
-  const totalCaixas = saidas.reduce((total, item) => {
-    return total + Number(item.quantidade_caixas || 0);
+  const totalCaixas = saidas.reduce((total, saida) => {
+    return (
+      total + numero(saida.quantidade_total_caixas || saida.quantidade_caixas)
+    );
   }, 0);
 
-  const pesoTotalKg = saidas.reduce((total, item) => {
-    return total + Number(item.peso_total_kg || 0);
+  const pesoTotalKg = saidas.reduce((total, saida) => {
+    return total + numero(saida.peso_total_kg);
   }, 0);
 
-  const mapaAreas = new Map();
+  const areas = new Set();
 
-  saidas.forEach((item) => {
-    const areaId = item.areas_fazenda?.id || item.area_id;
-
-    if (!areaId) return;
-
-    const atual = mapaAreas.get(areaId) || {
-      area_id: areaId,
-      area_nome: item.areas_fazenda?.nome || "Sem área",
-      caixas: 0,
-      peso_kg: 0,
-    };
-
-    atual.caixas += Number(item.quantidade_caixas || 0);
-    atual.peso_kg += Number(item.peso_total_kg || 0);
-
-    mapaAreas.set(areaId, atual);
+  saidas.forEach((saida) => {
+    if (saida.area_id) {
+      areas.add(saida.area_id);
+    }
   });
 
-  const areaMaisVendida =
-    Array.from(mapaAreas.values()).sort((a, b) => b.caixas - a.caixas)[0] ||
+  const mapaCalibres = new Map();
+
+  saidas.forEach((saida) => {
+    (saida.itens || []).forEach((item) => {
+      const atual = mapaCalibres.get(item.calibre_id) || {
+        calibre_id: item.calibre_id,
+        calibre_codigo: item.calibre_codigo,
+        calibre_nome: item.calibre_nome,
+        caixas: 0,
+      };
+
+      atual.caixas += numero(item.quantidade_caixas);
+      mapaCalibres.set(item.calibre_id, atual);
+    });
+  });
+
+  const calibreMaisVendido =
+    Array.from(mapaCalibres.values()).sort((a, b) => b.caixas - a.caixas)[0] ||
     null;
 
   return {
     totalRegistros,
     totalCaixas,
     pesoTotalKg,
-    areaMaisVendida,
+    areasComSaida: areas.size,
+    calibreMaisVendido,
   };
 }
+
+export function calcularResumoConsultaSaidas(saidas = []) {
+  return calcularResumoSaidasVendas(saidas);
+}
+
+export const listarSaidaVenda = listarSaidasVendas;
+export const listarSaidasVenda = listarSaidasVendas;
+export const cadastrarSaidasVendas = cadastrarSaidaVenda;
+export const editarSaidasVendas = editarSaidaVenda;
+export const excluirSaidasVendas = excluirSaidaVenda;
