@@ -1,10 +1,5 @@
 import { supabase } from "./supabaseClient";
 
-function texto(valor) {
-  const tratado = String(valor || "").trim();
-  return tratado || null;
-}
-
 function numero(valor) {
   const convertido = Number(valor);
 
@@ -15,109 +10,17 @@ function numero(valor) {
   return convertido;
 }
 
-function booleano(valor) {
-  return (
-    valor === true ||
-    valor === "true" ||
-    valor === "sim" ||
-    valor === 1 ||
-    valor === "1"
-  );
+function texto(valor) {
+  const tratado = String(valor || "").trim();
+  return tratado || null;
 }
 
-function normalizarTexto(valor) {
-  return String(valor || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
+function tratarErroSupabase(error) {
+  return new Error(error?.message || "Erro ao acessar os dados do alho classificado.");
 }
 
-function extrairNumero(valor) {
-  const match = normalizarTexto(valor).match(/\d+/);
-  return match ? Number(match[0]) : null;
-}
-
-function textosParecidosComoArea(textoA, textoB) {
-  const a = normalizarTexto(textoA);
-  const b = normalizarTexto(textoB);
-
-  if (!a || !b) return false;
-
-  if (a === b) return true;
-
-  const numeroA = extrairNumero(a);
-  const numeroB = extrairNumero(b);
-
-  if (numeroA && numeroB && numeroA === numeroB) {
-    const aTemArea = a.includes("area") || a.includes("pivo");
-    const bTemArea = b.includes("area") || b.includes("pivo");
-
-    return aTemArea && bTemArea;
-  }
-
-  return false;
-}
-
-function tratarErro(error) {
-  const mensagem = String(error?.message || "");
-
-  if (mensagem.includes("invalid input syntax for type uuid")) {
-    return new Error("Selecione a Área / Pivô corretamente.");
-  }
-
-  if (mensagem.includes("Área / Pivô")) {
-    return new Error(mensagem);
-  }
-
-  if (mensagem.includes("area_fazenda_id")) {
-    return new Error(
-      "Erro ao salvar a Área / Pivô no Alho Classificado. Verifique a coluna area_fazenda_id."
-    );
-  }
-
-  if (mensagem.includes("calibre")) {
-    return new Error("Verifique o calibre selecionado.");
-  }
-
-  if (error?.code === "23503") {
-    return new Error(
-      "Não foi possível salvar porque algum cadastro vinculado não foi encontrado."
-    );
-  }
-
-  if (error?.code === "23514") {
-    return new Error("Verifique os campos obrigatórios e os valores informados.");
-  }
-
-  return error;
-}
-
-const SELECT_ALHO_CLASSIFICADO = `
-  id,
-  data_classificacao,
-  hora,
-  fazenda_id,
-  area_fazenda_id,
-  lote,
-  calibre_id,
-  quantidade_paletes,
-  caixas_por_palete,
-  permitir_edicao_total_caixas,
-  total_caixas_manual,
-  total_caixas,
-  conferido,
-  responsavel_id,
-  observacao
-`;
-
-function valoresUnicos(lista) {
-  return Array.from(new Set(lista.filter(Boolean)));
-}
-
-async function buscarPorIds(tabela, ids, select) {
-  const idsLimpos = valoresUnicos(ids);
+async function buscarPorIds(tabela, ids, colunas = "*") {
+  const idsLimpos = Array.from(new Set((ids || []).filter(Boolean)));
 
   if (idsLimpos.length === 0) {
     return [];
@@ -125,395 +28,357 @@ async function buscarPorIds(tabela, ids, select) {
 
   const { data, error } = await supabase
     .from(tabela)
-    .select(select)
+    .select(colunas)
     .in("id", idsLimpos);
 
   if (error) {
-    throw tratarErro(error);
+    throw tratarErroSupabase(error);
   }
 
   return data || [];
 }
 
-function criarMapa(lista) {
-  const mapa = new Map();
+export function calcularTotalCaixas(registro) {
+  if (
+    registro?.permitir_edicao_total_caixas &&
+    registro?.total_caixas_manual !== null &&
+    registro?.total_caixas_manual !== undefined &&
+    registro?.total_caixas_manual !== ""
+  ) {
+    return numero(registro.total_caixas_manual);
+  }
 
-  lista.forEach((item) => {
-    if (item?.id) {
-      mapa.set(item.id, item);
-    }
-  });
+  if (
+    registro?.total_caixas !== null &&
+    registro?.total_caixas !== undefined &&
+    registro?.total_caixas !== ""
+  ) {
+    return numero(registro.total_caixas);
+  }
 
-  return mapa;
+  return numero(registro?.quantidade_paletes) * numero(registro?.caixas_por_palete);
 }
 
-async function buscarAreasDasFazendas(fazendaIds) {
-  const idsLimpos = valoresUnicos(fazendaIds);
+function normalizarRegistro(registro, relacionamentos) {
+  const fazenda =
+    relacionamentos.fazendas.find((item) => item.id === registro.fazenda_id) || null;
 
-  if (idsLimpos.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("areas_fazenda")
-    .select("id, nome, fazenda_id, ativo")
-    .in("fazenda_id", idsLimpos)
-    .order("nome", { ascending: true });
-
-  if (error) {
-    throw tratarErro(error);
-  }
-
-  return data || [];
-}
-
-function encontrarAreaDoRegistro(registro, areas = []) {
-  const areaId = registro?.area_fazenda_id || "";
-
-  if (areaId) {
-    const areaPorId = areas.find((area) => area.id === areaId);
-
-    if (areaPorId) return areaPorId;
-  }
-
-  const lote = registro?.lote || "";
-  const fazendaId = registro?.fazenda_id || "";
-
-  if (!lote) return null;
-
-  const areaPeloLote =
-    areas.find((area) => {
-      const mesmaFazenda = !fazendaId || area.fazenda_id === fazendaId;
-      const mesmoNome = textosParecidosComoArea(lote, area.nome);
-
-      return mesmaFazenda && mesmoNome;
+  const area =
+    relacionamentos.areas.find((item) => {
+      return item.id === (registro.area_fazenda_id || registro.area_id);
     }) || null;
 
-  return areaPeloLote;
-}
+  const calibre =
+    relacionamentos.calibres.find((item) => item.id === registro.calibre_id) || null;
 
-function loteFoiUsadoComoArea(registro, area) {
-  if (!registro?.lote || !area?.nome) return false;
+  const responsavel =
+    relacionamentos.responsaveis.find((item) => item.id === registro.responsavel_id) ||
+    null;
 
-  return textosParecidosComoArea(registro.lote, area.nome);
-}
-
-async function hidratarRegistros(registros) {
-  const lista = registros || [];
-
-  const fazendaIds = lista.map((item) => item.fazenda_id);
-  const areaIds = lista.map((item) => item.area_fazenda_id);
-  const calibreIds = lista.map((item) => item.calibre_id);
-  const responsavelIds = lista.map((item) => item.responsavel_id);
-
-  const [fazendas, areasPorId, areasDasFazendas, calibres, responsaveis] =
-    await Promise.all([
-      buscarPorIds("fazendas", fazendaIds, "id, nome, ativo, observacao"),
-      buscarPorIds("areas_fazenda", areaIds, "id, nome, fazenda_id, ativo"),
-      buscarAreasDasFazendas(fazendaIds),
-      buscarPorIds("calibres", calibreIds, "id, codigo, nome, tipo, ativo"),
-      buscarPorIds("responsaveis", responsavelIds, "id, nome, ativo, observacao"),
-    ]);
-
-  const todasAreasMap = new Map();
-
-  [...areasPorId, ...areasDasFazendas].forEach((area) => {
-    if (area?.id) {
-      todasAreasMap.set(area.id, area);
-    }
-  });
-
-  const todasAreas = Array.from(todasAreasMap.values());
-
-  const mapaFazendas = criarMapa(fazendas);
-  const mapaCalibres = criarMapa(calibres);
-  const mapaResponsaveis = criarMapa(responsaveis);
-
-  return lista.map((item) => {
-    const area = encontrarAreaDoRegistro(item, todasAreas);
-    const areaIdFinal = area?.id || item.area_fazenda_id || "";
-
-    const fazenda =
-      mapaFazendas.get(item.fazenda_id) ||
-      mapaFazendas.get(area?.fazenda_id) ||
-      null;
-
-    const calibre = mapaCalibres.get(item.calibre_id) || null;
-    const responsavel = mapaResponsaveis.get(item.responsavel_id) || null;
-
-    const loteCorrigido = loteFoiUsadoComoArea(item, area) ? "" : item.lote || "";
-
-    return {
-      ...item,
-
-      lote: loteCorrigido,
-      lote_original: item.lote || "",
-
-      area_id: areaIdFinal,
-      area_fazenda_id: areaIdFinal,
-
-      fazendas: fazenda,
-      areas_fazenda: area
-        ? {
-            ...area,
-            fazendas: fazenda,
-          }
-        : null,
-      calibres: calibre,
-      responsaveis: responsavel,
-
-      fazenda_nome: fazenda?.nome || "-",
-      area_nome: area?.nome || "-",
-      area_fazenda_nome: area?.nome || "-",
-      calibre_codigo: calibre?.codigo || "-",
-      calibre_nome: calibre?.nome || "-",
-      responsavel_nome: responsavel?.nome || "-",
-    };
-  });
-}
-
-function validarPayload(dados) {
-  if (!dados.data_classificacao) {
-    throw new Error("Informe a data de classificação.");
-  }
-
-  if (!dados.hora) {
-    throw new Error("Informe a hora.");
-  }
-
-  if (!dados.fazenda_id) {
-    throw new Error("Selecione a fazenda.");
-  }
-
-  if (!dados.area_fazenda_id && !dados.area_id) {
-    throw new Error("Selecione a Área / Pivô.");
-  }
-
-  if (!dados.calibre_id) {
-    throw new Error("Selecione o calibre.");
-  }
-
-  if (numero(dados.quantidade_paletes) <= 0) {
-    throw new Error("A quantidade de paletes precisa ser maior que zero.");
-  }
-
-  if (numero(dados.caixas_por_palete) <= 0) {
-    throw new Error("As caixas por palete precisam ser maior que zero.");
-  }
-
-  if (!dados.responsavel_id) {
-    throw new Error("Selecione o responsável.");
-  }
-
-  if (booleano(dados.permitir_edicao_total_caixas)) {
-    if (numero(dados.total_caixas_manual) <= 0) {
-      throw new Error("O total de caixas manual precisa ser maior que zero.");
-    }
-  }
-}
-
-function montarPayload(dados) {
-  validarPayload(dados);
-
-  const permitirEdicaoTotal = booleano(dados.permitir_edicao_total_caixas);
-  const areaSelecionada = dados.area_fazenda_id || dados.area_id;
+  const totalCaixas = calcularTotalCaixas(registro);
 
   return {
-    data_classificacao: dados.data_classificacao,
-    hora: dados.hora,
-    fazenda_id: dados.fazenda_id,
-    area_fazenda_id: areaSelecionada,
-    lote: texto(dados.lote),
-    calibre_id: dados.calibre_id,
-    quantidade_paletes: numero(dados.quantidade_paletes),
-    caixas_por_palete: numero(dados.caixas_por_palete),
-    permitir_edicao_total_caixas: permitirEdicaoTotal,
-    total_caixas_manual: permitirEdicaoTotal
-      ? numero(dados.total_caixas_manual)
-      : null,
-    conferido: booleano(dados.conferido),
-    responsavel_id: dados.responsavel_id,
-    observacao: texto(dados.observacao),
+    ...registro,
+
+    area_fazenda_id: registro.area_fazenda_id || registro.area_id || "",
+    area_id: registro.area_fazenda_id || registro.area_id || "",
+
+    lote: registro.lote || "",
+
+    total_caixas_calculado: totalCaixas,
+
+    fazendas: fazenda,
+    fazenda_nome: fazenda?.nome || "-",
+
+    areas_fazenda: area,
+    area_nome: area?.nome || "-",
+
+    calibres: calibre,
+    calibre_codigo: calibre?.codigo || "-",
+    calibre_nome: calibre?.nome || "-",
+    calibre_ordem: calibre?.ordem || 0,
+
+    responsaveis: responsavel,
+    responsavel_nome: responsavel?.nome || "-",
+
+    status_texto: registro.conferido ? "Conferido" : "Pendente",
   };
 }
 
 export async function listarAlhoClassificado(filtros = {}) {
-  let query = supabase
+  const { data, error } = await supabase
     .from("alho_classificado")
-    .select(SELECT_ALHO_CLASSIFICADO)
+    .select("*")
     .order("data_classificacao", { ascending: false })
     .order("hora", { ascending: false });
 
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  const registros = data || [];
+
+  const fazendaIds = registros.map((item) => item.fazenda_id).filter(Boolean);
+  const areaIds = registros
+    .map((item) => item.area_fazenda_id || item.area_id)
+    .filter(Boolean);
+  const calibreIds = registros.map((item) => item.calibre_id).filter(Boolean);
+  const responsavelIds = registros.map((item) => item.responsavel_id).filter(Boolean);
+
+  const [fazendas, areas, calibres, responsaveis] = await Promise.all([
+    buscarPorIds("fazendas", fazendaIds, "id, nome, ativo"),
+    buscarPorIds("areas_fazenda", areaIds, "id, nome, fazenda_id, ativo"),
+    buscarPorIds("calibres", calibreIds, "id, codigo, nome, tipo, ordem, ativo"),
+    buscarPorIds("responsaveis", responsavelIds, "id, nome, ativo"),
+  ]);
+
+  let lista = registros.map((registro) =>
+    normalizarRegistro(registro, {
+      fazendas,
+      areas,
+      calibres,
+      responsaveis,
+    })
+  );
+
   if (filtros.dataInicial) {
-    query = query.gte("data_classificacao", filtros.dataInicial);
+    lista = lista.filter((item) => item.data_classificacao >= filtros.dataInicial);
   }
 
   if (filtros.dataFinal) {
-    query = query.lte("data_classificacao", filtros.dataFinal);
+    lista = lista.filter((item) => item.data_classificacao <= filtros.dataFinal);
   }
+
+  if (filtros.fazendaId) {
+    lista = lista.filter((item) => item.fazenda_id === filtros.fazendaId);
+  }
+
+  if (filtros.areaId) {
+    lista = lista.filter((item) => item.area_fazenda_id === filtros.areaId);
+  }
+
+  if (filtros.calibreId) {
+    lista = lista.filter((item) => item.calibre_id === filtros.calibreId);
+  }
+
+  if (filtros.responsavelId) {
+    lista = lista.filter((item) => item.responsavel_id === filtros.responsavelId);
+  }
+
+  if (filtros.status === "conferido") {
+    lista = lista.filter((item) => item.conferido === true);
+  }
+
+  if (filtros.status === "pendente") {
+    lista = lista.filter((item) => item.conferido !== true);
+  }
+
+  return lista;
+}
+
+export async function listarEstoqueAlhoClassificadoAtual(filtros = {}) {
+  let query = supabase
+    .from("vw_estoque_alho_classificado_atual")
+    .select("*")
+    .order("area_nome", { ascending: true })
+    .order("calibre_ordem", { ascending: true })
+    .order("calibre_codigo", { ascending: true });
 
   if (filtros.fazendaId) {
     query = query.eq("fazenda_id", filtros.fazendaId);
   }
 
   if (filtros.areaId) {
-    query = query.eq("area_fazenda_id", filtros.areaId);
+    query = query.eq("area_id", filtros.areaId);
   }
 
   if (filtros.calibreId) {
     query = query.eq("calibre_id", filtros.calibreId);
   }
 
-  if (filtros.responsavelId) {
-    query = query.eq("responsavel_id", filtros.responsavelId);
-  }
-
-  if (filtros.conferido === "sim" || filtros.status === "conferido") {
-    query = query.eq("conferido", true);
-  }
-
-  if (filtros.conferido === "nao" || filtros.status === "pendente") {
-    query = query.eq("conferido", false);
-  }
-
   const { data, error } = await query;
 
   if (error) {
-    throw tratarErro(error);
+    throw tratarErroSupabase(error);
   }
 
-  return hidratarRegistros(data || []);
+  return (data || []).map((item) => ({
+    ...item,
+    classificado_caixas: numero(item.classificado_caixas),
+    produto_final_caixas: numero(item.produto_final_caixas),
+    produto_final_peso_kg: numero(item.produto_final_peso_kg),
+    saldo_classificado_caixas: numero(item.saldo_classificado_caixas),
+  }));
 }
 
-export async function buscarAlhoClassificadoPorId(id) {
-  const { data, error } = await supabase
-    .from("alho_classificado")
-    .select(SELECT_ALHO_CLASSIFICADO)
-    .eq("id", id)
-    .single();
+export async function listarOpcoesAlhoClassificado() {
+  const [fazendasResult, areasResult, calibresResult, responsaveisResult] =
+    await Promise.all([
+      supabase.from("fazendas").select("*").order("nome", { ascending: true }),
+      supabase.from("areas_fazenda").select("*").order("nome", { ascending: true }),
+      supabase
+        .from("calibres")
+        .select("*")
+        .order("ordem", { ascending: true })
+        .order("codigo", { ascending: true }),
+      supabase.from("responsaveis").select("*").order("nome", { ascending: true }),
+    ]);
 
-  if (error) {
-    throw tratarErro(error);
+  if (fazendasResult.error) throw tratarErroSupabase(fazendasResult.error);
+  if (areasResult.error) throw tratarErroSupabase(areasResult.error);
+  if (calibresResult.error) throw tratarErroSupabase(calibresResult.error);
+  if (responsaveisResult.error) throw tratarErroSupabase(responsaveisResult.error);
+
+  return {
+    fazendas: fazendasResult.data || [],
+    areas: areasResult.data || [],
+    calibres: calibresResult.data || [],
+    responsaveis: responsaveisResult.data || [],
+  };
+}
+
+function montarPayload(dados) {
+  const quantidadePaletes = numero(dados.quantidade_paletes);
+  const caixasPorPalete = numero(dados.caixas_por_palete);
+  const permitirManual = Boolean(dados.permitir_edicao_total_caixas);
+  const totalManual = permitirManual ? numero(dados.total_caixas_manual) : null;
+
+  return {
+    data_classificacao: dados.data_classificacao,
+    hora: dados.hora,
+    fazenda_id: dados.fazenda_id || null,
+    area_fazenda_id: dados.area_fazenda_id || dados.area_id || null,
+    lote: texto(dados.lote),
+    calibre_id: dados.calibre_id || null,
+    quantidade_paletes: permitirManual ? 0 : quantidadePaletes,
+    caixas_por_palete: permitirManual ? 0 : caixasPorPalete,
+    permitir_edicao_total_caixas: permitirManual,
+    total_caixas_manual: totalManual,
+    conferido: Boolean(dados.conferido),
+    responsavel_id: dados.responsavel_id || null,
+    observacao: texto(dados.observacao),
+  };
+}
+
+function validarPayload(payload) {
+  if (!payload.data_classificacao) {
+    throw new Error("Informe a data da classificação.");
   }
 
-  const registros = await hidratarRegistros([data]);
+  if (!payload.hora) {
+    throw new Error("Informe a hora da classificação.");
+  }
 
-  return registros[0] || null;
+  if (!payload.fazenda_id) {
+    throw new Error("Selecione a fazenda.");
+  }
+
+  if (!payload.area_fazenda_id) {
+    throw new Error("Selecione a Área / Pivô.");
+  }
+
+  if (!payload.calibre_id) {
+    throw new Error("Selecione o calibre.");
+  }
+
+  if (!payload.responsavel_id) {
+    throw new Error("Selecione o responsável.");
+  }
+
+  if (payload.permitir_edicao_total_caixas) {
+    if (numero(payload.total_caixas_manual) <= 0) {
+      throw new Error("Informe um total manual de caixas maior que zero.");
+    }
+
+    return;
+  }
+
+  if (numero(payload.quantidade_paletes) <= 0) {
+    throw new Error("Informe a quantidade de paletes.");
+  }
+
+  if (numero(payload.caixas_por_palete) <= 0) {
+    throw new Error("Informe a quantidade de caixas por palete.");
+  }
+}
+
+function removerColunasGeradas(payload) {
+  const payloadSeguro = { ...payload };
+
+  delete payloadSeguro.total_caixas;
+  delete payloadSeguro.total_caixas_calculado;
+
+  return payloadSeguro;
 }
 
 export async function cadastrarAlhoClassificado(dados) {
   const payload = montarPayload(dados);
+  validarPayload(payload);
+
+  const payloadSeguro = removerColunasGeradas(payload);
 
   const { data, error } = await supabase
     .from("alho_classificado")
-    .insert(payload)
-    .select(SELECT_ALHO_CLASSIFICADO)
+    .insert(payloadSeguro)
+    .select("*")
     .single();
 
   if (error) {
-    throw tratarErro(error);
+    throw tratarErroSupabase(error);
   }
 
-  const registros = await hidratarRegistros([data]);
-
-  return registros[0] || null;
+  return data;
 }
 
 export async function editarAlhoClassificado(id, dados) {
   const payload = montarPayload(dados);
+  validarPayload(payload);
+
+  const payloadSeguro = removerColunasGeradas(payload);
 
   const { data, error } = await supabase
     .from("alho_classificado")
-    .update(payload)
+    .update(payloadSeguro)
     .eq("id", id)
-    .select(SELECT_ALHO_CLASSIFICADO)
+    .select("*")
     .single();
 
   if (error) {
-    throw tratarErro(error);
+    throw tratarErroSupabase(error);
   }
 
-  const registros = await hidratarRegistros([data]);
-
-  return registros[0] || null;
+  return data;
 }
 
 export async function excluirAlhoClassificado(id) {
-  const { error } = await supabase
-    .from("alho_classificado")
-    .delete()
-    .eq("id", id);
+  const { error } = await supabase.from("alho_classificado").delete().eq("id", id);
 
   if (error) {
-    throw tratarErro(error);
+    throw tratarErroSupabase(error);
   }
 
   return true;
 }
 
-export function calcularResumoAlhoClassificado(classificacoes = []) {
-  const totalRegistros = classificacoes.length;
+export function calcularResumoAlhoClassificado(registros = []) {
+  const totalClassificacoes = registros.length;
 
-  const totalPaletes = classificacoes.reduce((total, item) => {
+  const totalPaletes = registros.reduce((total, item) => {
     return total + numero(item.quantidade_paletes);
   }, 0);
 
-  const totalCaixas = classificacoes.reduce((total, item) => {
-    return total + numero(item.total_caixas);
+  const totalCaixas = registros.reduce((total, item) => {
+    return total + calcularTotalCaixas(item);
   }, 0);
 
-  const calibres = new Set();
-  const areas = new Set();
-
-  classificacoes.forEach((item) => {
-    const calibreId = item.calibre_id || item.calibres?.id;
-    const areaId = item.area_fazenda_id || item.area_id || item.areas_fazenda?.id;
-
-    if (calibreId) calibres.add(calibreId);
-    if (areaId) areas.add(areaId);
-  });
-
   return {
-    totalRegistros,
+    totalClassificacoes,
     totalPaletes,
     totalCaixas,
-    calibresClassificados: calibres.size,
-    areasClassificadas: areas.size,
   };
 }
 
-export function calcularEstoqueClassificadoPorCalibre(classificacoes = []) {
-  const mapa = new Map();
-
-  classificacoes.forEach((item) => {
-    const calibreId = item.calibre_id || item.calibres?.id || "sem-calibre";
-    const calibreCodigo = item.calibres?.codigo || item.calibre_codigo || "-";
-    const calibreNome = item.calibres?.nome || item.calibre_nome || "-";
-
-    if (!mapa.has(calibreId)) {
-      mapa.set(calibreId, {
-        calibre_id: calibreId,
-        calibre_codigo: calibreCodigo,
-        calibre_nome: calibreNome,
-        total_paletes: 0,
-        total_caixas: 0,
-        registros: 0,
-      });
-    }
-
-    const atual = mapa.get(calibreId);
-
-    atual.total_paletes += numero(item.quantidade_paletes);
-    atual.total_caixas += numero(item.total_caixas);
-    atual.registros += 1;
-  });
-
-  return Array.from(mapa.values()).sort((a, b) =>
-    String(a.calibre_codigo).localeCompare(String(b.calibre_codigo), "pt-BR", {
-      numeric: true,
-      sensitivity: "base",
-    })
-  );
-}
-
 export const listarClassificacoes = listarAlhoClassificado;
+export const cadastrarClassificacao = cadastrarAlhoClassificado;
+export const editarClassificacao = editarAlhoClassificado;
+export const excluirClassificacao = excluirAlhoClassificado;
