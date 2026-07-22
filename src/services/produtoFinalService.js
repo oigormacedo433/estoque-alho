@@ -52,11 +52,19 @@ function obterAreaId(item) {
 
 function obterDataProdutoFinal(dados) {
   return (
+    dados.data_registro ||
     dados.data_producao ||
     dados.data_produto_final ||
     dados.data_finalizacao ||
     dados.data ||
     hojeISO()
+  );
+}
+
+function calcularPesoTotal(item) {
+  return (
+    numero(item.peso_total_kg) ||
+    numero(item.quantidade_caixas) * numero(item.peso_por_caixa_kg)
   );
 }
 
@@ -78,12 +86,13 @@ function normalizarProdutoFinal(item, relacionamentos) {
 
   const quantidadeCaixas = numero(item.quantidade_caixas);
   const pesoPorCaixa = numero(item.peso_por_caixa_kg);
-  const pesoTotal = numero(item.peso_total_kg) || quantidadeCaixas * pesoPorCaixa;
+  const pesoTotal = calcularPesoTotal(item);
 
   return {
     ...item,
 
-    data_producao: item.data_producao || item.data_produto_final || item.data || "",
+    data_registro: item.data_registro || item.data_producao || item.data || "",
+    data_producao: item.data_producao || item.data_registro || item.data || "",
     hora: item.hora || "",
 
     area_id: areaId,
@@ -94,7 +103,6 @@ function normalizarProdutoFinal(item, relacionamentos) {
     calibre_codigo: calibre?.codigo || "-",
     calibre_nome: calibre?.nome || "-",
     calibre_ordem: numero(calibre?.ordem),
-
     calibres: calibre,
 
     responsavel_nome: responsavel?.nome || "-",
@@ -164,86 +172,31 @@ export async function listarProdutoFinal(filtros = {}) {
   return lista;
 }
 
-export async function listarEstoqueClassificadoDisponivelProdutoFinal(filtros = {}) {
-  let query = supabase
-    .from("vw_estoque_alho_classificado_atual")
-    .select("*")
-    .gt("saldo_classificado_caixas", 0)
-    .order("area_nome", { ascending: true })
-    .order("calibre_ordem", { ascending: true })
-    .order("calibre_codigo", { ascending: true });
+export async function listarOpcoesProdutoFinal() {
+  const [areasResult, calibresResult, responsaveisResult] = await Promise.all([
+    supabase
+      .from("areas_fazenda")
+      .select("*")
+      .order("nome", { ascending: true }),
+    supabase
+      .from("calibres")
+      .select("*")
+      .order("ordem", { ascending: true })
+      .order("codigo", { ascending: true }),
+    supabase
+      .from("responsaveis")
+      .select("*")
+      .order("nome", { ascending: true }),
+  ]);
 
-  if (filtros.areaId || filtros.area_id) {
-    query = query.eq("area_id", filtros.areaId || filtros.area_id);
-  }
-
-  if (filtros.calibreId || filtros.calibre_id) {
-    query = query.eq("calibre_id", filtros.calibreId || filtros.calibre_id);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw tratarErroSupabase(error);
-  }
-
-  return (data || []).map((item) => ({
-    ...item,
-    area_id: item.area_id || item.area_fazenda_id || "",
-    area_fazenda_id: item.area_fazenda_id || item.area_id || "",
-    classificado_caixas: numero(item.classificado_caixas),
-    produto_final_caixas: numero(item.produto_final_caixas),
-    produto_final_peso_kg: numero(item.produto_final_peso_kg),
-    saldo_classificado_caixas: numero(item.saldo_classificado_caixas),
-  }));
-}
-
-async function buscarProdutoFinalPorId(id) {
-  if (!id) {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("produto_final")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    throw tratarErroSupabase(error);
-  }
-
-  return data || null;
-}
-
-async function buscarSaldoClassificado(areaId, calibreId) {
-  const { data, error } = await supabase
-    .from("vw_estoque_alho_classificado_atual")
-    .select("*")
-    .eq("area_id", areaId)
-    .eq("calibre_id", calibreId)
-    .maybeSingle();
-
-  if (error) {
-    throw tratarErroSupabase(error);
-  }
-
-  if (!data) {
-    return {
-      saldo_classificado_caixas: 0,
-      classificado_caixas: 0,
-      produto_final_caixas: 0,
-      area_nome: "-",
-      calibre_codigo: "-",
-      calibre_nome: "-",
-    };
-  }
+  if (areasResult.error) throw tratarErroSupabase(areasResult.error);
+  if (calibresResult.error) throw tratarErroSupabase(calibresResult.error);
+  if (responsaveisResult.error) throw tratarErroSupabase(responsaveisResult.error);
 
   return {
-    ...data,
-    saldo_classificado_caixas: numero(data.saldo_classificado_caixas),
-    classificado_caixas: numero(data.classificado_caixas),
-    produto_final_caixas: numero(data.produto_final_caixas),
+    areas: areasResult.data || [],
+    calibres: calibresResult.data || [],
+    responsaveis: responsaveisResult.data || [],
   };
 }
 
@@ -253,9 +206,11 @@ function montarPayload(dados) {
     dados.quantidade_caixas || dados.total_caixas || dados.caixas
   );
   const pesoPorCaixa = numero(dados.peso_por_caixa_kg || dados.peso_caixa_kg || 10);
+  const data = obterDataProdutoFinal(dados);
 
   return {
-    data_producao: obterDataProdutoFinal(dados),
+    data_registro: data,
+    data_producao: data,
     hora: dados.hora || horaAtual(),
     area_id: areaId || null,
     calibre_id: dados.calibre_id || null,
@@ -276,8 +231,8 @@ function removerColunasGeradas(payload) {
   return payloadSeguro;
 }
 
-function validarPayloadBasico(payload) {
-  if (!payload.data_producao) {
+function validarPayload(payload) {
+  if (!payload.data_registro) {
     throw new Error("Informe a data do produto final.");
   }
 
@@ -302,48 +257,9 @@ function validarPayloadBasico(payload) {
   }
 }
 
-async function validarEstoqueClassificadoAntesDeSalvar(payload, idEdicao = null) {
-  validarPayloadBasico(payload);
-
-  const saldo = await buscarSaldoClassificado(payload.area_id, payload.calibre_id);
-
-  let devolucaoEdicao = 0;
-
-  if (idEdicao) {
-    const registroAntigo = await buscarProdutoFinalPorId(idEdicao);
-
-    const mesmaArea = obterAreaId(registroAntigo) === payload.area_id;
-    const mesmoCalibre = registroAntigo?.calibre_id === payload.calibre_id;
-
-    if (registroAntigo && mesmaArea && mesmoCalibre) {
-      devolucaoEdicao = numero(registroAntigo.quantidade_caixas);
-    }
-  }
-
-  const saldoDisponivelReal =
-    numero(saldo.saldo_classificado_caixas) + devolucaoEdicao;
-
-  if (saldoDisponivelReal <= 0) {
-    throw new Error(
-      "Não existe saldo de alho classificado para este calibre nesta área. Classifique o alho antes de lançar no produto final."
-    );
-  }
-
-  if (numero(payload.quantidade_caixas) > saldoDisponivelReal) {
-    throw new Error(
-      `Estoque classificado insuficiente. Disponível: ${saldoDisponivelReal.toLocaleString(
-        "pt-BR"
-      )} caixas.`
-    );
-  }
-
-  return true;
-}
-
 export async function cadastrarProdutoFinal(dados) {
   const payload = removerColunasGeradas(montarPayload(dados));
-
-  await validarEstoqueClassificadoAntesDeSalvar(payload);
+  validarPayload(payload);
 
   const { data, error } = await supabase
     .from("produto_final")
@@ -360,8 +276,7 @@ export async function cadastrarProdutoFinal(dados) {
 
 export async function editarProdutoFinal(id, dados) {
   const payload = removerColunasGeradas(montarPayload(dados));
-
-  await validarEstoqueClassificadoAntesDeSalvar(payload, id);
+  validarPayload(payload);
 
   const { data, error } = await supabase
     .from("produto_final")
@@ -395,11 +310,7 @@ export function calcularResumoProdutoFinal(registros = []) {
   }, 0);
 
   const pesoTotalKg = registros.reduce((total, item) => {
-    const pesoTotal =
-      numero(item.peso_total_kg) ||
-      numero(item.quantidade_caixas) * numero(item.peso_por_caixa_kg);
-
-    return total + pesoTotal;
+    return total + calcularPesoTotal(item);
   }, 0);
 
   const areas = new Set();
@@ -426,10 +337,6 @@ export function calcularProdutoFinalPorArea(registros = []) {
     const areaId = item.area_id || item.area_fazenda_id || "sem-area";
     const areaNome = item.area_nome || item.areas_fazenda?.nome || "Sem área";
 
-    const pesoTotal =
-      numero(item.peso_total_kg) ||
-      numero(item.quantidade_caixas) * numero(item.peso_por_caixa_kg);
-
     const atual = mapa.get(areaId) || {
       area_id: areaId,
       area_fazenda_id: areaId,
@@ -442,7 +349,7 @@ export function calcularProdutoFinalPorArea(registros = []) {
 
     atual.quantidade_caixas += numero(item.quantidade_caixas);
     atual.total_caixas += numero(item.quantidade_caixas);
-    atual.peso_total_kg += pesoTotal;
+    atual.peso_total_kg += calcularPesoTotal(item);
     atual.registros += 1;
 
     mapa.set(areaId, atual);
@@ -462,10 +369,6 @@ export function calcularProdutoFinalPorCalibre(registros = []) {
     const calibreNome = item.calibre_nome || item.calibres?.nome || "Sem calibre";
     const calibreOrdem = numero(item.calibre_ordem || item.calibres?.ordem);
 
-    const pesoTotal =
-      numero(item.peso_total_kg) ||
-      numero(item.quantidade_caixas) * numero(item.peso_por_caixa_kg);
-
     const atual = mapa.get(calibreId) || {
       calibre_id: calibreId,
       calibre_codigo: calibreCodigo,
@@ -479,7 +382,7 @@ export function calcularProdutoFinalPorCalibre(registros = []) {
 
     atual.quantidade_caixas += numero(item.quantidade_caixas);
     atual.total_caixas += numero(item.quantidade_caixas);
-    atual.peso_total_kg += pesoTotal;
+    atual.peso_total_kg += calcularPesoTotal(item);
     atual.registros += 1;
 
     mapa.set(calibreId, atual);
@@ -496,6 +399,10 @@ export function calcularProdutoFinalPorCalibre(registros = []) {
 
 export function calcularResumoConsultaProdutoFinal(registros = []) {
   return calcularResumoProdutoFinal(registros);
+}
+
+export async function listarEstoqueClassificadoDisponivelProdutoFinal() {
+  return [];
 }
 
 export const listarProdutosFinais = listarProdutoFinal;

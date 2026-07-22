@@ -59,7 +59,7 @@ export function calcularTotalCaixas(registro) {
   return numero(registro?.quantidade_paletes) * numero(registro?.caixas_por_palete);
 }
 
-function normalizarRegistro(registro, relacionamentos) {
+function normalizarEntrada(registro, relacionamentos) {
   const fazenda =
     relacionamentos.fazendas.find((item) => item.id === registro.fazenda_id) || null;
 
@@ -80,6 +80,8 @@ function normalizarRegistro(registro, relacionamentos) {
   return {
     ...registro,
 
+    tipo_movimento: "entrada",
+
     area_fazenda_id: registro.area_fazenda_id || registro.area_id || "",
     area_id: registro.area_fazenda_id || registro.area_id || "",
 
@@ -96,12 +98,48 @@ function normalizarRegistro(registro, relacionamentos) {
     calibres: calibre,
     calibre_codigo: calibre?.codigo || "-",
     calibre_nome: calibre?.nome || "-",
-    calibre_ordem: calibre?.ordem || 0,
+    calibre_ordem: numero(calibre?.ordem),
 
     responsaveis: responsavel,
     responsavel_nome: responsavel?.nome || "-",
 
     status_texto: registro.conferido ? "Conferido" : "Pendente",
+  };
+}
+
+function normalizarSaida(registro, relacionamentos) {
+  const area =
+    relacionamentos.areas.find((item) => {
+      return item.id === (registro.area_fazenda_id || registro.area_id);
+    }) || null;
+
+  const calibre =
+    relacionamentos.calibres.find((item) => item.id === registro.calibre_id) || null;
+
+  const responsavel =
+    relacionamentos.responsaveis.find((item) => item.id === registro.responsavel_id) ||
+    null;
+
+  return {
+    ...registro,
+
+    tipo_movimento: "saida",
+
+    area_fazenda_id: registro.area_fazenda_id || registro.area_id || "",
+    area_id: registro.area_fazenda_id || registro.area_id || "",
+
+    quantidade_caixas: numero(registro.quantidade_caixas),
+
+    areas_fazenda: area,
+    area_nome: area?.nome || "-",
+
+    calibres: calibre,
+    calibre_codigo: calibre?.codigo || "-",
+    calibre_nome: calibre?.nome || "-",
+    calibre_ordem: numero(calibre?.ordem),
+
+    responsaveis: responsavel,
+    responsavel_nome: responsavel?.nome || "-",
   };
 }
 
@@ -133,7 +171,7 @@ export async function listarAlhoClassificado(filtros = {}) {
   ]);
 
   let lista = registros.map((registro) =>
-    normalizarRegistro(registro, {
+    normalizarEntrada(registro, {
       fazendas,
       areas,
       calibres,
@@ -176,6 +214,62 @@ export async function listarAlhoClassificado(filtros = {}) {
   return lista;
 }
 
+export async function listarSaidasAlhoClassificado(filtros = {}) {
+  const { data, error } = await supabase
+    .from("alho_classificado_saidas")
+    .select("*")
+    .order("data_saida", { ascending: false })
+    .order("hora", { ascending: false });
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  const registros = data || [];
+
+  const areaIds = registros
+    .map((item) => item.area_fazenda_id || item.area_id)
+    .filter(Boolean);
+  const calibreIds = registros.map((item) => item.calibre_id).filter(Boolean);
+  const responsavelIds = registros.map((item) => item.responsavel_id).filter(Boolean);
+
+  const [areas, calibres, responsaveis] = await Promise.all([
+    buscarPorIds("areas_fazenda", areaIds, "id, nome, fazenda_id, ativo"),
+    buscarPorIds("calibres", calibreIds, "id, codigo, nome, tipo, ordem, ativo"),
+    buscarPorIds("responsaveis", responsavelIds, "id, nome, ativo"),
+  ]);
+
+  let lista = registros.map((registro) =>
+    normalizarSaida(registro, {
+      areas,
+      calibres,
+      responsaveis,
+    })
+  );
+
+  if (filtros.dataInicial) {
+    lista = lista.filter((item) => item.data_saida >= filtros.dataInicial);
+  }
+
+  if (filtros.dataFinal) {
+    lista = lista.filter((item) => item.data_saida <= filtros.dataFinal);
+  }
+
+  if (filtros.areaId) {
+    lista = lista.filter((item) => item.area_fazenda_id === filtros.areaId);
+  }
+
+  if (filtros.calibreId) {
+    lista = lista.filter((item) => item.calibre_id === filtros.calibreId);
+  }
+
+  if (filtros.responsavelId) {
+    lista = lista.filter((item) => item.responsavel_id === filtros.responsavelId);
+  }
+
+  return lista;
+}
+
 export async function listarEstoqueAlhoClassificadoAtual(filtros = {}) {
   let query = supabase
     .from("vw_estoque_alho_classificado_atual")
@@ -204,9 +298,12 @@ export async function listarEstoqueAlhoClassificadoAtual(filtros = {}) {
 
   return (data || []).map((item) => ({
     ...item,
+    area_id: item.area_id || item.area_fazenda_id || "",
+    area_fazenda_id: item.area_fazenda_id || item.area_id || "",
+    entrada_classificado_caixas: numero(item.entrada_classificado_caixas),
     classificado_caixas: numero(item.classificado_caixas),
-    produto_final_caixas: numero(item.produto_final_caixas),
-    produto_final_peso_kg: numero(item.produto_final_peso_kg),
+    saida_classificado_caixas: numero(item.saida_classificado_caixas),
+    saidas_classificado_caixas: numero(item.saidas_classificado_caixas),
     saldo_classificado_caixas: numero(item.saldo_classificado_caixas),
   }));
 }
@@ -237,7 +334,7 @@ export async function listarOpcoesAlhoClassificado() {
   };
 }
 
-function montarPayload(dados) {
+function montarPayloadEntrada(dados) {
   const quantidadePaletes = numero(dados.quantidade_paletes);
   const caixasPorPalete = numero(dados.caixas_por_palete);
   const permitirManual = Boolean(dados.permitir_edicao_total_caixas);
@@ -260,7 +357,19 @@ function montarPayload(dados) {
   };
 }
 
-function validarPayload(payload) {
+function montarPayloadSaida(dados) {
+  return {
+    data_saida: dados.data_saida,
+    hora: dados.hora,
+    area_fazenda_id: dados.area_fazenda_id || dados.area_id || null,
+    calibre_id: dados.calibre_id || null,
+    quantidade_caixas: numero(dados.quantidade_caixas),
+    responsavel_id: dados.responsavel_id || null,
+    observacao: texto(dados.observacao),
+  };
+}
+
+function validarEntrada(payload) {
   if (!payload.data_classificacao) {
     throw new Error("Informe a data da classificação.");
   }
@@ -302,6 +411,32 @@ function validarPayload(payload) {
   }
 }
 
+function validarSaida(payload) {
+  if (!payload.data_saida) {
+    throw new Error("Informe a data da saída.");
+  }
+
+  if (!payload.hora) {
+    throw new Error("Informe a hora da saída.");
+  }
+
+  if (!payload.area_fazenda_id) {
+    throw new Error("Selecione a Área / Pivô.");
+  }
+
+  if (!payload.calibre_id) {
+    throw new Error("Selecione o calibre.");
+  }
+
+  if (numero(payload.quantidade_caixas) <= 0) {
+    throw new Error("Informe uma quantidade de saída maior que zero.");
+  }
+
+  if (!payload.responsavel_id) {
+    throw new Error("Selecione o responsável.");
+  }
+}
+
 function removerColunasGeradas(payload) {
   const payloadSeguro = { ...payload };
 
@@ -311,9 +446,74 @@ function removerColunasGeradas(payload) {
   return payloadSeguro;
 }
 
+async function buscarSaldoClassificado(areaId, calibreId) {
+  const { data, error } = await supabase
+    .from("vw_estoque_alho_classificado_atual")
+    .select("*")
+    .eq("area_id", areaId)
+    .eq("calibre_id", calibreId)
+    .maybeSingle();
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  return {
+    saldo_classificado_caixas: numero(data?.saldo_classificado_caixas),
+  };
+}
+
+async function buscarSaidaPorId(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("alho_classificado_saidas")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  return data || null;
+}
+
+async function validarSaldoAntesDaSaida(payload, idEdicao = null) {
+  validarSaida(payload);
+
+  const saldo = await buscarSaldoClassificado(payload.area_fazenda_id, payload.calibre_id);
+
+  let devolucaoEdicao = 0;
+
+  if (idEdicao) {
+    const registroAntigo = await buscarSaidaPorId(idEdicao);
+
+    const mesmaArea = registroAntigo?.area_fazenda_id === payload.area_fazenda_id;
+    const mesmoCalibre = registroAntigo?.calibre_id === payload.calibre_id;
+
+    if (registroAntigo && mesmaArea && mesmoCalibre) {
+      devolucaoEdicao = numero(registroAntigo.quantidade_caixas);
+    }
+  }
+
+  const saldoDisponivelReal =
+    numero(saldo.saldo_classificado_caixas) + devolucaoEdicao;
+
+  if (numero(payload.quantidade_caixas) > saldoDisponivelReal) {
+    throw new Error(
+      `Saldo insuficiente no Alho Classificado. Disponível: ${saldoDisponivelReal.toLocaleString(
+        "pt-BR"
+      )} caixas.`
+    );
+  }
+
+  return true;
+}
+
 export async function cadastrarAlhoClassificado(dados) {
-  const payload = montarPayload(dados);
-  validarPayload(payload);
+  const payload = montarPayloadEntrada(dados);
+  validarEntrada(payload);
 
   const payloadSeguro = removerColunasGeradas(payload);
 
@@ -331,8 +531,8 @@ export async function cadastrarAlhoClassificado(dados) {
 }
 
 export async function editarAlhoClassificado(id, dados) {
-  const payload = montarPayload(dados);
-  validarPayload(payload);
+  const payload = montarPayloadEntrada(dados);
+  validarEntrada(payload);
 
   const payloadSeguro = removerColunasGeradas(payload);
 
@@ -360,21 +560,74 @@ export async function excluirAlhoClassificado(id) {
   return true;
 }
 
-export function calcularResumoAlhoClassificado(registros = []) {
-  const totalClassificacoes = registros.length;
+export async function cadastrarSaidaAlhoClassificado(dados) {
+  const payload = montarPayloadSaida(dados);
 
-  const totalPaletes = registros.reduce((total, item) => {
-    return total + numero(item.quantidade_paletes);
-  }, 0);
+  await validarSaldoAntesDaSaida(payload);
 
-  const totalCaixas = registros.reduce((total, item) => {
+  const { data, error } = await supabase
+    .from("alho_classificado_saidas")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  return data;
+}
+
+export async function editarSaidaAlhoClassificado(id, dados) {
+  const payload = montarPayloadSaida(dados);
+
+  await validarSaldoAntesDaSaida(payload, id);
+
+  const { data, error } = await supabase
+    .from("alho_classificado_saidas")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  return data;
+}
+
+export async function excluirSaidaAlhoClassificado(id) {
+  const { error } = await supabase
+    .from("alho_classificado_saidas")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw tratarErroSupabase(error);
+  }
+
+  return true;
+}
+
+export function calcularResumoAlhoClassificado(entradas = [], saidas = []) {
+  const totalEntradas = entradas.reduce((total, item) => {
     return total + calcularTotalCaixas(item);
   }, 0);
 
+  const totalSaidas = saidas.reduce((total, item) => {
+    return total + numero(item.quantidade_caixas);
+  }, 0);
+
   return {
-    totalClassificacoes,
-    totalPaletes,
-    totalCaixas,
+    totalClassificacoes: entradas.length,
+    totalSaidasRegistros: saidas.length,
+    totalPaletes: entradas.reduce((total, item) => {
+      return total + numero(item.quantidade_paletes);
+    }, 0),
+    totalEntradas,
+    totalSaidas,
+    saldoAtual: totalEntradas - totalSaidas,
   };
 }
 

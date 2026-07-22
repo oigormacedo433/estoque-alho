@@ -6,17 +6,15 @@ import {
   calcularResumoProdutoFinal,
   editarProdutoFinal,
   excluirProdutoFinal,
-  listarEstoqueClassificadoDisponivelProdutoFinal,
+  listarOpcoesProdutoFinal,
   listarProdutoFinal,
 } from "../../services/produtoFinalService";
-import { supabase } from "../../services/supabaseClient";
 
 const filtrosIniciais = {
   dataInicial: "",
   dataFinal: "",
   areaId: "",
   calibreId: "",
-  status: "",
   responsavelId: "",
 };
 
@@ -36,7 +34,6 @@ function formularioInicial() {
     calibre_id: "",
     quantidade_caixas: "",
     peso_por_caixa_kg: "10",
-    status: "conferido",
     responsavel_id: "",
     observacao: "",
   };
@@ -70,10 +67,6 @@ function formatarData(data) {
   return `${dia}/${mes}/${ano}`;
 }
 
-function montarChaveEstoque(item) {
-  return `${item.area_id || item.area_fazenda_id || ""}-${item.calibre_id || ""}`;
-}
-
 export default function ProdutoFinal() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -81,14 +74,15 @@ export default function ProdutoFinal() {
   const [sucesso, setSucesso] = useState("");
 
   const [registros, setRegistros] = useState([]);
-  const [estoqueClassificado, setEstoqueClassificado] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [calibres, setCalibres] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
 
   const [filtros, setFiltros] = useState(filtrosIniciais);
 
   const [modalAberto, setModalAberto] = useState(false);
   const [registroEditando, setRegistroEditando] = useState(null);
-  const [formulario, setFormulario] = useState(formularioInicial);
+  const [formulario, setFormulario] = useState(formularioInicial());
 
   const resumo = useMemo(() => calcularResumoProdutoFinal(registros), [registros]);
 
@@ -103,15 +97,13 @@ export default function ProdutoFinal() {
   const opcoesArea = useMemo(() => {
     const mapa = new Map();
 
-    estoqueClassificado.forEach((item) => {
-      const areaId = item.area_id || item.area_fazenda_id;
+    areas.forEach((area) => {
+      if (area.ativo === false) return;
 
-      if (!areaId) return;
-
-      mapa.set(areaId, {
-        id: areaId,
-        nome: item.area_nome || "Área sem nome",
-        fazenda_nome: item.fazenda_nome || "",
+      mapa.set(area.id, {
+        id: area.id,
+        nome: area.nome || "Área sem nome",
+        fazenda_nome: area.fazendas?.nome || area.fazenda_nome || "",
       });
     });
 
@@ -130,19 +122,19 @@ export default function ProdutoFinal() {
     return Array.from(mapa.values()).sort((a, b) =>
       String(a.nome).localeCompare(String(b.nome), "pt-BR")
     );
-  }, [estoqueClassificado, registros]);
+  }, [areas, registros]);
 
   const opcoesCalibre = useMemo(() => {
     const mapa = new Map();
 
-    estoqueClassificado.forEach((item) => {
-      if (!item.calibre_id) return;
+    calibres.forEach((calibre) => {
+      if (calibre.ativo === false) return;
 
-      mapa.set(item.calibre_id, {
-        id: item.calibre_id,
-        codigo: item.calibre_codigo || "-",
-        nome: item.calibre_nome || "Calibre sem nome",
-        ordem: numero(item.calibre_ordem),
+      mapa.set(calibre.id, {
+        id: calibre.id,
+        codigo: calibre.codigo || "-",
+        nome: calibre.nome || "Calibre sem nome",
+        ordem: numero(calibre.ordem),
       });
     });
 
@@ -164,119 +156,42 @@ export default function ProdutoFinal() {
 
       return String(a.codigo).localeCompare(String(b.codigo), "pt-BR");
     });
-  }, [estoqueClassificado, registros]);
-
-  const estoqueSelecionado = useMemo(() => {
-    if (!formulario.area_id || !formulario.calibre_id) {
-      return null;
-    }
-
-    return (
-      estoqueClassificado.find((item) => {
-        const areaId = item.area_id || item.area_fazenda_id;
-
-        return areaId === formulario.area_id && item.calibre_id === formulario.calibre_id;
-      }) || null
-    );
-  }, [estoqueClassificado, formulario.area_id, formulario.calibre_id]);
+  }, [calibres, registros]);
 
   const quantidadeDigitada = useMemo(() => {
     return numero(formulario.quantidade_caixas);
   }, [formulario.quantidade_caixas]);
 
-  const devolucaoEdicao = useMemo(() => {
-    if (!registroEditando) {
-      return 0;
-    }
-
-    const mesmaArea =
-      (registroEditando.area_id || registroEditando.area_fazenda_id) ===
-      formulario.area_id;
-
-    const mesmoCalibre = registroEditando.calibre_id === formulario.calibre_id;
-
-    if (!mesmaArea || !mesmoCalibre) {
-      return 0;
-    }
-
-    return numero(registroEditando.quantidade_caixas);
-  }, [registroEditando, formulario.area_id, formulario.calibre_id]);
-
-  const saldoClassificadoDisponivel = useMemo(() => {
-    return numero(estoqueSelecionado?.saldo_classificado_caixas) + devolucaoEdicao;
-  }, [estoqueSelecionado, devolucaoEdicao]);
-
   const pesoTotalCalculado = useMemo(() => {
     return quantidadeDigitada * numero(formulario.peso_por_caixa_kg);
   }, [quantidadeDigitada, formulario.peso_por_caixa_kg]);
 
-  const mensagemEstoqueSelecionado = useMemo(() => {
-    if (!formulario.area_id || !formulario.calibre_id) {
-      return {
-        tipo: "neutro",
-        texto: "Selecione uma Área/Pivô e um calibre para ver o saldo classificado disponível.",
-      };
-    }
+  const formularioPodeSalvar = useMemo(() => {
+    if (salvando) return false;
+    if (!formulario.data_producao) return false;
+    if (!formulario.hora) return false;
+    if (!formulario.area_id) return false;
+    if (!formulario.calibre_id) return false;
+    if (quantidadeDigitada <= 0) return false;
+    if (numero(formulario.peso_por_caixa_kg) <= 0) return false;
 
-    if (!estoqueSelecionado && devolucaoEdicao <= 0) {
-      return {
-        tipo: "erro",
-        texto: "Não existe estoque de alho classificado para esta Área/Pivô e este calibre.",
-      };
-    }
-
-    if (quantidadeDigitada > 0 && quantidadeDigitada > saldoClassificadoDisponivel) {
-      return {
-        tipo: "erro",
-        texto: `Quantidade maior que o saldo classificado disponível. Disponível: ${formatarNumero(
-          saldoClassificadoDisponivel
-        )} caixas.`,
-      };
-    }
-
-    return {
-      tipo: "ok",
-      texto: `Disponível no Alho Classificado: ${formatarNumero(
-        saldoClassificadoDisponivel
-      )} caixas.`,
-    };
-  }, [
-    formulario.area_id,
-    formulario.calibre_id,
-    estoqueSelecionado,
-    devolucaoEdicao,
-    quantidadeDigitada,
-    saldoClassificadoDisponivel,
-  ]);
-
-  async function carregarResponsaveis() {
-    const { data, error } = await supabase
-      .from("responsaveis")
-      .select("*")
-      .order("nome", { ascending: true });
-
-    if (error) {
-      throw new Error(error.message || "Não foi possível carregar responsáveis.");
-    }
-
-    return data || [];
-  }
+    return true;
+  }, [salvando, formulario, quantidadeDigitada]);
 
   async function carregarDados() {
     try {
       setCarregando(true);
       setErro("");
 
-      const [listaProdutoFinal, listaEstoqueClassificado, listaResponsaveis] =
-        await Promise.all([
-          listarProdutoFinal(filtros),
-          listarEstoqueClassificadoDisponivelProdutoFinal(),
-          carregarResponsaveis(),
-        ]);
+      const [listaProdutoFinal, opcoes] = await Promise.all([
+        listarProdutoFinal(filtros),
+        listarOpcoesProdutoFinal(),
+      ]);
 
       setRegistros(listaProdutoFinal || []);
-      setEstoqueClassificado(listaEstoqueClassificado || []);
-      setResponsaveis(listaResponsaveis || []);
+      setAreas(opcoes.areas || []);
+      setCalibres(opcoes.calibres || []);
+      setResponsaveis(opcoes.responsaveis || []);
     } catch (error) {
       setErro(error.message || "Não foi possível carregar produto final.");
     } finally {
@@ -312,13 +227,12 @@ export default function ProdutoFinal() {
     setRegistroEditando(registro);
 
     setFormulario({
-      data_producao: registro.data_producao || registro.data_produto_final || dataHoje(),
+      data_producao: registro.data_producao || registro.data_registro || dataHoje(),
       hora: registro.hora || horaAgora(),
       area_id: registro.area_id || registro.area_fazenda_id || "",
       calibre_id: registro.calibre_id || "",
       quantidade_caixas: registro.quantidade_caixas || "",
       peso_por_caixa_kg: registro.peso_por_caixa_kg || "10",
-      status: registro.status || "conferido",
       responsavel_id: registro.responsavel_id || "",
       observacao: registro.observacao || "",
     });
@@ -351,12 +265,8 @@ export default function ProdutoFinal() {
       setErro("");
       setSucesso("");
 
-      if (quantidadeDigitada > saldoClassificadoDisponivel) {
-        throw new Error(
-          `Estoque classificado insuficiente. Disponível: ${formatarNumero(
-            saldoClassificadoDisponivel
-          )} caixas.`
-        );
+      if (!formularioPodeSalvar) {
+        throw new Error("Verifique os campos obrigatórios do produto final.");
       }
 
       if (registroEditando) {
@@ -463,7 +373,7 @@ export default function ProdutoFinal() {
           <div>
             <h2 className="text-xl font-black text-slate-900">Filtros do produto final</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Filtre os lançamentos por período, área, calibre, status e responsável.
+              Filtre os lançamentos por período, área, calibre e responsável.
             </p>
           </div>
 
@@ -617,7 +527,9 @@ export default function ProdutoFinal() {
                     <strong className="text-emerald-700">
                       {formatarNumero(item.quantidade_caixas)} caixas
                     </strong>
-                    <p className="text-sm text-slate-400">{formatarPeso(item.peso_total_kg)}</p>
+                    <p className="text-sm text-slate-400">
+                      {formatarPeso(item.peso_total_kg)}
+                    </p>
                   </div>
                 </div>
               ))
@@ -650,7 +562,9 @@ export default function ProdutoFinal() {
                     <strong className="text-emerald-700">
                       {formatarNumero(item.quantidade_caixas)} caixas
                     </strong>
-                    <p className="text-sm text-slate-400">{formatarPeso(item.peso_total_kg)}</p>
+                    <p className="text-sm text-slate-400">
+                      {formatarPeso(item.peso_total_kg)}
+                    </p>
                   </div>
                 </div>
               ))
@@ -666,7 +580,7 @@ export default function ProdutoFinal() {
               Lançamentos de Produto Final
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Histórico de produtos finais lançados a partir do Alho Classificado.
+              Histórico de produtos finais lançados no estoque final.
             </p>
           </div>
 
@@ -707,7 +621,7 @@ export default function ProdutoFinal() {
                 registros.map((registro) => (
                   <tr key={registro.id}>
                     <td className="px-4 py-3 text-slate-600">
-                      {formatarData(registro.data_producao)}
+                      {formatarData(registro.data_producao || registro.data_registro)}
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-800">
                       {registro.area_nome}
@@ -763,8 +677,7 @@ export default function ProdutoFinal() {
                   {registroEditando ? "Editar produto final" : "Novo produto final"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Registre as caixas finais prontas para venda, informando a Área / Pivô
-                  de origem.
+                  Registre as caixas finais prontas para venda.
                 </p>
               </div>
 
@@ -778,50 +691,6 @@ export default function ProdutoFinal() {
             </div>
 
             <form onSubmit={salvarFormulario} className="space-y-6">
-              <div
-                className={`rounded-2xl border px-5 py-4 text-sm ${
-                  mensagemEstoqueSelecionado.tipo === "erro"
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : mensagemEstoqueSelecionado.tipo === "ok"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-blue-200 bg-blue-50 text-blue-700"
-                }`}
-              >
-                <strong>Saldo do Alho Classificado</strong>
-                <p className="mt-1">{mensagemEstoqueSelecionado.texto}</p>
-
-                {estoqueSelecionado ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl bg-white/70 px-4 py-3">
-                      <p className="text-xs font-bold uppercase opacity-70">
-                        Classificado
-                      </p>
-                      <strong className="mt-1 block text-lg">
-                        {formatarNumero(estoqueSelecionado.classificado_caixas)} caixas
-                      </strong>
-                    </div>
-
-                    <div className="rounded-xl bg-white/70 px-4 py-3">
-                      <p className="text-xs font-bold uppercase opacity-70">
-                        Já enviado ao Produto Final
-                      </p>
-                      <strong className="mt-1 block text-lg">
-                        {formatarNumero(estoqueSelecionado.produto_final_caixas)} caixas
-                      </strong>
-                    </div>
-
-                    <div className="rounded-xl bg-white/70 px-4 py-3">
-                      <p className="text-xs font-bold uppercase opacity-70">
-                        Disponível agora
-                      </p>
-                      <strong className="mt-1 block text-lg">
-                        {formatarNumero(saldoClassificadoDisponivel)} caixas
-                      </strong>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2">
                   <span className="text-sm font-bold text-slate-700">
@@ -972,13 +841,7 @@ export default function ProdutoFinal() {
 
                 <button
                   type="submit"
-                  disabled={
-                    salvando ||
-                    !formulario.area_id ||
-                    !formulario.calibre_id ||
-                    quantidadeDigitada <= 0 ||
-                    quantidadeDigitada > saldoClassificadoDisponivel
-                  }
+                  disabled={!formularioPodeSalvar}
                   className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {salvando ? "Salvando..." : "Salvar produto final"}
