@@ -148,6 +148,25 @@ async function buscarProdutoFinalBI(filtros = {}) {
   return data || [];
 }
 
+async function buscarItensSaidasBI(saidaIds = []) {
+  const idsLimpos = Array.from(new Set((saidaIds || []).filter(Boolean)));
+
+  if (idsLimpos.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("saida_venda_itens")
+    .select("*")
+    .in("saida_venda_id", idsLimpos);
+
+  if (error) {
+    throw new Error(error.message || "Nao foi possivel carregar os itens das saidas.");
+  }
+
+  return data || [];
+}
+
 async function buscarSaidasBI(filtros = {}) {
   let query = supabase
     .from("saidas_vendas")
@@ -160,11 +179,98 @@ async function buscarSaidasBI(filtros = {}) {
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(error.message || "Não foi possível carregar Saídas.");
+    throw new Error(error.message || "Nao foi possivel carregar Saidas.");
   }
 
-  return data || [];
+  const saidas = data || [];
+  const saidaIds = saidas.map((saida) => saida.id).filter(Boolean);
+  const itens = await buscarItensSaidasBI(saidaIds);
+
+  const itensPorSaida = new Map();
+
+  itens.forEach((item) => {
+    if (!item.saida_venda_id) return;
+
+    const listaAtual = itensPorSaida.get(item.saida_venda_id) || [];
+    listaAtual.push(item);
+    itensPorSaida.set(item.saida_venda_id, listaAtual);
+  });
+
+  const saidasNormalizadas = [];
+
+  saidas.forEach((saida) => {
+    const areaId = obterAreaIdBruto(saida);
+    const itensDaSaida = itensPorSaida.get(saida.id) || [];
+
+    if (itensDaSaida.length > 0) {
+      itensDaSaida.forEach((item) => {
+        const quantidadeCaixas = numero(item.quantidade_caixas);
+
+        if (quantidadeCaixas <= 0) return;
+
+        const pesoPorCaixa =
+          numero(item.peso_por_caixa_kg) ||
+          numero(saida.peso_por_caixa_kg) ||
+          (quantidadeCaixas > 0 && numero(item.peso_total_kg) > 0
+            ? numero(item.peso_total_kg) / quantidadeCaixas
+            : 0);
+
+        const pesoTotal =
+          numero(item.peso_total_kg) || quantidadeCaixas * pesoPorCaixa;
+
+        saidasNormalizadas.push({
+          ...saida,
+
+          id: String(saida.id) + "-" + String(item.id || item.calibre_id),
+          saida_venda_id: saida.id,
+          item_saida_id: item.id || null,
+
+          area_id: areaId || null,
+          area_fazenda_id: areaId || null,
+
+          calibre_id: item.calibre_id || saida.calibre_id || null,
+
+          quantidade_caixas: quantidadeCaixas,
+          quantidade_total_caixas: quantidadeCaixas,
+
+          peso_por_caixa_kg: pesoPorCaixa,
+          peso_total_kg: pesoTotal,
+        });
+      });
+
+      return;
+    }
+
+    const quantidadeLegacy = numero(
+      saida.quantidade_caixas || saida.quantidade_total_caixas
+    );
+
+    const pesoPorCaixaLegacy =
+      numero(saida.peso_por_caixa_kg) ||
+      (quantidadeLegacy > 0 && numero(saida.peso_total_kg) > 0
+        ? numero(saida.peso_total_kg) / quantidadeLegacy
+        : 0);
+
+    const pesoTotalLegacy =
+      numero(saida.peso_total_kg) || quantidadeLegacy * pesoPorCaixaLegacy;
+
+    saidasNormalizadas.push({
+      ...saida,
+
+      area_id: areaId || null,
+      area_fazenda_id: areaId || null,
+
+      quantidade_caixas: quantidadeLegacy,
+      quantidade_total_caixas: quantidadeLegacy,
+
+      peso_por_caixa_kg: pesoPorCaixaLegacy,
+      peso_total_kg: pesoTotalLegacy,
+    });
+  });
+
+  return saidasNormalizadas;
 }
+
 
 async function buscarClassificacoesBI(filtros = {}) {
   let query = supabase
