@@ -1,4 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BarChart3,
+  Boxes,
+  CalendarDays,
+  Edit3,
+  MapPin,
+  PackageCheck,
+  Plus,
+  RefreshCw,
+  Scale,
+  Trash2,
+  TrendingUp,
+  Warehouse,
+  X,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   cadastrarAlhoClassificado,
   cadastrarSaidaAlhoClassificado,
@@ -15,6 +46,7 @@ import {
 } from "../../services/alhoClassificadoService";
 
 const REGISTROS_POR_PAGINA = 10;
+const LIMITE_PONTOS_GRAFICO = 15;
 
 const estadoInicialFiltros = {
   dataInicial: "",
@@ -78,11 +110,30 @@ function formatarNumero(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
+function formatarNumeroCompacto(valor) {
+  const numeroTratado = numero(valor);
+
+  if (Math.abs(numeroTratado) >= 1000) {
+    return `${(numeroTratado / 1000).toLocaleString("pt-BR", {
+      maximumFractionDigits: 1,
+    })}k`;
+  }
+
+  return numeroTratado.toLocaleString("pt-BR");
+}
+
 function formatarData(data) {
   if (!data) return "-";
 
   const [ano, mes, dia] = String(data).split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataCurta(data) {
+  if (!data) return "-";
+
+  const [, mes, dia] = String(data).split("-");
+  return `${dia}/${mes}`;
 }
 
 function classeBadgeStatus(status) {
@@ -98,7 +149,42 @@ function classeBadgeStatus(status) {
 }
 
 function obterSaldoClassificado(item) {
-  return numero(item?.saldo_classificado_caixas);
+  const saldoInformado =
+    item?.saldo_classificado_caixas ??
+    item?.saldo_disponivel_caixas ??
+    item?.saldo_caixas;
+
+  if (
+    saldoInformado !== null &&
+    saldoInformado !== undefined &&
+    saldoInformado !== ""
+  ) {
+    return Math.max(numero(saldoInformado), 0);
+  }
+
+  const entradas = numero(
+    item?.entrada_classificado_caixas ||
+      item?.classificado_caixas ||
+      item?.entradas ||
+      item?.total_entradas
+  );
+
+  const saidas = numero(
+    item?.saida_classificado_caixas ||
+      item?.saidas_classificado_caixas ||
+      item?.saidas ||
+      item?.total_saidas
+  );
+
+  return Math.max(entradas - saidas, 0);
+}
+
+function obterEntradaClassificada(item) {
+  return numero(item?.entrada_classificado_caixas || item?.classificado_caixas);
+}
+
+function obterSaidaClassificada(item) {
+  return numero(item?.saida_classificado_caixas || item?.saidas_classificado_caixas);
 }
 
 function normalizarTextoOrdenacao(valor) {
@@ -142,9 +228,27 @@ function obterValorOrdenacaoSaida(registro, campo) {
   return "";
 }
 
+function obterValorOrdenacaoEstoque(registro, campo) {
+  if (campo === "area") return normalizarTextoOrdenacao(registro.area_nome);
+  if (campo === "calibre") {
+    return `${String(numero(registro.calibre_ordem)).padStart(6, "0")}-${
+      registro.calibre_codigo || ""
+    }`;
+  }
+  if (campo === "entradas") return obterEntradaClassificada(registro);
+  if (campo === "saidas") return obterSaidaClassificada(registro);
+  if (campo === "saldo") return obterSaldoClassificado(registro);
+  if (campo === "status") return normalizarTextoOrdenacao(registro.status_classificado);
+
+  return "";
+}
+
 function ordenarRegistros(lista, ordenacao, tipo) {
-  const obterValor =
-    tipo === "entrada" ? obterValorOrdenacaoEntrada : obterValorOrdenacaoSaida;
+  const obterValor = {
+    entrada: obterValorOrdenacaoEntrada,
+    saida: obterValorOrdenacaoSaida,
+    estoque: obterValorOrdenacaoEstoque,
+  }[tipo];
 
   return [...lista].sort((a, b) => {
     const valorA = obterValor(a, ordenacao.campo);
@@ -181,7 +285,7 @@ function BotaoOrdenacao({ children, campo, ordenacao, onClick, align = "left" })
     <button
       type="button"
       onClick={() => onClick(campo)}
-      className={`inline-flex items-center gap-1 font-black uppercase tracking-wide transition hover:text-emerald-700 ${
+      className={`inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide transition hover:text-emerald-700 ${
         align === "right" ? "ml-auto justify-end text-right" : "justify-start text-left"
       } ${ativo ? "text-emerald-700" : "text-slate-500"}`}
     >
@@ -193,9 +297,9 @@ function BotaoOrdenacao({ children, campo, ordenacao, onClick, align = "left" })
 
 function Paginacao({ paginaAtual, totalPaginas, totalRegistros, onChange }) {
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm md:flex-row md:items-center md:justify-between">
+    <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 text-xs md:flex-row md:items-center md:justify-between">
       <p className="text-slate-500">
-        Mostrando até {REGISTROS_POR_PAGINA} por página • {formatarNumero(totalRegistros)}{" "}
+        {REGISTROS_POR_PAGINA} registros por página • {formatarNumero(totalRegistros)}{" "}
         registro(s)
       </p>
 
@@ -204,25 +308,370 @@ function Paginacao({ paginaAtual, totalPaginas, totalRegistros, onChange }) {
           type="button"
           disabled={paginaAtual <= 1}
           onClick={() => onChange(paginaAtual - 1)}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Anterior
+          ‹
         </button>
 
-        <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
-          Página {paginaAtual} de {totalPaginas}
+        <span className="rounded-lg bg-emerald-700 px-3 py-2 font-medium text-white">
+          {paginaAtual}
         </span>
+
+        <span className="text-slate-400">de {totalPaginas}</span>
 
         <button
           type="button"
           disabled={paginaAtual >= totalPaginas}
           onClick={() => onChange(paginaAtual + 1)}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Próxima
+          ›
         </button>
       </div>
     </div>
+  );
+}
+
+function EmptyChart({ texto = "Sem dados para exibir." }) {
+  return (
+    <div className="flex h-full min-h-[230px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+      {texto}
+    </div>
+  );
+}
+
+
+function GraficoMovimentoDiario({ dados = [] }) {
+  if (!dados.length) {
+    return <EmptyChart />;
+  }
+
+  const largura = 1000;
+  const altura = 330;
+  const topo = 34;
+  const direita = 34;
+  const baixo = 54;
+  const esquerda = 34;
+  const areaLargura = largura - esquerda - direita;
+  const areaAltura = altura - topo - baixo;
+
+  const maiorValor = Math.max(
+    1,
+    ...dados.map((item) => Math.max(numero(item.entradas), numero(item.saidas)))
+  );
+
+  const obterX = (indice) => {
+    if (dados.length === 1) return esquerda + areaLargura / 2;
+    return esquerda + (indice / (dados.length - 1)) * areaLargura;
+  };
+
+  const obterY = (valor) => topo + areaAltura - (numero(valor) / maiorValor) * areaAltura;
+
+  const pontosEntrada = dados
+    .map((item, indice) => `${obterX(indice)},${obterY(item.entradas)}`)
+    .join(" ");
+
+  const pontosSaida = dados
+    .map((item, indice) => `${obterX(indice)},${obterY(item.saidas)}`)
+    .join(" ");
+
+  const areaEntrada = [
+    `${esquerda},${topo + areaAltura}`,
+    pontosEntrada,
+    `${esquerda + areaLargura},${topo + areaAltura}`,
+  ].join(" ");
+
+  return (
+    <div className="h-[340px] w-full">
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-full w-full overflow-visible">
+        <defs>
+          <linearGradient id="graficoAlhoClassificadoEntrada" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#047857" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#047857" stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+
+        {[0, 1, 2, 3].map((linha) => {
+          const y = topo + (linha / 3) * areaAltura;
+
+          return (
+            <line
+              key={linha}
+              x1={esquerda}
+              x2={largura - direita}
+              y1={y}
+              y2={y}
+              stroke="#E8EEF2"
+              strokeWidth="1"
+            />
+          );
+        })}
+
+        <polygon points={areaEntrada} fill="url(#graficoAlhoClassificadoEntrada)" />
+
+        <polyline
+          points={pontosEntrada}
+          fill="none"
+          stroke="#047857"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        <polyline
+          points={pontosSaida}
+          fill="none"
+          stroke="#DC2626"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {dados.map((item, indice) => {
+          const x = obterX(indice);
+          const yEntrada = obterY(item.entradas);
+          const ySaida = obterY(item.saidas);
+
+          return (
+            <g key={item.data || indice}>
+              <circle cx={x} cy={yEntrada} r="7" fill="#047857" stroke="#FFFFFF" strokeWidth="4" />
+              <text
+                x={x}
+                y={yEntrada - 16}
+                textAnchor="middle"
+                fontSize="18"
+                fontWeight="600"
+                fill="#0F172A"
+              >
+                {formatarNumero(item.entradas)}
+              </text>
+
+              {numero(item.saidas) > 0 ? (
+                <>
+                  <circle cx={x} cy={ySaida} r="7" fill="#DC2626" stroke="#FFFFFF" strokeWidth="4" />
+                  <text
+                    x={x}
+                    y={ySaida + 28}
+                    textAnchor="middle"
+                    fontSize="16"
+                    fontWeight="600"
+                    fill="#DC2626"
+                  >
+                    {formatarNumero(item.saidas)}
+                  </text>
+                </>
+              ) : null}
+
+              <text
+                x={x}
+                y={altura - 14}
+                textAnchor="middle"
+                fontSize="17"
+                fontWeight="500"
+                fill="#64748B"
+              >
+                {item.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="mt-1 flex justify-center gap-5 text-sm text-slate-600">
+        <span className="inline-flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-emerald-700" />
+          Entradas
+        </span>
+
+        <span className="inline-flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-red-600" />
+          Saídas
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GraficoBarrasHorizontais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+  if (!dados.length) {
+    return <EmptyChart />;
+  }
+
+  const maiorValor = Math.max(1, ...dados.map((item) => numero(item[dataKey])));
+
+  return (
+    <div className="space-y-5 py-2">
+      {dados.map((item) => {
+        const valor = numero(item[dataKey]);
+        const larguraBarra = Math.max((valor / maiorValor) * 100, 2);
+
+        return (
+          <div key={item.nome} className="grid grid-cols-[92px_1fr_92px] items-center gap-3">
+            <span className="truncate text-sm font-medium text-slate-700">{item.nome}</span>
+
+            <div className="h-5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-700"
+                style={{ width: `${larguraBarra}%` }}
+              />
+            </div>
+
+            <span className="text-right text-sm font-semibold text-slate-950">
+              {formatarNumero(valor)} {sufixo}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GraficoBarrasVerticais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+  if (!dados.length) {
+    return <EmptyChart />;
+  }
+
+  const maiorValor = Math.max(1, ...dados.map((item) => numero(item[dataKey])));
+
+  return (
+    <div className="flex h-[280px] items-end gap-4 overflow-x-auto px-2 pb-2 pt-8">
+      {dados.map((item) => {
+        const valor = numero(item[dataKey]);
+        const alturaBarra = Math.max((valor / maiorValor) * 210, 18);
+
+        return (
+          <div key={item.nome} className="flex min-w-[72px] flex-1 flex-col items-center justify-end gap-2">
+            <span className="text-sm font-semibold text-slate-950">
+              {formatarNumero(valor)}
+            </span>
+
+            <div
+              className="w-full max-w-[54px] rounded-t-2xl bg-emerald-700"
+              style={{ height: `${alturaBarra}px` }}
+            />
+
+            <span className="text-center text-sm font-medium text-slate-600">
+              {item.nome}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TooltipGrafico({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="mb-1 font-medium text-slate-900">{label}</p>
+      <div className="space-y-1">
+        {payload.map((item) => (
+          <p key={item.dataKey} className="flex items-center gap-2 text-slate-600">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <span>{item.name}:</span>
+            <span className="font-medium text-slate-900">
+              {formatarNumero(item.value)}
+            </span>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ titulo, valor, subtitulo, icon: Icon, tone = "green" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-red-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+  };
+
+  return (
+    <div className="flex min-h-[92px] items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.green
+        }`}
+      >
+        <Icon size={24} strokeWidth={2} />
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-500">{titulo}</p>
+        <strong className="mt-1 block text-2xl font-semibold tracking-tight text-slate-950">
+          {valor}
+        </strong>
+        <p className="mt-1 text-xs text-slate-500">{subtitulo}</p>
+      </div>
+    </div>
+  );
+}
+
+function DestaqueItem({ icon: Icon, rotulo, valor, detalhe, tone = "green" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-red-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+    amber: "bg-amber-50 text-amber-700",
+  };
+
+  return (
+    <div className="flex items-start gap-4">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.green
+        }`}
+      >
+        <Icon size={22} strokeWidth={2} />
+      </div>
+
+      <div>
+        <p className="text-xs font-medium text-slate-500">{rotulo}</p>
+        <strong className="mt-1 block text-xl font-semibold text-slate-950">{valor}</strong>
+        <p className="mt-1 text-xs text-slate-500">{detalhe}</p>
+      </div>
+    </div>
+  );
+}
+
+function MiniIndicador({ icon: Icon, valor, texto, tone = "blue" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+  };
+
+  return (
+    <div className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.blue
+        }`}
+      >
+        <Icon size={22} strokeWidth={2} />
+      </div>
+
+      <div>
+        <strong className="block text-2xl font-semibold text-slate-950">{valor}</strong>
+        <p className="mt-1 text-xs text-slate-500">{texto}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({ titulo, children, className = "" }) {
+  return (
+    <section className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 ${className}`}>
+      <h2 className="text-base font-semibold text-slate-950">{titulo}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
   );
 }
 
@@ -243,8 +692,14 @@ export default function AlhoClassificado() {
 
   const [filtros, setFiltros] = useState(estadoInicialFiltros);
 
+  const [paginaEstoque, setPaginaEstoque] = useState(1);
   const [paginaEntradas, setPaginaEntradas] = useState(1);
   const [paginaSaidas, setPaginaSaidas] = useState(1);
+
+  const [ordenacaoEstoque, setOrdenacaoEstoque] = useState({
+    campo: "saldo",
+    direcao: "desc",
+  });
 
   const [ordenacaoEntradas, setOrdenacaoEntradas] = useState({
     campo: "data",
@@ -268,6 +723,10 @@ export default function AlhoClassificado() {
     [entradas, saidas]
   );
 
+  const estoqueOrdenado = useMemo(() => {
+    return ordenarRegistros(estoqueClassificado, ordenacaoEstoque, "estoque");
+  }, [estoqueClassificado, ordenacaoEstoque]);
+
   const entradasOrdenadas = useMemo(() => {
     return ordenarRegistros(entradas, ordenacaoEntradas, "entrada");
   }, [entradas, ordenacaoEntradas]);
@@ -276,6 +735,10 @@ export default function AlhoClassificado() {
     return ordenarRegistros(saidas, ordenacaoSaidas, "saida");
   }, [saidas, ordenacaoSaidas]);
 
+  const totalPaginasEstoque = useMemo(() => {
+    return calcularTotalPaginas(estoqueOrdenado.length);
+  }, [estoqueOrdenado.length]);
+
   const totalPaginasEntradas = useMemo(() => {
     return calcularTotalPaginas(entradasOrdenadas.length);
   }, [entradasOrdenadas.length]);
@@ -283,6 +746,10 @@ export default function AlhoClassificado() {
   const totalPaginasSaidas = useMemo(() => {
     return calcularTotalPaginas(saidasOrdenadas.length);
   }, [saidasOrdenadas.length]);
+
+  const estoquePaginado = useMemo(() => {
+    return paginarRegistros(estoqueOrdenado, paginaEstoque);
+  }, [estoqueOrdenado, paginaEstoque]);
 
   const entradasPaginadas = useMemo(() => {
     return paginarRegistros(entradasOrdenadas, paginaEntradas);
@@ -522,6 +989,196 @@ export default function AlhoClassificado() {
     return true;
   }, [salvando, formularioSaida, quantidadeSaidaDigitada, saldoSaidaSelecionado]);
 
+  const movimentoDiarioCompleto = useMemo(() => {
+    const mapa = new Map();
+
+    entradas.forEach((item) => {
+      const data = item.data_classificacao;
+      if (!data) return;
+
+      if (!mapa.has(data)) {
+        mapa.set(data, {
+          data,
+          label: formatarDataCurta(data),
+          entradas: 0,
+          saidas: 0,
+        });
+      }
+
+      const atual = mapa.get(data);
+      atual.entradas += calcularTotalCaixas(item);
+      mapa.set(data, atual);
+    });
+
+    saidas.forEach((item) => {
+      const data = item.data_saida;
+      if (!data) return;
+
+      if (!mapa.has(data)) {
+        mapa.set(data, {
+          data,
+          label: formatarDataCurta(data),
+          entradas: 0,
+          saidas: 0,
+        });
+      }
+
+      const atual = mapa.get(data);
+      atual.saidas += numero(item.quantidade_caixas);
+      mapa.set(data, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => a.data.localeCompare(b.data));
+  }, [entradas, saidas]);
+
+  const movimentoDiarioGrafico = useMemo(() => {
+    if (filtros.dataInicial || filtros.dataFinal) {
+      return movimentoDiarioCompleto;
+    }
+
+    if (movimentoDiarioCompleto.length <= LIMITE_PONTOS_GRAFICO) {
+      return movimentoDiarioCompleto;
+    }
+
+    return movimentoDiarioCompleto.slice(-LIMITE_PONTOS_GRAFICO);
+  }, [movimentoDiarioCompleto, filtros.dataInicial, filtros.dataFinal]);
+
+  const saldoPorArea = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueClassificado.forEach((item) => {
+      const areaId = item.area_id || item.area_fazenda_id || item.area_nome || "sem-area";
+      const saldoDisponivel = obterSaldoClassificado(item);
+
+      if (!areaId || saldoDisponivel <= 0) return;
+
+      const atual = mapa.get(areaId) || {
+        id: areaId,
+        nome: item.area_nome || "Área sem nome",
+        saldo: 0,
+        valor: 0,
+        total: 0,
+        total_caixas: 0,
+        quantidade_caixas: 0,
+        saldo_classificado_caixas: 0,
+      };
+
+      atual.saldo += saldoDisponivel;
+      atual.valor = atual.saldo;
+      atual.total = atual.saldo;
+      atual.total_caixas = atual.saldo;
+      atual.quantidade_caixas = atual.saldo;
+      atual.saldo_classificado_caixas = atual.saldo;
+
+      mapa.set(areaId, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => {
+      return numero(b.saldo) - numero(a.saldo);
+    });
+  }, [estoqueClassificado]);
+
+  const saldoPorCalibre = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueClassificado.forEach((item) => {
+      const calibreId = item.calibre_id || item.calibre_codigo || "sem-calibre";
+      const saldoDisponivel = obterSaldoClassificado(item);
+
+      if (!calibreId || saldoDisponivel <= 0) return;
+
+      const atual = mapa.get(calibreId) || {
+        id: calibreId,
+        calibre_id: calibreId,
+        codigo: item.calibre_codigo || "-",
+        nome: item.calibre_codigo || item.calibre_nome || "Sem calibre",
+        descricao: item.calibre_nome || "",
+        ordem: numero(item.calibre_ordem),
+        saldo: 0,
+        valor: 0,
+        total: 0,
+        total_caixas: 0,
+        quantidade_caixas: 0,
+        saldo_classificado_caixas: 0,
+      };
+
+      atual.saldo += saldoDisponivel;
+      atual.valor = atual.saldo;
+      atual.total = atual.saldo;
+      atual.total_caixas = atual.saldo;
+      atual.quantidade_caixas = atual.saldo;
+      atual.saldo_classificado_caixas = atual.saldo;
+
+      mapa.set(calibreId, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => {
+      if (numero(b.saldo) !== numero(a.saldo)) {
+        return numero(b.saldo) - numero(a.saldo);
+      }
+
+      return numero(a.ordem) - numero(b.ordem);
+    });
+  }, [estoqueClassificado]);
+
+  const destaques = useMemo(() => {
+    const maiorEntrada = entradas.reduce((maior, item) => {
+      return calcularTotalCaixas(item) > calcularTotalCaixas(maior || {})
+        ? item
+        : maior;
+    }, null);
+
+    const maiorSaida = saidas.reduce((maior, item) => {
+      return numero(item.quantidade_caixas) > numero(maior?.quantidade_caixas)
+        ? item
+        : maior;
+    }, null);
+
+    const maiorAreaSaldo = saldoPorArea[0] || null;
+    const maiorCalibreSaldo = saldoPorCalibre[0] || null;
+
+    const mediaPorLancamento =
+      entradas.length > 0 ? Math.round(resumo.totalEntradas / entradas.length) : 0;
+
+    return {
+      maiorEntrada,
+      maiorSaida,
+      maiorAreaSaldo,
+      maiorCalibreSaldo,
+      mediaPorLancamento,
+    };
+  }, [entradas, saidas, resumo.totalEntradas, saldoPorArea, saldoPorCalibre]);
+
+  const indicadoresApoio = useMemo(() => {
+    const combinacoesComSaldo = estoqueClassificado.filter((item) => {
+      return obterSaldoClassificado(item) > 0;
+    }).length;
+
+    const diasComMovimentacao = movimentoDiarioCompleto.filter((item) => {
+      return item.entradas > 0 || item.saidas > 0;
+    }).length;
+
+    const mediaSaldoPorCalibre =
+      saldoPorCalibre.length > 0
+        ? Math.round(
+            saldoPorCalibre.reduce((total, item) => total + numero(item.saldo), 0) /
+              saldoPorCalibre.length
+          )
+        : 0;
+
+    return {
+      combinacoesComSaldo,
+      diasComMovimentacao,
+      mediaSaldoPorCalibre,
+    };
+  }, [estoqueClassificado, movimentoDiarioCompleto, saldoPorCalibre]);
+
+  useEffect(() => {
+    if (paginaEstoque > totalPaginasEstoque) {
+      setPaginaEstoque(totalPaginasEstoque);
+    }
+  }, [paginaEstoque, totalPaginasEstoque]);
+
   useEffect(() => {
     if (paginaEntradas > totalPaginasEntradas) {
       setPaginaEntradas(totalPaginasEntradas);
@@ -555,6 +1212,7 @@ export default function AlhoClassificado() {
       setSaidas(listaSaidas || []);
       setEstoqueClassificado(listaEstoque || []);
 
+      setPaginaEstoque(1);
       setPaginaEntradas(1);
       setPaginaSaidas(1);
     } catch (error) {
@@ -569,6 +1227,7 @@ export default function AlhoClassificado() {
   }, []);
 
   async function aplicarFiltros() {
+    setPaginaEstoque(1);
     setPaginaEntradas(1);
     setPaginaSaidas(1);
     await carregarDados();
@@ -576,12 +1235,31 @@ export default function AlhoClassificado() {
 
   async function limparFiltros() {
     setFiltros(estadoInicialFiltros);
+    setPaginaEstoque(1);
     setPaginaEntradas(1);
     setPaginaSaidas(1);
 
     setTimeout(() => {
       carregarDados();
     }, 0);
+  }
+
+  function alternarOrdenacaoEstoque(campo) {
+    setPaginaEstoque(1);
+
+    setOrdenacaoEstoque((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: ["entradas", "saidas", "saldo"].includes(campo) ? "desc" : "asc",
+      };
+    });
   }
 
   function alternarOrdenacaoEntradas(campo) {
@@ -832,343 +1510,472 @@ export default function AlhoClassificado() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-black text-[var(--color-text-primary)]">
-          Alho Classificado
-        </h1>
-        <p className="text-sm text-slate-500">
-          Controle próprio de entrada, saída e saldo do alho classificado.
-        </p>
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Entradas</p>
-          <strong className="mt-3 block text-3xl font-black text-slate-900">
-            {formatarNumero(resumo.totalEntradas)}
-          </strong>
-          <p className="mt-2 text-sm text-slate-400">Caixas classificadas</p>
-        </div>
-
-        <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Saídas</p>
-          <strong className="mt-3 block text-3xl font-black text-slate-900">
-            {formatarNumero(resumo.totalSaidas)}
-          </strong>
-          <p className="mt-2 text-sm text-slate-400">Caixas retiradas</p>
-        </div>
-
-        <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Saldo atual</p>
-          <strong className="mt-3 block text-3xl font-black text-emerald-700">
-            {formatarNumero(resumo.saldoAtual)}
-          </strong>
-          <p className="mt-2 text-sm text-slate-400">Entrada menos saída</p>
-        </div>
-
-        <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Paletes</p>
-          <strong className="mt-3 block text-3xl font-black text-slate-900">
-            {formatarNumero(resumo.totalPaletes)}
-          </strong>
-          <p className="mt-2 text-sm text-slate-400">Total filtrado</p>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {erro ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-          <strong>Atenção</strong>
+          <strong className="font-semibold">Atenção</strong>
           <p className="mt-1">{erro}</p>
         </div>
       ) : null}
 
       {sucesso ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
-          <strong>Sucesso</strong>
+          <strong className="font-semibold">Sucesso</strong>
           <p className="mt-1">{sucesso}</p>
         </div>
       ) : null}
 
-      <section className="rounded-3xl bg-white p-6 shadow-sm">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">Filtros da classificação</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Filtre por período, fazenda, área, calibre, status e responsável.
-            </p>
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Data inicial</span>
+              <input
+                type="date"
+                value={filtros.dataInicial}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    dataInicial: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Data final</span>
+              <input
+                type="date"
+                value={filtros.dataFinal}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    dataFinal: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Fazenda</span>
+              <select
+                value={filtros.fazendaId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    fazendaId: event.target.value,
+                    areaId: "",
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todas as fazendas</option>
+                {fazendas.map((fazenda) => (
+                  <option key={fazenda.id} value={fazenda.id}>
+                    {fazenda.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
+              <select
+                value={filtros.areaId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    areaId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todas as áreas</option>
+                {areasDosFiltros.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Calibre</span>
+              <select
+                value={filtros.calibreId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    calibreId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos os calibres</option>
+                {calibres.map((calibre) => (
+                  <option key={calibre.id} value={calibre.id}>
+                    {calibre.codigo} — {calibre.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Status</span>
+              <select
+                value={filtros.status}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    status: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos</option>
+                <option value="conferido">Conferido</option>
+                <option value="pendente">Pendente</option>
+              </select>
+            </label>
+
+            <label className="space-y-2 md:col-span-2 xl:col-span-2">
+              <span className="text-sm font-medium text-slate-700">Responsável</span>
+              <select
+                value={filtros.responsavelId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    responsavelId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos os responsáveis</option>
+                {responsaveis.map((responsavel) => (
+                  <option key={responsavel.id} value={responsavel.id}>
+                    {responsavel.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
               onClick={abrirNovaEntrada}
-              className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
             >
-              + Entrada
+              <Plus size={17} />
+              Entrada
             </button>
 
             <button
               type="button"
               onClick={abrirNovaSaida}
-              className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
             >
-              + Saída
+              <Plus size={17} />
+              Saída
+            </button>
+
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <X size={16} />
+              Limpar filtros
+            </button>
+
+            <button
+              type="button"
+              onClick={aplicarFiltros}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800"
+            >
+              <RefreshCw size={16} />
+              Atualizar
             </button>
           </div>
         </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Data inicial</span>
-            <input
-              type="date"
-              value={filtros.dataInicial}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  dataInicial: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Data final</span>
-            <input
-              type="date"
-              value={filtros.dataFinal}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  dataFinal: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Fazenda</span>
-            <select
-              value={filtros.fazendaId}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  fazendaId: event.target.value,
-                  areaId: "",
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">Todas as fazendas</option>
-              {fazendas.map((fazenda) => (
-                <option key={fazenda.id} value={fazenda.id}>
-                  {fazenda.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Área / Pivô</span>
-            <select
-              value={filtros.areaId}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  areaId: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">Todas as áreas</option>
-              {areasDosFiltros.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Calibre</span>
-            <select
-              value={filtros.calibreId}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  calibreId: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">Todos os calibres</option>
-              {calibres.map((calibre) => (
-                <option key={calibre.id} value={calibre.id}>
-                  {calibre.codigo} — {calibre.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Status</span>
-            <select
-              value={filtros.status}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  status: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">Todos</option>
-              <option value="conferido">Conferido</option>
-              <option value="pendente">Pendente</option>
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-bold text-slate-700">Responsável</span>
-            <select
-              value={filtros.responsavelId}
-              onChange={(event) =>
-                setFiltros((estado) => ({
-                  ...estado,
-                  responsavelId: event.target.value,
-                }))
-              }
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">Todos os responsáveis</option>
-              {responsaveis.map((responsavel) => (
-                <option key={responsavel.id} value={responsavel.id}>
-                  {responsavel.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            onClick={limparFiltros}
-            className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-          >
-            Limpar filtros
-          </button>
-
-          <button
-            type="button"
-            onClick={aplicarFiltros}
-            className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800"
-          >
-            Atualizar
-          </button>
-        </div>
       </section>
 
-      <section className="rounded-3xl bg-white p-6 shadow-sm">
-        <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          titulo="Entradas"
+          valor={formatarNumero(resumo.totalEntradas)}
+          subtitulo="caixas classificadas"
+          icon={ArrowDownToLine}
+          tone="green"
+        />
+
+        <KpiCard
+          titulo="Saídas"
+          valor={formatarNumero(resumo.totalSaidas)}
+          subtitulo="caixas retiradas"
+          icon={ArrowUpFromLine}
+          tone="red"
+        />
+
+        <KpiCard
+          titulo="Saldo atual"
+          valor={formatarNumero(resumo.saldoAtual)}
+          subtitulo="entrada menos saída"
+          icon={Scale}
+          tone="green"
+        />
+
+        <KpiCard
+          titulo="Paletes"
+          valor={formatarNumero(resumo.totalPaletes)}
+          subtitulo="total filtrado"
+          icon={Warehouse}
+          tone="purple"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <ChartCard titulo="Movimentação diária de entradas e saídas">
+          <GraficoMovimentoDiario dados={movimentoDiarioGrafico} />
+        </ChartCard>
+
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <h2 className="text-base font-semibold text-slate-950">Destaques do período</h2>
+
+          <div className="mt-5 space-y-5">
+            <DestaqueItem
+              icon={ArrowDownToLine}
+              rotulo="Maior entrada"
+              valor={`${formatarNumero(calcularTotalCaixas(destaques.maiorEntrada || {}))} caixas`}
+              detalhe={
+                destaques.maiorEntrada
+                  ? `${destaques.maiorEntrada.area_nome} • ${formatarData(
+                      destaques.maiorEntrada.data_classificacao
+                    )}`
+                  : "-"
+              }
+              tone="green"
+            />
+
+            <DestaqueItem
+              icon={ArrowUpFromLine}
+              rotulo="Maior saída"
+              valor={`${formatarNumero(numero(destaques.maiorSaida?.quantidade_caixas))} caixas`}
+              detalhe={
+                destaques.maiorSaida
+                  ? `${destaques.maiorSaida.area_nome} • ${formatarData(
+                      destaques.maiorSaida.data_saida
+                    )}`
+                  : "-"
+              }
+              tone="red"
+            />
+
+            <DestaqueItem
+              icon={MapPin}
+              rotulo="Área com maior saldo"
+              valor={destaques.maiorAreaSaldo?.nome || "-"}
+              detalhe={`${formatarNumero(destaques.maiorAreaSaldo?.saldo)} caixas`}
+              tone="blue"
+            />
+
+            <DestaqueItem
+              icon={BarChart3}
+              rotulo="Calibre com maior saldo"
+              valor={destaques.maiorCalibreSaldo?.nome || "-"}
+              detalhe={`${formatarNumero(destaques.maiorCalibreSaldo?.saldo)} caixas`}
+              tone="purple"
+            />
+
+            <DestaqueItem
+              icon={TrendingUp}
+              rotulo="Média por lançamento"
+              valor={`${formatarNumero(destaques.mediaPorLancamento)} caixas`}
+              detalhe="entradas classificadas"
+              tone="amber"
+            />
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_300px]">
+        <ChartCard titulo="Saldo disponível por Área / Pivô">
+          <GraficoBarrasHorizontais dados={saldoPorArea} dataKey="saldo" sufixo="caixas" />
+        </ChartCard>
+
+        <ChartCard titulo="Saldo disponível por calibre">
+          <GraficoBarrasVerticais dados={saldoPorCalibre} dataKey="saldo" sufixo="caixas" />
+        </ChartCard>
+
+        <div className="grid gap-4">
+          <MiniIndicador
+            icon={Boxes}
+            valor={formatarNumero(indicadoresApoio.combinacoesComSaldo)}
+            texto="combinações com saldo"
+            tone="blue"
+          />
+
+          <MiniIndicador
+            icon={CalendarDays}
+            valor={formatarNumero(indicadoresApoio.diasComMovimentacao)}
+            texto="dias com movimentação"
+            tone="green"
+          />
+
+          <MiniIndicador
+            icon={BarChart3}
+            valor={formatarNumero(indicadoresApoio.mediaSaldoPorCalibre)}
+            texto="média de saldo por calibre"
+            tone="purple"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
               Estoque do Alho Classificado
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Entrada menos saída dentro da própria tela de Alho Classificado.
-            </p>
+
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+              {formatarNumero(estoqueClassificado.length)} registros
+            </span>
           </div>
 
-          <span className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
-            {formatarNumero(estoqueClassificado.length)} combinações
-          </span>
-        </div>
-
-        <div className="overflow-x-auto rounded-2xl border border-slate-100">
-          <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Área / Pivô</th>
-                <th className="px-4 py-3">Calibre</th>
-                <th className="px-4 py-3 text-right">Entradas</th>
-                <th className="px-4 py-3 text-right">Saídas</th>
-                <th className="px-4 py-3 text-right">Saldo disponível</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {estoqueClassificado.length === 0 ? (
+          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="min-w-[760px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <td colSpan="6" className="px-4 py-10 text-center text-slate-400">
-                    Nenhum estoque classificado encontrado.
-                  </td>
+                  <th className="px-3 py-3">
+                    <BotaoOrdenacao
+                      campo="area"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Área / Pivô
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3">
+                    <BotaoOrdenacao
+                      campo="calibre"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Calibre
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <BotaoOrdenacao
+                      campo="entradas"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Entradas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <BotaoOrdenacao
+                      campo="saidas"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Saídas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <BotaoOrdenacao
+                      campo="saldo"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Saldo
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3">
+                    <BotaoOrdenacao
+                      campo="status"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Status
+                    </BotaoOrdenacao>
+                  </th>
                 </tr>
-              ) : (
-                estoqueClassificado.map((item) => (
-                  <tr key={`${item.area_id}-${item.calibre_id}`}>
-                    <td className="px-4 py-3 font-semibold text-slate-800">
-                      {item.area_nome}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {item.calibre_codigo} — {item.calibre_nome}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-800">
-                      {formatarNumero(
-                        item.entrada_classificado_caixas || item.classificado_caixas
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-red-700">
-                      {formatarNumero(
-                        item.saida_classificado_caixas || item.saidas_classificado_caixas
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-black text-emerald-700">
-                      {formatarNumero(item.saldo_classificado_caixas)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${classeBadgeStatus(
-                          item.status_classificado
-                        )}`}
-                      >
-                        {item.status_classificado === "sem_saldo"
-                          ? "Sem saldo"
-                          : "Normal"}
-                      </span>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {estoquePaginado.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
+                      Nenhum estoque classificado encontrado.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                ) : (
+                  estoquePaginado.map((item) => (
+                    <tr key={`${item.area_id}-${item.calibre_id}`}>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {item.area_nome}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {item.calibre_codigo || "-"}
+                      </td>
+                      <td className="px-3 py-3 text-right text-slate-600">
+                        {formatarNumero(obterEntradaClassificada(item))}
+                      </td>
+                      <td className="px-3 py-3 text-right text-red-700">
+                        {formatarNumero(obterSaidaClassificada(item))}
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-emerald-700">
+                        {formatarNumero(obterSaldoClassificado(item))}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${classeBadgeStatus(
+                            item.status_classificado
+                          )}`}
+                        >
+                          {item.status_classificado === "sem_saldo"
+                            ? "Sem saldo"
+                            : "Normal"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-black text-slate-900">Entradas registradas</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Histórico de entradas que alimentam o estoque classificado.
-              </p>
-            </div>
+          <Paginacao
+            paginaAtual={paginaEstoque}
+            totalPaginas={totalPaginasEstoque}
+            totalRegistros={estoqueOrdenado.length}
+            onChange={setPaginaEstoque}
+          />
+        </section>
 
-            <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
+              Entradas registradas
+            </h2>
+
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
               {formatarNumero(entradas.length)} registros
             </span>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-100">
-            <table className="min-w-[980px] divide-y divide-slate-100 text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <table className="min-w-[820px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="data"
                       ordenacao={ordenacaoEntradas}
@@ -1177,16 +1984,7 @@ export default function AlhoClassificado() {
                       Data
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
-                    <BotaoOrdenacao
-                      campo="fazenda"
-                      ordenacao={ordenacaoEntradas}
-                      onClick={alternarOrdenacaoEntradas}
-                    >
-                      Fazenda
-                    </BotaoOrdenacao>
-                  </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="area"
                       ordenacao={ordenacaoEntradas}
@@ -1195,16 +1993,7 @@ export default function AlhoClassificado() {
                       Área / Pivô
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
-                    <BotaoOrdenacao
-                      campo="lote"
-                      ordenacao={ordenacaoEntradas}
-                      onClick={alternarOrdenacaoEntradas}
-                    >
-                      Lote
-                    </BotaoOrdenacao>
-                  </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="calibre"
                       ordenacao={ordenacaoEntradas}
@@ -1213,7 +2002,7 @@ export default function AlhoClassificado() {
                       Calibre
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="paletes"
                       ordenacao={ordenacaoEntradas}
@@ -1223,7 +2012,7 @@ export default function AlhoClassificado() {
                       Paletes
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="caixas"
                       ordenacao={ordenacaoEntradas}
@@ -1233,7 +2022,7 @@ export default function AlhoClassificado() {
                       Caixas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="responsavel"
                       ordenacao={ordenacaoEntradas}
@@ -1242,83 +2031,61 @@ export default function AlhoClassificado() {
                       Responsável
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
-                    <BotaoOrdenacao
-                      campo="status"
-                      ordenacao={ordenacaoEntradas}
-                      onClick={alternarOrdenacaoEntradas}
-                    >
-                      Status
-                    </BotaoOrdenacao>
-                  </th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100 bg-white">
                 {carregando ? (
                   <tr>
-                    <td colSpan="10" className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan="7" className="px-3 py-8 text-center text-slate-400">
                       Carregando entradas...
                     </td>
                   </tr>
                 ) : entradasOrdenadas.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan="7" className="px-3 py-8 text-center text-slate-400">
                       Nenhuma entrada encontrada.
                     </td>
                   </tr>
                 ) : (
                   entradasPaginadas.map((registro) => (
                     <tr key={registro.id}>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         {formatarData(registro.data_classificacao)}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {registro.fazenda_nome}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-800">
+                      <td className="px-3 py-3 font-medium text-slate-900">
                         {registro.area_nome}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {registro.lote || "-"}
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.calibre_codigo}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {registro.calibre_codigo} — {registro.calibre_nome}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-600">
+                      <td className="px-3 py-3 text-right text-slate-600">
                         {formatarNumero(registro.quantidade_paletes)}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-800">
+                      <td className="px-3 py-3 text-right font-medium text-slate-900">
                         {formatarNumero(registro.total_caixas_calculado)}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         {registro.responsavel_nome}
                       </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${classeBadgeStatus(
-                            registro.conferido ? "normal" : "pendente"
-                          )}`}
-                        >
-                          {registro.status_texto}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => abrirEdicaoEntrada(registro)}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                           >
+                            <Edit3 size={13} />
                             Editar
                           </button>
 
                           <button
                             type="button"
                             onClick={() => confirmarExclusaoEntrada(registro)}
-                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700"
+                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
                           >
+                            <Trash2 size={13} />
                             Excluir
                           </button>
                         </div>
@@ -1338,25 +2105,22 @@ export default function AlhoClassificado() {
           />
         </section>
 
-        <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-black text-slate-900">Saídas registradas</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Histórico de saídas que reduzem o estoque classificado.
-              </p>
-            </div>
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
+              Saídas registradas
+            </h2>
 
-            <span className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-700">
+            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
               {formatarNumero(saidas.length)} registros
             </span>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-100">
-            <table className="min-w-[780px] divide-y divide-slate-100 text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <table className="min-w-[760px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="data"
                       ordenacao={ordenacaoSaidas}
@@ -1365,7 +2129,7 @@ export default function AlhoClassificado() {
                       Data
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="area"
                       ordenacao={ordenacaoSaidas}
@@ -1374,7 +2138,7 @@ export default function AlhoClassificado() {
                       Área / Pivô
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="calibre"
                       ordenacao={ordenacaoSaidas}
@@ -1383,7 +2147,7 @@ export default function AlhoClassificado() {
                       Calibre
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="caixas"
                       ordenacao={ordenacaoSaidas}
@@ -1393,7 +2157,7 @@ export default function AlhoClassificado() {
                       Caixas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="responsavel"
                       ordenacao={ordenacaoSaidas}
@@ -1402,68 +2166,58 @@ export default function AlhoClassificado() {
                       Responsável
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-4 py-3">
-                    <BotaoOrdenacao
-                      campo="observacao"
-                      ordenacao={ordenacaoSaidas}
-                      onClick={alternarOrdenacaoSaidas}
-                    >
-                      Observação
-                    </BotaoOrdenacao>
-                  </th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100 bg-white">
                 {carregando ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
                       Carregando saídas...
                     </td>
                   </tr>
                 ) : saidasOrdenadas.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
                       Nenhuma saída registrada.
                     </td>
                   </tr>
                 ) : (
                   saidasPaginadas.map((registro) => (
                     <tr key={registro.id}>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         {formatarData(registro.data_saida)}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-800">
+                      <td className="px-3 py-3 font-medium text-slate-900">
                         {registro.area_nome}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {registro.calibre_codigo} — {registro.calibre_nome}
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.calibre_codigo}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-red-700">
+                      <td className="px-3 py-3 text-right font-medium text-red-700">
                         {formatarNumero(registro.quantidade_caixas)}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         {registro.responsavel_nome}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {registro.observacao || "-"}
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => abrirEdicaoSaida(registro)}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                           >
+                            <Edit3 size={13} />
                             Editar
                           </button>
 
                           <button
                             type="button"
                             onClick={() => confirmarExclusaoSaida(registro)}
-                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700"
+                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
                           >
+                            <Trash2 size={13} />
                             Excluir
                           </button>
                         </div>
@@ -1489,7 +2243,7 @@ export default function AlhoClassificado() {
           <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black text-slate-900">
+                <h2 className="text-2xl font-semibold text-slate-900">
                   {registroEditando ? "Editar entrada" : "Nova entrada"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
@@ -1500,7 +2254,7 @@ export default function AlhoClassificado() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 Fechar
               </button>
@@ -1509,7 +2263,7 @@ export default function AlhoClassificado() {
             <form onSubmit={salvarFormulario} className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Data</span>
+                  <span className="text-sm font-medium text-slate-700">Data</span>
                   <input
                     type="date"
                     value={formularioEntrada.data_classificacao}
@@ -1521,7 +2275,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Hora</span>
+                  <span className="text-sm font-medium text-slate-700">Hora</span>
                   <input
                     type="time"
                     value={formularioEntrada.hora}
@@ -1533,7 +2287,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Fazenda</span>
+                  <span className="text-sm font-medium text-slate-700">Fazenda</span>
                   <select
                     value={formularioEntrada.fazenda_id}
                     onChange={(event) =>
@@ -1551,7 +2305,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Área / Pivô</span>
+                  <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
                   <select
                     value={formularioEntrada.area_fazenda_id}
                     onChange={(event) =>
@@ -1569,7 +2323,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Lote</span>
+                  <span className="text-sm font-medium text-slate-700">Lote</span>
                   <input
                     type="text"
                     value={formularioEntrada.lote}
@@ -1582,7 +2336,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Calibre</span>
+                  <span className="text-sm font-medium text-slate-700">Calibre</span>
                   <select
                     value={formularioEntrada.calibre_id}
                     onChange={(event) =>
@@ -1600,7 +2354,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">
+                  <span className="text-sm font-medium text-slate-700">
                     Quantidade de paletes
                   </span>
                   <input
@@ -1617,7 +2371,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">
+                  <span className="text-sm font-medium text-slate-700">
                     Caixas por palete
                   </span>
                   <input
@@ -1634,7 +2388,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Responsável</span>
+                  <span className="text-sm font-medium text-slate-700">Responsável</span>
                   <select
                     value={formularioEntrada.responsavel_id}
                     onChange={(event) =>
@@ -1653,7 +2407,7 @@ export default function AlhoClassificado() {
               </div>
 
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                <label className="flex items-center gap-3 text-sm font-bold text-slate-700">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
                   <input
                     type="checkbox"
                     checked={formularioEntrada.permitir_edicao_total_caixas}
@@ -1670,7 +2424,7 @@ export default function AlhoClassificado() {
 
                 {formularioEntrada.permitir_edicao_total_caixas ? (
                   <label className="mt-4 block space-y-2">
-                    <span className="text-sm font-bold text-slate-700">
+                    <span className="text-sm font-medium text-slate-700">
                       Total manual de caixas
                     </span>
                     <input
@@ -1690,17 +2444,17 @@ export default function AlhoClassificado() {
                 ) : null}
 
                 <div className="mt-4 rounded-xl bg-white px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                     Total calculado para entrada
                   </p>
-                  <strong className="mt-1 block text-2xl font-black text-emerald-700">
+                  <strong className="mt-1 block text-2xl font-semibold text-emerald-700">
                     {formatarNumero(totalFormularioEntrada)} caixas
                   </strong>
                 </div>
               </div>
 
               <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">
+                <span className="text-sm font-medium text-slate-700">
                   Descrição / Observação
                 </span>
                 <textarea
@@ -1714,7 +2468,7 @@ export default function AlhoClassificado() {
                 />
               </label>
 
-              <label className="flex items-center gap-3 text-sm font-bold text-slate-700">
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
                 <input
                   type="checkbox"
                   checked={formularioEntrada.conferido}
@@ -1731,7 +2485,7 @@ export default function AlhoClassificado() {
                   type="button"
                   onClick={fecharModal}
                   disabled={salvando}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   Cancelar
                 </button>
@@ -1739,7 +2493,7 @@ export default function AlhoClassificado() {
                 <button
                   type="submit"
                   disabled={salvando}
-                  className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+                  className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
                 >
                   {salvando ? "Salvando..." : "Salvar entrada"}
                 </button>
@@ -1754,7 +2508,7 @@ export default function AlhoClassificado() {
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black text-slate-900">
+                <h2 className="text-2xl font-semibold text-slate-900">
                   {registroEditando ? "Editar saída" : "Nova saída"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
@@ -1765,7 +2519,7 @@ export default function AlhoClassificado() {
               <button
                 type="button"
                 onClick={fecharModal}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 Fechar
               </button>
@@ -1781,13 +2535,13 @@ export default function AlhoClassificado() {
                       : "border-blue-200 bg-blue-50 text-blue-700"
                 }`}
               >
-                <strong>Saldo do Alho Classificado</strong>
+                <strong className="font-semibold">Saldo do Alho Classificado</strong>
                 <p className="mt-1">{mensagemSaldoSaida.texto}</p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Data da saída</span>
+                  <span className="text-sm font-medium text-slate-700">Data da saída</span>
                   <input
                     type="date"
                     value={formularioSaida.data_saida}
@@ -1799,7 +2553,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Hora</span>
+                  <span className="text-sm font-medium text-slate-700">Hora</span>
                   <input
                     type="time"
                     value={formularioSaida.hora}
@@ -1811,7 +2565,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Área / Pivô</span>
+                  <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
                   <select
                     value={formularioSaida.area_fazenda_id}
                     onChange={(event) =>
@@ -1829,7 +2583,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Calibre</span>
+                  <span className="text-sm font-medium text-slate-700">Calibre</span>
                   <select
                     value={formularioSaida.calibre_id}
                     onChange={(event) =>
@@ -1855,7 +2609,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">
+                  <span className="text-sm font-medium text-slate-700">
                     Quantidade de caixas
                   </span>
                   <input
@@ -1875,7 +2629,7 @@ export default function AlhoClassificado() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Responsável</span>
+                  <span className="text-sm font-medium text-slate-700">Responsável</span>
                   <select
                     value={formularioSaida.responsavel_id}
                     onChange={(event) =>
@@ -1894,7 +2648,7 @@ export default function AlhoClassificado() {
               </div>
 
               <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">Observação</span>
+                <span className="text-sm font-medium text-slate-700">Observação</span>
                 <textarea
                   value={formularioSaida.observacao}
                   onChange={(event) =>
@@ -1911,7 +2665,7 @@ export default function AlhoClassificado() {
                   type="button"
                   onClick={fecharModal}
                   disabled={salvando}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   Cancelar
                 </button>
@@ -1919,7 +2673,7 @@ export default function AlhoClassificado() {
                 <button
                   type="submit"
                   disabled={!formularioSaidaPodeSalvar}
-                  className="rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {salvando ? "Salvando..." : "Salvar saída"}
                 </button>
