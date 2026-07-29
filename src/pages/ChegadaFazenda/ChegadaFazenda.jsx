@@ -7,7 +7,6 @@ import {
   Card,
   DataTable,
   Input,
-  KpiCard,
   Select,
   Textarea,
 } from "../../components/ui";
@@ -18,11 +17,14 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  BarChart3,
+  CalendarDays,
   CheckCircle,
   Edit,
-  Filter,
+  MapPin,
   Package,
   Plus,
+  RefreshCw,
   Save,
   Scale,
   Trash2,
@@ -64,21 +66,20 @@ function formatarData(data) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function formatarDataCurta(data) {
+  if (!data) return "-";
+
+  const [, mes, dia] = String(data).split("-");
+
+  if (!mes || !dia) return "-";
+
+  return `${dia}/${mes}`;
+}
+
 function formatarHora(hora) {
   if (!hora) return "-";
 
   return String(hora).slice(0, 5);
-}
-
-function formatarNumero(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR");
-}
-
-function formatarKg(valor) {
-  return `${Number(valor || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} kg`;
 }
 
 function numero(valor) {
@@ -91,6 +92,38 @@ function numero(valor) {
   return convertido;
 }
 
+function formatarNumero(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatarKg(valor) {
+  return `${Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} kg`;
+}
+
+function formatarKgSemDecimal(valor) {
+  return `${Number(valor || 0).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  })} kg`;
+}
+
+function formatarKgCompacto(valor) {
+  const numeroValor = numero(valor);
+
+  if (numeroValor >= 1000) {
+    return `${(numeroValor / 1000).toLocaleString("pt-BR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })}k`;
+  }
+
+  return formatarNumero(numeroValor);
+}
+
 function normalizarTexto(valor) {
   return String(valor || "")
     .trim()
@@ -100,7 +133,7 @@ function normalizarTexto(valor) {
 }
 
 function obterAreaIdDireto(registro) {
-  return (
+return (
     registro?.area_fazenda_id ||
     registro?.area_id ||
     registro?.area_pivo_id ||
@@ -195,7 +228,6 @@ function encontrarAreaPorNome(nomeArea, listaAreas) {
 
 function resolverAreaDoRegistro(registro, listaAreas) {
   const areaIdDireto = obterAreaIdDireto(registro);
-
   const areaPorId = encontrarAreaPorId(areaIdDireto, listaAreas);
 
   if (areaPorId) {
@@ -307,9 +339,6 @@ function obterValorOrdenacao(registro, campo, listaAreas) {
     case "hora":
       return registro.hora || "";
 
-    case "fazenda":
-      return obterFazendaNome(registro);
-
     case "area":
       return resolverAreaNomeDoRegistro(registro, listaAreas);
 
@@ -355,19 +384,7 @@ function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
     <button
       type="button"
       onClick={() => onOrdenar(campo)}
-      className="
-        inline-flex
-        items-center
-        gap-1.5
-        rounded-lg
-        text-left
-        font-black
-        uppercase
-        tracking-wide
-        text-[var(--color-text-muted)]
-        transition
-        hover:text-[var(--color-green-primary)]
-      "
+      className="inline-flex items-center gap-1.5 rounded-lg text-left font-normal uppercase tracking-wide text-[var(--color-text-muted)] transition hover:text-[var(--color-green-primary)]"
       title={`Ordenar por ${label}`}
     >
       <span>{label}</span>
@@ -376,6 +393,507 @@ function CabecalhoOrdenavel({ label, campo, ordenacao, onOrdenar }) {
       {ativo && direcao === "asc" && <ArrowUp size={14} />}
       {ativo && direcao === "desc" && <ArrowDown size={14} />}
     </button>
+  );
+}
+
+function prepararDadosBI(chegadas = [], listaAreas = []) {
+  const porDiaMapa = new Map();
+  const porAreaMapa = new Map();
+
+  let totalCaixas = 0;
+  let totalPeso = 0;
+
+  chegadas.forEach((registro) => {
+    const caixas = numero(registro.quantidade_caixas);
+    const peso =
+      numero(registro.peso_total_estimado_kg) ||
+      caixas * numero(registro.media_peso_caixa_kg);
+
+    if (caixas <= 0) return;
+
+    totalCaixas += caixas;
+    totalPeso += peso;
+
+    const data = registro.data_recebimento || "sem-data";
+    const areaId =
+      resolverAreaIdDoRegistro(registro, listaAreas) ||
+      resolverAreaNomeDoRegistro(registro, listaAreas) ||
+      "sem-area";
+
+    const areaNome =
+      resolverAreaNomeDoRegistro(registro, listaAreas) || "Sem área";
+
+    const diaAtual = porDiaMapa.get(data) || {
+      data,
+      dataLabel: data === "sem-data" ? "-" : formatarDataCurta(data),
+      dataCompleta: data === "sem-data" ? "-" : formatarData(data),
+      caixas: 0,
+      pesoKg: 0,
+      registros: 0,
+    };
+
+    diaAtual.caixas += caixas;
+    diaAtual.pesoKg += peso;
+    diaAtual.registros += 1;
+    porDiaMapa.set(data, diaAtual);
+
+    const areaAtual = porAreaMapa.get(areaId) || {
+      id: areaId,
+      area: areaNome,
+      caixas: 0,
+      pesoKg: 0,
+      registros: 0,
+    };
+
+    areaAtual.caixas += caixas;
+    areaAtual.pesoKg += peso;
+    areaAtual.registros += 1;
+    porAreaMapa.set(areaId, areaAtual);
+  });
+
+  const porDia = Array.from(porDiaMapa.values())
+    .sort((a, b) => String(a.data).localeCompare(String(b.data)))
+    .slice(-7);
+
+  const porArea = Array.from(porAreaMapa.values())
+    .sort((a, b) => numero(b.caixas) - numero(a.caixas))
+    .slice(0, 6);
+
+  const maiorDia =
+    [...porDia].sort((a, b) => numero(b.caixas) - numero(a.caixas))[0] || null;
+
+  const maiorArea =
+    [...porArea].sort((a, b) => numero(b.caixas) - numero(a.caixas))[0] || null;
+
+  const mediaPorRecebimentoCaixas =
+    chegadas.length > 0 ? totalCaixas / chegadas.length : 0;
+
+  const mediaPorRecebimentoKg =
+    chegadas.length > 0 ? totalPeso / chegadas.length : 0;
+
+  return {
+    porDia,
+    porArea,
+    destaques: {
+      maiorDia,
+      maiorArea,
+      mediaPorRecebimentoCaixas,
+      mediaPorRecebimentoKg,
+    },
+  };
+}
+
+function TooltipCaixas({ active, payload }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0]?.payload || {};
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="font-normal text-slate-900">{item.dataCompleta || item.area}</p>
+      <p className="mt-1 font-normal text-emerald-700">
+        {formatarNumero(item.caixas)} caixas
+      </p>
+      <p className="font-normal text-slate-400">{formatarKg(item.pesoKg)}</p>
+    </div>
+  );
+}
+
+function TooltipPeso({ active, payload }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0]?.payload || {};
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="font-normal text-slate-900">{item.dataCompleta}</p>
+      <p className="mt-1 font-normal text-emerald-700">
+        {formatarKg(item.pesoKg)}
+      </p>
+      <p className="font-normal text-slate-400">
+        {formatarNumero(item.caixas)} caixas
+      </p>
+    </div>
+  );
+}
+
+
+
+function GraficoLinhaSvgChegada({ dados = [], mostrarTodosRotulos = false }) {
+  const lista = Array.isArray(dados) ? dados : [];
+
+  if (lista.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-400">
+        Sem dados no período
+      </div>
+    );
+  }
+
+  const largura = 980;
+  const altura = 360;
+  const margem = { top: 38, right: 28, bottom: 62, left: 28 };
+  const areaLargura = largura - margem.left - margem.right;
+  const areaAltura = altura - margem.top - margem.bottom;
+  const maiorValor = Math.max(...lista.map((item) => numero(item.caixas)), 1);
+
+  const pontos = lista.map((item, index) => {
+    const x =
+      margem.left +
+      (lista.length === 1 ? areaLargura / 2 : (index / (lista.length - 1)) * areaLargura);
+
+    const y =
+      margem.top + areaAltura - (numero(item.caixas) / maiorValor) * areaAltura;
+
+    return { ...item, x, y };
+  });
+
+  const linha = pontos
+    .map((ponto, index) => (index === 0 ? "M" : "L") + ponto.x + " " + ponto.y)
+    .join(" ");
+
+  const area =
+    "M " +
+    pontos[0].x +
+    " " +
+    (margem.top + areaAltura) +
+    " " +
+    pontos.map((ponto) => "L " + ponto.x + " " + ponto.y).join(" ") +
+    " L " +
+    pontos[pontos.length - 1].x +
+    " " +
+    (margem.top + areaAltura) +
+    " Z";
+
+  const linhasGrade = [0, 0.25, 0.5, 0.75, 1];
+  const maxRotulos = mostrarTodosRotulos ? lista.length : Math.min(15, lista.length);
+  const passoRotulo = lista.length <= maxRotulos ? 1 : Math.ceil(lista.length / maxRotulos);
+
+  return (
+    <svg viewBox={"0 0 " + largura + " " + altura} className="h-full w-full overflow-visible">
+      <defs>
+        <linearGradient id="gradienteChegadaLinhaSvg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2f7d4e" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#2f7d4e" stopOpacity="0.03" />
+        </linearGradient>
+      </defs>
+
+      {linhasGrade.map((item) => {
+        const y = margem.top + areaAltura - item * areaAltura;
+
+        return (
+          <line
+            key={item}
+            x1={margem.left}
+            y1={y}
+            x2={largura - margem.right}
+            y2={y}
+            stroke="#e8eee9"
+            strokeWidth="1"
+          />
+        );
+      })}
+
+      <path d={area} fill="url(#gradienteChegadaLinhaSvg)" />
+      <path d={linha} fill="none" stroke="#2f7d4e" strokeWidth="4" strokeLinecap="round" />
+
+      {pontos.map((ponto, index) => {
+        const mostrarRotuloData =
+          mostrarTodosRotulos ||
+          index === 0 ||
+          index === pontos.length - 1 ||
+          index % passoRotulo === 0;
+
+        return (
+          <g key={String(ponto.data) + index}>
+            <circle cx={ponto.x} cy={ponto.y} r="6" fill="#2f7d4e" stroke="#ffffff" strokeWidth="2.5" />
+
+            <text
+              x={ponto.x}
+              y={ponto.y - 16}
+              textAnchor="middle"
+              fontSize="17"
+              fontWeight="400"
+              fill="#1f2933"
+            >
+              {formatarNumero(ponto.caixas)}
+            </text>
+
+            {mostrarRotuloData ? (
+              <text
+                x={ponto.x}
+                y={altura - 20}
+                textAnchor="middle"
+                fontSize="16"
+                fontWeight="400"
+                fill="#64748b"
+              >
+                {ponto.dataLabel}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+
+      <text
+        x={margem.left + areaLargura / 2}
+        y={altura - 4}
+        textAnchor="middle"
+        fontSize="15"
+        fontWeight="400"
+        fill="#2f7d4e"
+      >
+        Caixas recebidas
+      </text>
+    </svg>
+  );
+}
+
+function GraficoBarrasHorizontaisSvgChegada({ dados = [] }) {
+  const lista = Array.isArray(dados) ? dados : [];
+
+  if (lista.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-400">
+        Sem dados no período
+      </div>
+    );
+  }
+
+  const largura = 720;
+  const altura = 360;
+  const margem = { top: 26, right: 96, bottom: 46, left: 116 };
+  const areaLargura = largura - margem.left - margem.right;
+  const areaAltura = altura - margem.top - margem.bottom;
+  const maiorValor = Math.max(...lista.map((item) => numero(item.caixas)), 1);
+  const alturaLinha = areaAltura / lista.length;
+  const alturaBarra = Math.min(34, alturaLinha * 0.58);
+
+  return (
+    <svg viewBox={"0 0 " + largura + " " + altura} className="h-full w-full overflow-visible">
+      {lista.map((item, index) => {
+        const y = margem.top + index * alturaLinha + alturaLinha / 2 - alturaBarra / 2;
+        const larguraBarra = Math.max((numero(item.caixas) / maiorValor) * areaLargura, 8);
+
+        return (
+          <g key={item.id || item.area}>
+            <text
+              x={margem.left - 14}
+              y={y + alturaBarra / 2 + 6}
+              textAnchor="end"
+              fontSize="18"
+              fontWeight="400"
+              fill="#334155"
+            >
+              {item.area}
+            </text>
+
+            <rect
+              x={margem.left}
+              y={y}
+              width={larguraBarra}
+              height={alturaBarra}
+              rx="0"
+              fill="#2f7d4e"
+            />
+
+            <text
+              x={margem.left + larguraBarra + 12}
+              y={y + alturaBarra / 2 + 6}
+              fontSize="18"
+              fontWeight="400"
+              fill="#1f2933"
+            >
+              {formatarNumero(item.caixas)}
+            </text>
+          </g>
+        );
+      })}
+
+      <line
+        x1={margem.left}
+        y1={altura - margem.bottom}
+        x2={largura - margem.right}
+        y2={altura - margem.bottom}
+        stroke="#e8eee9"
+      />
+
+      <text
+        x={margem.left + areaLargura / 2}
+        y={altura - 8}
+        textAnchor="middle"
+        fontSize="15"
+        fontWeight="400"
+        fill="#64748b"
+      >
+        Caixas
+      </text>
+    </svg>
+  );
+}
+
+function GraficoBarrasVerticaisSvgChegada({ dados = [] }) {
+  const lista = Array.isArray(dados) ? dados : [];
+
+  if (lista.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-400">
+        Sem dados no período
+      </div>
+    );
+  }
+
+  const largura = 720;
+  const altura = 360;
+  const margem = { top: 48, right: 28, bottom: 64, left: 72 };
+  const areaLargura = largura - margem.left - margem.right;
+  const areaAltura = altura - margem.top - margem.bottom;
+  const maiorValor = Math.max(...lista.map((item) => numero(item.pesoKg)), 1);
+  const espaco = areaLargura / lista.length;
+  const larguraBarra = Math.min(50, espaco * 0.52);
+  const linhasGrade = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <svg viewBox={"0 0 " + largura + " " + altura} className="h-full w-full overflow-visible">
+      {linhasGrade.map((item) => {
+        const y = margem.top + areaAltura - item * areaAltura;
+        const valor = maiorValor * item;
+
+        return (
+          <g key={item}>
+            <line
+              x1={margem.left}
+              y1={y}
+              x2={largura - margem.right}
+              y2={y}
+              stroke="#e8eee9"
+              strokeWidth="1"
+            />
+            <text
+              x={margem.left - 12}
+              y={y + 5}
+              textAnchor="end"
+              fontSize="16"
+              fontWeight="400"
+              fill="#64748b"
+            >
+              {formatarKgCompacto(valor)}
+            </text>
+          </g>
+        );
+      })}
+
+      {lista.map((item, index) => {
+        const alturaBarra = (numero(item.pesoKg) / maiorValor) * areaAltura;
+        const x = margem.left + index * espaco + espaco / 2 - larguraBarra / 2;
+        const y = margem.top + areaAltura - alturaBarra;
+
+        return (
+          <g key={String(item.data) + index}>
+            <rect
+              x={x}
+              y={y}
+              width={larguraBarra}
+              height={alturaBarra}
+              rx="8"
+              fill="#2f7d4e"
+            />
+
+            <text
+              x={x + larguraBarra / 2}
+              y={y - 12}
+              textAnchor="middle"
+              fontSize="16"
+              fontWeight="400"
+              fill="#1f2933"
+            >
+              {formatarKgCompacto(item.pesoKg)}
+            </text>
+
+            <text
+              x={x + larguraBarra / 2}
+              y={altura - 22}
+              textAnchor="middle"
+              fontSize="16"
+              fontWeight="400"
+              fill="#64748b"
+            >
+              {item.dataLabel}
+            </text>
+          </g>
+        );
+      })}
+
+      <text
+        x={margem.left + areaLargura / 2}
+        y={altura - 6}
+        textAnchor="middle"
+        fontSize="15"
+        fontWeight="400"
+        fill="#2f7d4e"
+      >
+        Peso estimado (kg)
+      </text>
+    </svg>
+  );
+}
+
+function KpiVisualChegada({ title, value, description, icon: Icon, tone = "green" }) {
+  const toneMap = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    amber: "bg-amber-50 text-amber-700",
+    purple: "bg-violet-50 text-violet-700",
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div
+          className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl " + (toneMap[tone] || toneMap.green)}
+        >
+          <Icon size={18} />
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-xs font-normal text-slate-500">{title}</p>
+          <strong className="mt-1 block text-[22px] font-normal leading-none text-slate-950">
+            {value}
+          </strong>
+          <p className="mt-1 text-xs font-normal text-slate-500">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DestaqueChegada({ icon: Icon, label, value, description, tone = "green" }) {
+  const toneMap = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-violet-50 text-violet-700",
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={"flex h-11 w-11 shrink-0 items-center justify-center rounded-xl " + (toneMap[tone] || toneMap.green)}
+      >
+        <Icon size={19} />
+      </div>
+
+      <div>
+        <p className="text-xs font-normal text-slate-500">{label}</p>
+        <strong className="mt-1 block text-xl font-normal leading-tight text-slate-950">
+          {value}
+        </strong>
+        <p className="mt-1 text-xs font-normal text-slate-500">{description}</p>
+      </div>
+    </div>
   );
 }
 
@@ -470,6 +988,18 @@ function ChegadaFazenda() {
   const resumo = useMemo(() => {
     return calcularResumoChegadaFazenda(chegadasFiltradas);
   }, [chegadasFiltradas]);
+
+  const bi = useMemo(() => {
+    return prepararDadosBI(chegadasFiltradas, areas);
+  }, [chegadasFiltradas, areas]);
+
+  const pesoMedioPorCaixa = useMemo(() => {
+    if (numero(resumo.totalCaixas) <= 0) {
+      return 0;
+    }
+
+    return numero(resumo.pesoTotalEstimadoKg) / numero(resumo.totalCaixas);
+  }, [resumo.totalCaixas, resumo.pesoTotalEstimadoKg]);
 
   const chegadasOrdenadas = useMemo(() => {
     const lista = [...chegadasFiltradas];
@@ -640,7 +1170,7 @@ function ChegadaFazenda() {
     if (!form.data_recebimento) return "Informe a data de recebimento.";
     if (!form.hora) return "Informe a hora.";
     if (!form.fazenda_id) return "Selecione a fazenda.";
-    if (!form.area_fazenda_id) return "Selecione a Área / Pivô.";
+    if (!form.area_fazenda_id) return "Selecione a Ãrea / Pivô.";
     if (!form.quantidade_caixas) return "Informe a quantidade de caixas.";
     if (!form.media_peso_caixa_kg) return "Informe o peso médio por caixa.";
     if (!form.responsavel_id) return "Selecione o responsável.";
@@ -832,22 +1362,10 @@ function ChegadaFazenda() {
       render: (value) => formatarHora(value),
     },
     {
-      key: "fazendas",
-      label: (
-        <CabecalhoOrdenavel
-          label="Fazenda"
-          campo="fazenda"
-          ordenacao={ordenacao}
-          onOrdenar={alterarOrdenacao}
-        />
-      ),
-      render: (_, row) => obterFazendaNome(row),
-    },
-    {
       key: "areas_fazenda",
       label: (
         <CabecalhoOrdenavel
-          label="Área / Pivô"
+          label="Ãrea / Pivô"
           campo="area"
           ordenacao={ordenacao}
           onOrdenar={alterarOrdenacao}
@@ -877,7 +1395,7 @@ function ChegadaFazenda() {
           onOrdenar={alterarOrdenacao}
         />
       ),
-      render: (value) => `${formatarNumero(value)} caixas`,
+      render: (value) => formatarNumero(value),
     },
     {
       key: "media_peso_caixa_kg",
@@ -964,7 +1482,7 @@ function ChegadaFazenda() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       {registroParaExcluir && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[28px] bg-white shadow-2xl">
@@ -975,11 +1493,11 @@ function ChegadaFazenda() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+                  <h3 className="text-xl font-normal text-[var(--color-text-primary)]">
                     Excluir chegada da fazenda?
                   </h3>
 
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-text-secondary)]">
+                  <p className="mt-2 text-sm font-normal leading-6 text-[var(--color-text-secondary)]">
                     Essa ação remove o lançamento selecionado da chegada da
                     fazenda. Essa exclusão não pode ser desfeita.
                   </p>
@@ -999,55 +1517,55 @@ function ChegadaFazenda() {
             <div className="p-6">
               <div className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-5 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
                     Data
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {formatarData(registroParaExcluir.data_recebimento)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
                     Fazenda
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {obterFazendaNome(registroParaExcluir)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
-                    Área / Pivô
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
+                    Ãrea / Pivô
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {resolverAreaNomeDoRegistro(registroParaExcluir, areas)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
                     Lote / Carga
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {resolverLoteVisivel(registroParaExcluir, areas)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
                     Quantidade
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {formatarNumero(registroParaExcluir.quantidade_caixas)} caixas
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black uppercase text-[var(--color-text-muted)]">
+                  <p className="text-xs font-normal uppercase text-[var(--color-text-muted)]">
                     Peso estimado
                   </p>
-                  <p className="mt-1 font-black text-[var(--color-text-primary)]">
+                  <p className="mt-1 font-normal text-[var(--color-text-primary)]">
                     {formatarKg(registroParaExcluir.peso_total_estimado_kg)}
                   </p>
                 </div>
@@ -1120,14 +1638,14 @@ function ChegadaFazenda() {
             />
 
             <Select
-              label="Área / Pivô"
+              label="Ãrea / Pivô"
               name="area_fazenda_id"
               value={form.area_fazenda_id}
               onChange={atualizarCampo}
               options={areaOptionsFormulario}
               placeholder={
                 form.fazenda_id
-                  ? "Selecione a Área / Pivô"
+                  ? "Selecione a Ãrea / Pivô"
                   : "Selecione a fazenda primeiro"
               }
             />
@@ -1229,40 +1747,6 @@ function ChegadaFazenda() {
         </form>
       </LancamentoModal>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          title="Recebimentos"
-          value={formatarNumero(resumo.totalRegistros)}
-          description="Registros encontrados"
-          icon={Truck}
-          variant="info"
-        />
-
-        <KpiCard
-          title="Caixas recebidas"
-          value={formatarNumero(resumo.totalCaixas)}
-          description="Total filtrado"
-          icon={Package}
-          variant="success"
-        />
-
-        <KpiCard
-          title="Peso estimado"
-          value={formatarKg(resumo.pesoTotalEstimadoKg)}
-          description="Peso total filtrado"
-          icon={Scale}
-          variant="success"
-        />
-
-        <KpiCard
-          title="Conferidos"
-          value={formatarNumero(resumo.conferidos)}
-          description={`${formatarNumero(resumo.pendentes)} pendentes`}
-          icon={CheckCircle}
-          variant="info"
-        />
-      </section>
-
       {erro && !modalFormularioAberta && (
         <AlertBox variant="danger" title="Atenção" description={erro} />
       )}
@@ -1276,104 +1760,201 @@ function ChegadaFazenda() {
       )}
 
       <Card>
-        <div className="mb-6 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-green-light)] text-[var(--color-green-primary)]">
-              <Filter size={22} />
-            </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <Input
+              label="Data inicial"
+              name="dataInicial"
+              type="date"
+              value={filtros.dataInicial}
+              onChange={atualizarFiltro}
+            />
 
-            <div>
-              <h3 className="text-xl font-black text-[var(--color-text-primary)]">
-                Filtros da chegada
-              </h3>
+            <Input
+              label="Data final"
+              name="dataFinal"
+              type="date"
+              value={filtros.dataFinal}
+              onChange={atualizarFiltro}
+            />
 
-              <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-                Filtre os lançamentos por período, fazenda, área, status e responsável.
-              </p>
-            </div>
+            <Select
+              label="Ãrea / Pivô"
+              name="areaId"
+              value={filtros.areaId}
+              onChange={atualizarFiltro}
+              options={areaOptionsFiltro}
+              placeholder="Todas as áreas"
+            />
+
+            <Select
+              label="Status"
+              name="status"
+              value={filtros.status}
+              onChange={atualizarFiltro}
+              options={[
+                { value: "todos", label: "Todos" },
+                { value: "conferido", label: "Conferidos" },
+                { value: "pendente", label: "Pendentes" },
+              ]}
+            />
+
+            <Select
+              label="Responsável"
+              name="responsavelId"
+              value={filtros.responsavelId}
+              onChange={atualizarFiltro}
+              options={responsavelOptions}
+              placeholder="Todos os responsáveis"
+            />
           </div>
 
-          <Button type="button" variant="primary" onClick={abrirNovoLancamento}>
-            <Plus size={16} />
-            Novo lançamento
-          </Button>
-        </div>
+          <div className="flex flex-col gap-3 xl:items-end">
+            <Button type="button" variant="primary" onClick={abrirNovoLancamento}>
+              <Plus size={16} />
+              Novo lançamento
+            </Button>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <Input
-            label="Data inicial"
-            name="dataInicial"
-            type="date"
-            value={filtros.dataInicial}
-            onChange={atualizarFiltro}
-          />
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="secondary" onClick={limparFiltros}>
+                <X size={16} />
+                Limpar filtros
+              </Button>
 
-          <Input
-            label="Data final"
-            name="dataFinal"
-            type="date"
-            value={filtros.dataFinal}
-            onChange={atualizarFiltro}
-          />
-
-          <Select
-            label="Fazenda"
-            name="fazendaId"
-            value={filtros.fazendaId}
-            onChange={atualizarFiltro}
-            options={fazendaOptions}
-            placeholder="Todas as fazendas"
-          />
-
-          <Select
-            label="Área / Pivô"
-            name="areaId"
-            value={filtros.areaId}
-            onChange={atualizarFiltro}
-            options={areaOptionsFiltro}
-            placeholder="Todas as áreas"
-          />
-
-          <Select
-            label="Status"
-            name="status"
-            value={filtros.status}
-            onChange={atualizarFiltro}
-            options={[
-              { value: "todos", label: "Todos" },
-              { value: "conferido", label: "Conferidos" },
-              { value: "pendente", label: "Pendentes" },
-            ]}
-          />
-
-          <Select
-            label="Responsável"
-            name="responsavelId"
-            value={filtros.responsavelId}
-            onChange={atualizarFiltro}
-            options={responsavelOptions}
-            placeholder="Todos os responsáveis"
-          />
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <Button type="button" variant="secondary" onClick={limparFiltros}>
-            <X size={16} />
-            Limpar filtros
-          </Button>
+              <Button type="button" variant="primary" onClick={() => carregarDados(false)}>
+                <RefreshCw size={16} />
+                Atualizar
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
+
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <KpiVisualChegada
+          title="Recebimentos"
+          value={formatarNumero(resumo.totalRegistros)}
+          description="registros no período"
+          icon={Truck}
+          tone="green"
+        />
+
+        <KpiVisualChegada
+          title="Caixas recebidas"
+          value={formatarNumero(resumo.totalCaixas)}
+          description="total no período"
+          icon={Package}
+          tone="blue"
+        />
+
+        <KpiVisualChegada
+          title="Peso estimado"
+          value={formatarKgSemDecimal(resumo.pesoTotalEstimadoKg)}
+          description="peso total estimado"
+          icon={Scale}
+          tone="green"
+        />
+
+        <KpiVisualChegada
+          title="Peso médio por caixa"
+          value={formatarKg(pesoMedioPorCaixa)}
+          description="média no período"
+          icon={BarChart3}
+          tone="purple"
+        />
+      </section>
+
+      <section className="space-y-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-stretch">
+          <Card>
+            <div className="mb-3">
+              <h3 className="text-lg font-normal text-slate-950">
+                Evolução diária de caixas recebidas
+              </h3>
+            </div>
+
+            <div className="h-[390px] w-full">
+              <GraficoLinhaSvgChegada
+                dados={bi.porDia}
+                mostrarTodosRotulos={Boolean(
+                  filtros?.dataInicial ||
+                    filtros?.dataFinal ||
+                    filtros?.areaId ||
+                    filtros?.status ||
+                    filtros?.responsavelId
+                )}
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="mb-5">
+              <h3 className="text-lg font-normal text-slate-950">
+                Destaques do período
+              </h3>
+            </div>
+
+            <div className="space-y-6">
+              <DestaqueChegada
+                icon={CalendarDays}
+                label="Maior dia de recebimento"
+                value={bi.destaques.maiorDia?.dataCompleta || "-"}
+                description={formatarNumero(bi.destaques.maiorDia?.caixas) + " caixas"}
+                tone="green"
+              />
+
+              <DestaqueChegada
+                icon={MapPin}
+                label="Área com maior volume"
+                value={bi.destaques.maiorArea?.area || "-"}
+                description={formatarNumero(bi.destaques.maiorArea?.caixas) + " caixas"}
+                tone="blue"
+              />
+
+              <DestaqueChegada
+                icon={BarChart3}
+                label="Média por recebimento"
+                value={formatarNumero(bi.destaques.mediaPorRecebimentoCaixas) + " caixas"}
+                description={formatarKgSemDecimal(bi.destaques.mediaPorRecebimentoKg)}
+                tone="purple"
+              />
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <Card>
+            <div className="mb-3">
+              <h3 className="text-lg font-normal text-slate-950">
+                Caixas recebidas por Área / Pivô
+              </h3>
+            </div>
+
+            <div className="h-[430px] w-full">
+              <GraficoBarrasHorizontaisSvgChegada dados={bi.porArea} />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="mb-3">
+              <h3 className="text-lg font-normal text-slate-950">
+                Peso estimado por dia (kg)
+              </h3>
+            </div>
+
+            <div className="h-[430px] w-full">
+              <GraficoBarrasVerticaisSvgChegada dados={bi.porDia} />
+            </div>
+          </Card>
+        </div>
+      </section>
 
       <Card>
         <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h3 className="text-xl font-black text-[var(--color-text-primary)]">
+            <h3 className="text-xl font-normal text-[var(--color-text-primary)]">
               Chegadas registradas
             </h3>
-
-            <p className="mt-1 text-sm font-semibold text-[var(--color-text-secondary)]">
-              Clique no nome de uma coluna para ordenar os lançamentos.
-            </p>
           </div>
 
           <Badge variant="info">
@@ -1384,7 +1965,7 @@ function ChegadaFazenda() {
         </div>
 
         {carregando ? (
-          <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-8 text-center text-sm font-semibold text-[var(--color-text-muted)]">
+          <div className="rounded-2xl border border-[var(--color-border-soft)] bg-slate-50 p-8 text-center text-sm font-normal text-[var(--color-text-muted)]">
             Carregando chegadas...
           </div>
         ) : (
