@@ -31,7 +31,7 @@ import {
   YAxis,
 } from "recharts";
 import {
-cadastrarAlhoClassificado,
+  cadastrarAlhoClassificado,
   cadastrarSaidaAlhoClassificado,
   calcularResumoAlhoClassificado,
   calcularTotalCaixas,
@@ -44,7 +44,7 @@ cadastrarAlhoClassificado,
   listarOpcoesAlhoClassificado,
   listarSaidasAlhoClassificado,
 } from "../../services/alhoClassificadoService";
-import AlhoClassificadoQuebraAreaCalibre from "../../components/bi/AlhoClassificadoQuebraAreaCalibre";
+
 const REGISTROS_POR_PAGINA = 10;
 const LIMITE_PONTOS_GRAFICO = 15;
 
@@ -1800,16 +1800,41 @@ export default function AlhoClassificado() {
         </section>
       </div>
 
-      
-      <AlhoClassificadoQuebraAreaCalibre
-        entradas={entradas}
-        estoqueClassificado={estoqueClassificado}
-      />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_300px]">
+        <ChartCard titulo="Saldo disponível por Área / Pivô">
+          <GraficoBarrasHorizontais dados={saldoPorArea} dataKey="saldo" sufixo="caixas" />
+        </ChartCard>
 
+        <ChartCard titulo="Saldo disponível por calibre">
+          <GraficoBarrasVerticais dados={saldoPorCalibre} dataKey="saldo" sufixo="caixas" />
+        </ChartCard>
 
+        <div className="grid gap-4">
+          <MiniIndicador
+            icon={Boxes}
+            valor={formatarNumero(indicadoresApoio.combinacoesComSaldo)}
+            texto="combinações com saldo"
+            tone="blue"
+          />
+
+          <MiniIndicador
+            icon={CalendarDays}
+            valor={formatarNumero(indicadoresApoio.diasComMovimentacao)}
+            texto="dias com movimentação"
+            tone="green"
+          />
+
+          <MiniIndicador
+            icon={BarChart3}
+            valor={formatarNumero(indicadoresApoio.mediaSaldoPorCalibre)}
+            texto="média de saldo por calibre"
+            tone="purple"
+          />
+        </div>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-950">
               Estoque do Alho Classificado
@@ -1934,7 +1959,8 @@ export default function AlhoClassificado() {
             onChange={setPaginaEstoque}
           />
         </section>
-<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-950">
               Entradas registradas

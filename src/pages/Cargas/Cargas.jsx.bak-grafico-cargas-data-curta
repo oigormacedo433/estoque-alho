@@ -348,7 +348,7 @@ function GraficoLinhaCargas(props = {}) {
             ? props.itens
             : [];
 
-  const dados = listaOriginal.slice(-25).map((item) => {
+  const dados = listaOriginal.slice(-15).map((item) => {
     const valorBruto =
       item.quantidade_cargas ??
       item.total_cargas ??
@@ -370,25 +370,13 @@ function GraficoLinhaCargas(props = {}) {
     const valorNumerico = Number(valorBruto);
 
     function formatarLabelData(valor) {
-      const texto = String(valor || "").trim();
+      const texto = String(valor || "");
 
       if (!texto) return "-";
 
-      if (texto.includes("-")) {
-        const dataLimpa = texto.slice(0, 10);
-        const partes = dataLimpa.split("-");
-
-        if (partes.length === 3 && partes[0].length === 4) {
-          return partes[2] + "/" + partes[1];
-        }
-      }
-
-      if (texto.includes("/")) {
-        const partes = texto.split("/");
-
-        if (partes.length >= 2) {
-          return String(partes[0]).padStart(2, "0") + "/" + String(partes[1]).padStart(2, "0");
-        }
+      if (/^\\d{4}-\\d{2}-\\d{2}/.test(texto)) {
+        const partes = texto.slice(0, 10).split("-");
+        return partes[2] + "/" + partes[1];
       }
 
       return texto;
@@ -408,12 +396,12 @@ function GraficoLinhaCargas(props = {}) {
     );
   }
 
-  const largura = 1160;
+  const largura = 1000;
   const altura = 360;
-  const esquerda = 28;
-  const direita = 28;
-  const topo = 34;
-  const baixo = 58;
+  const esquerda = 70;
+  const direita = 40;
+  const topo = 35;
+  const baixo = 60;
   const areaLargura = largura - esquerda - direita;
   const areaAltura = altura - topo - baixo;
 
@@ -449,11 +437,10 @@ function GraficoLinhaCargas(props = {}) {
     <div className="flex h-[360px] w-full items-center justify-center">
       <svg
         viewBox={`0 0 ${largura} ${altura}`}
-        className="h-full w-full overflow-visible"
-        preserveAspectRatio="none"
+        className="h-full w-full max-w-[1080px] overflow-visible"
       >
         <defs>
-          <linearGradient id="graficoCargasPlanejadasDataCurta" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="graficoCargasPlanejadasCentro" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#047857" stopOpacity="0.22" />
             <stop offset="100%" stopColor="#047857" stopOpacity="0.03" />
           </linearGradient>
@@ -475,7 +462,7 @@ function GraficoLinhaCargas(props = {}) {
           );
         })}
 
-        <polygon points={pontosArea} fill="url(#graficoCargasPlanejadasDataCurta)" />
+        <polygon points={pontosArea} fill="url(#graficoCargasPlanejadasCentro)" />
 
         <polyline
           points={pontosLinha}

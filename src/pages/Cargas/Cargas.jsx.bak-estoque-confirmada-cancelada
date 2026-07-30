@@ -335,125 +335,49 @@ function CardResumo({ titulo, valor, subtitulo, icone, cor = "emerald" }) {
   );
 }
 
-function GraficoLinhaCargas(props = {}) {
-  const listaOriginal = Array.isArray(props)
-    ? props
-    : Array.isArray(props.dados)
-      ? props.dados
-      : Array.isArray(props.data)
-        ? props.data
-        : Array.isArray(props.lista)
-          ? props.lista
-          : Array.isArray(props.itens)
-            ? props.itens
-            : [];
-
-  const dados = listaOriginal.slice(-25).map((item) => {
-    const valorBruto =
-      item.quantidade_cargas ??
-      item.total_cargas ??
-      item.cargas ??
-      item.quantidade ??
-      item.total ??
-      item.valor ??
-      item.registros ??
-      0;
-
-    const dataBruta =
-      item.data ??
-      item.data_carga ??
-      item.dia ??
-      item.label ??
-      item.nome ??
-      "";
-
-    const valorNumerico = Number(valorBruto);
-
-    function formatarLabelData(valor) {
-      const texto = String(valor || "").trim();
-
-      if (!texto) return "-";
-
-      if (texto.includes("-")) {
-        const dataLimpa = texto.slice(0, 10);
-        const partes = dataLimpa.split("-");
-
-        if (partes.length === 3 && partes[0].length === 4) {
-          return partes[2] + "/" + partes[1];
-        }
-      }
-
-      if (texto.includes("/")) {
-        const partes = texto.split("/");
-
-        if (partes.length >= 2) {
-          return String(partes[0]).padStart(2, "0") + "/" + String(partes[1]).padStart(2, "0");
-        }
-      }
-
-      return texto;
-    }
-
-    return {
-      label: formatarLabelData(dataBruta),
-      valor: Number.isFinite(valorNumerico) ? valorNumerico : 0,
-    };
-  });
-
-  if (dados.length === 0) {
+function GraficoLinhaCargas({ dados }) {
+  if (!dados.length) {
     return (
-      <div className="flex h-[360px] w-full items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-400">
+      <div className="flex h-[230px] items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-400">
         Nenhum dado para exibir.
       </div>
     );
   }
 
-  const largura = 1160;
-  const altura = 360;
-  const esquerda = 28;
-  const direita = 28;
+  const largura = 980;
+  const altura = 250;
+  const esquerda = 58;
+  const direita = 35;
   const topo = 34;
-  const baixo = 58;
+  const baixo = 42;
   const areaLargura = largura - esquerda - direita;
   const areaAltura = altura - topo - baixo;
-
-  const maiorValor = Math.max(...dados.map((item) => item.valor), 1);
+  const maiorValor = Math.max(...dados.map((item) => numero(item.total)), 1);
 
   function obterX(indice) {
-    if (dados.length === 1) {
-      return esquerda + areaLargura / 2;
-    }
-
+    if (dados.length === 1) return esquerda + areaLargura / 2;
     return esquerda + (indice / (dados.length - 1)) * areaLargura;
   }
 
   function obterY(valor) {
-    return topo + areaAltura - (Number(valor || 0) / maiorValor) * areaAltura;
+    return topo + areaAltura - (numero(valor) / maiorValor) * areaAltura;
   }
 
-  function formatarNumeroLocal(valor) {
-    return Number(valor || 0).toLocaleString("pt-BR");
-  }
-
-  const pontosLinha = dados
-    .map((item, indice) => obterX(indice) + "," + obterY(item.valor))
+  const pontos = dados
+    .map((item, indice) => `${obterX(indice)},${obterY(item.total)}`)
     .join(" ");
 
-  const pontosArea = [
-    esquerda + "," + (topo + areaAltura),
-    pontosLinha,
-    largura - direita + "," + (topo + areaAltura),
+  const area = [
+    `${esquerda},${topo + areaAltura}`,
+    pontos,
+    `${esquerda + areaLargura},${topo + areaAltura}`,
   ].join(" ");
 
   return (
-    <div className="flex h-[360px] w-full items-center justify-center">
-      <svg
-        viewBox={`0 0 ${largura} ${altura}`}
-        className="h-full w-full overflow-visible"
-        preserveAspectRatio="none"
-      >
+    <div className="h-[270px] w-full">
+      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-full w-full overflow-visible">
         <defs>
-          <linearGradient id="graficoCargasPlanejadasDataCurta" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="cargasLinhaGradienteFinal" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#047857" stopOpacity="0.22" />
             <stop offset="100%" stopColor="#047857" stopOpacity="0.03" />
           </linearGradient>
@@ -475,41 +399,41 @@ function GraficoLinhaCargas(props = {}) {
           );
         })}
 
-        <polygon points={pontosArea} fill="url(#graficoCargasPlanejadasDataCurta)" />
+        <polygon points={area} fill="url(#cargasLinhaGradienteFinal)" />
 
         <polyline
-          points={pontosLinha}
+          points={pontos}
           fill="none"
           stroke="#047857"
-          strokeWidth="5"
+          strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
         {dados.map((item, indice) => {
           const x = obterX(indice);
-          const y = obterY(item.valor);
+          const y = obterY(item.total);
 
           return (
-            <g key={item.label + "-" + indice}>
-              <circle cx={x} cy={y} r="7" fill="#047857" stroke="#FFFFFF" strokeWidth="4" />
+            <g key={item.data}>
+              <circle cx={x} cy={y} r="6" fill="#047857" stroke="#FFFFFF" strokeWidth="4" />
 
               <text
                 x={x}
-                y={y - 16}
+                y={y - 15}
                 textAnchor="middle"
-                fontSize="18"
-                fontWeight="600"
+                fontSize="15"
+                fontWeight="500"
                 fill="#0F172A"
               >
-                {formatarNumeroLocal(item.valor)}
+                {formatarNumero(item.total)}
               </text>
 
               <text
                 x={x}
-                y={altura - 18}
+                y={altura - 13}
                 textAnchor="middle"
-                fontSize="17"
+                fontSize="14"
                 fontWeight="500"
                 fill="#64748B"
               >
@@ -1806,9 +1730,7 @@ export default function Cargas() {
                     <td className="px-4 py-3 text-slate-600">{montarTextoCalibres(carga)}</td>
 
                     <td className="px-4 py-3">
-                      {carga.status === "pendente" ? (
-                        <>
-                          <span
+                      <span
                         title={carga.estoque_resumo}
                         className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${classeEstoque(
                           carga.estoque_status
@@ -1819,10 +1741,6 @@ export default function Cargas() {
                       <p className="mt-1 max-w-[180px] truncate text-xs text-slate-400" title={carga.estoque_resumo}>
                         {carga.estoque_resumo}
                       </p>
-                        </>
-                      ) : (
-                        <span className="text-sm font-semibold text-slate-400">-</span>
-                      )}
                     </td>
 
                     <td className="px-4 py-3">
