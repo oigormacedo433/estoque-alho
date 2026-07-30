@@ -38,6 +38,11 @@ const menuItems = [
     path: "/saida-venda",
     icon: Truck,
   },
+{
+    label: "Cargas",
+    path: "/cargas",
+    icon: Truck,
+  },
   {
     label: "Estoque Atual",
     path: "/estoque-atual",

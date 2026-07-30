@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router";
+﻿import { Navigate, Route, Routes } from "react-router";
 
 import MainLayout from "../layouts/MainLayout";
 
@@ -9,6 +9,7 @@ import ChegadaFazenda from "../pages/ChegadaFazenda/ChegadaFazenda";
 import AlhoClassificado from "../pages/AlhoClassificado/AlhoClassificado";
 import ProdutoFinal from "../pages/ProdutoFinal/ProdutoFinal";
 import SaidaVenda from "../pages/SaidaVenda/SaidaVenda";
+import Cargas from "../pages/Cargas/Cargas";
 import EstoqueAtual from "../pages/EstoqueAtual/EstoqueAtual";
 import Calibres from "../pages/Calibres/Calibres";
 import Configuracoes from "../pages/Configuracoes/Configuracoes";
@@ -29,6 +30,7 @@ function AppRoutes() {
         <Route path="/alho-classificado" element={<AlhoClassificado />} />
         <Route path="/produto-final" element={<ProdutoFinal />} />
         <Route path="/saida-venda" element={<SaidaVenda />} />
+        <Route path="/cargas" element={<Cargas />} />
         <Route path="/estoque-atual" element={<EstoqueAtual />} />
         <Route path="/calibres" element={<Calibres />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
@@ -60,3 +62,4 @@ function AppRoutes() {
 }
 
 export default AppRoutes;
+
