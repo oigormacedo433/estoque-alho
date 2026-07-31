@@ -1808,8 +1808,8 @@ export default function AlhoClassificado() {
 
 
 
-      <div className="space-y-4">
-<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+      <div className="grid gap-4 xl:grid-cols-3">
+<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-950">
               Estoque do Alho Classificado
@@ -1820,11 +1820,11 @@ export default function AlhoClassificado() {
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
-            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="min-w-[760px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="area"
                       ordenacao={ordenacaoEstoque}
@@ -1833,7 +1833,7 @@ export default function AlhoClassificado() {
                       Área / Pivô
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="calibre"
                       ordenacao={ordenacaoEstoque}
@@ -1842,7 +1842,7 @@ export default function AlhoClassificado() {
                       Calibre
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="entradas"
                       ordenacao={ordenacaoEstoque}
@@ -1852,7 +1852,7 @@ export default function AlhoClassificado() {
                       Entradas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="saidas"
                       ordenacao={ordenacaoEstoque}
@@ -1862,7 +1862,7 @@ export default function AlhoClassificado() {
                       Saídas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="saldo"
                       ordenacao={ordenacaoEstoque}
@@ -1872,7 +1872,7 @@ export default function AlhoClassificado() {
                       Saldo
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="status"
                       ordenacao={ordenacaoEstoque}
@@ -1909,7 +1909,7 @@ export default function AlhoClassificado() {
                       <td className="px-3 py-3 text-right font-medium text-emerald-700">
                         {formatarNumero(obterSaldoClassificado(item))}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3">
                         <span
                           className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${classeBadgeStatus(
                             item.status_classificado
@@ -1934,7 +1934,7 @@ export default function AlhoClassificado() {
             onChange={setPaginaEstoque}
           />
         </section>
-<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-950">
               Entradas registradas
@@ -1945,11 +1945,11 @@ export default function AlhoClassificado() {
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
-            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="min-w-[820px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="data"
                       ordenacao={ordenacaoEntradas}
@@ -1958,7 +1958,7 @@ export default function AlhoClassificado() {
                       Data
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="area"
                       ordenacao={ordenacaoEntradas}
@@ -1967,7 +1967,7 @@ export default function AlhoClassificado() {
                       Área / Pivô
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="calibre"
                       ordenacao={ordenacaoEntradas}
@@ -1976,7 +1976,7 @@ export default function AlhoClassificado() {
                       Calibre
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="paletes"
                       ordenacao={ordenacaoEntradas}
@@ -1986,7 +1986,7 @@ export default function AlhoClassificado() {
                       Paletes
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="caixas"
                       ordenacao={ordenacaoEntradas}
@@ -1996,7 +1996,7 @@ export default function AlhoClassificado() {
                       Caixas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="responsavel"
                       ordenacao={ordenacaoEntradas}
@@ -2005,7 +2005,7 @@ export default function AlhoClassificado() {
                       Responsável
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                  <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
 
@@ -2043,7 +2043,7 @@ export default function AlhoClassificado() {
                       <td className="px-3 py-3 text-slate-600">
                         {registro.responsavel_nome}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
@@ -2079,7 +2079,7 @@ export default function AlhoClassificado() {
           />
         </section>
 
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-950">
               Saídas registradas
@@ -2090,11 +2090,11 @@ export default function AlhoClassificado() {
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
-            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="min-w-[760px] divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="data"
                       ordenacao={ordenacaoSaidas}
@@ -2103,7 +2103,7 @@ export default function AlhoClassificado() {
                       Data
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="area"
                       ordenacao={ordenacaoSaidas}
@@ -2112,7 +2112,7 @@ export default function AlhoClassificado() {
                       Área / Pivô
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="calibre"
                       ordenacao={ordenacaoSaidas}
@@ -2121,7 +2121,7 @@ export default function AlhoClassificado() {
                       Calibre
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                  <th className="px-3 py-3 text-right">
                     <BotaoOrdenacao
                       campo="caixas"
                       ordenacao={ordenacaoSaidas}
@@ -2131,7 +2131,7 @@ export default function AlhoClassificado() {
                       Caixas
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 whitespace-nowrap">
+                  <th className="px-3 py-3">
                     <BotaoOrdenacao
                       campo="responsavel"
                       ordenacao={ordenacaoSaidas}
@@ -2140,7 +2140,7 @@ export default function AlhoClassificado() {
                       Responsável
                     </BotaoOrdenacao>
                   </th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                  <th className="px-3 py-3 text-right">Ações</th>
                 </tr>
               </thead>
 
@@ -2175,7 +2175,7 @@ export default function AlhoClassificado() {
                       <td className="px-3 py-3 text-slate-600">
                         {registro.responsavel_nome}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
