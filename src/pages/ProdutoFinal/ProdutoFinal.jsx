@@ -320,7 +320,11 @@ export default function ProdutoFinal() {
   }, [registros, paginaAtual]);
 
   const registrosGraficoLinha = useMemo(() => {
-    return registrosGraficoMesAtual.filter((item) => {
+    const existeFiltroDeData = Boolean(filtros.dataInicial || filtros.dataFinal);
+
+    const base = existeFiltroDeData ? registros : registrosGraficoMesAtual;
+
+    return base.filter((item) => {
       const areaId = item.area_id || item.area_fazenda_id || "";
       const calibreId = item.calibre_id || "";
       const responsavelId = item.responsavel_id || "";
@@ -333,7 +337,10 @@ export default function ProdutoFinal() {
       return passouArea && passouCalibre && passouResponsavel;
     });
   }, [
+    registros,
     registrosGraficoMesAtual,
+    filtros.dataInicial,
+    filtros.dataFinal,
     filtros.areaId,
     filtros.calibreId,
     filtros.responsavelId,
@@ -736,7 +743,7 @@ export default function ProdutoFinal() {
         </div>
       ) : null}
 
-      <ProdutoFinalBiGraficos registros={registros} registrosLinha={registrosGraficoLinha} />
+      <ProdutoFinalBiGraficos registros={registros} registrosLinha={registrosGraficoLinha} forcarMesAtual={!filtros.dataInicial && !filtros.dataFinal} />
 
       <section className="grid gap-6 xl:grid-cols-2">
         <ListaResumo

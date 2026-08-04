@@ -402,7 +402,7 @@ function GraficoAreaCalibreEmpilhado({ dados }) {
   );
 }
 
-export default function ProdutoFinalBiGraficos({ registros = [], registrosLinha = null }) {
+export default function ProdutoFinalBiGraficos({ registros = [], registrosLinha = null, forcarMesAtual = true }) {
   const dados = Array.isArray(registros) ? registros : [];
   const dadosDaLinha = Array.isArray(registrosLinha) ? registrosLinha : dados;
 
@@ -418,7 +418,7 @@ export default function ProdutoFinalBiGraficos({ registros = [], registrosLinha 
 
       const dataTexto = String(data);
 
-      if (!dataTexto.startsWith(mesAtual)) {
+      if (forcarMesAtual && !dataTexto.startsWith(mesAtual)) {
         return;
       }
 
@@ -439,7 +439,7 @@ export default function ProdutoFinalBiGraficos({ registros = [], registrosLinha 
     return Array.from(mapa.values()).sort((a, b) =>
       String(a.data).localeCompare(String(b.data))
     );
-  }, [dadosDaLinha]);
+  }, [dadosDaLinha, forcarMesAtual]);
 
   const porCalibre = useMemo(() => {
     const mapa = new Map();
@@ -542,7 +542,7 @@ export default function ProdutoFinalBiGraficos({ registros = [], registrosLinha 
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
           <TituloGrafico
             titulo="Produção diária de produto final"
-            subtitulo="Unidades finais produzidas no mês atual, respeitando área, calibre e responsável filtrados."
+            subtitulo="Unidades finais produzidas no período filtrado. Sem filtro de data, mostra automaticamente o mês atual."
           />
 
           <GraficoLinhaProdutoFinal dados={serieDiaria} />
