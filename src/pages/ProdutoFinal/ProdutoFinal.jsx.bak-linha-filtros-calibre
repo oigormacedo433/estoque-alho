@@ -319,26 +319,6 @@ export default function ProdutoFinal() {
     return registros.slice(inicio, fim);
   }, [registros, paginaAtual]);
 
-  const registrosGraficoLinha = useMemo(() => {
-    return registrosGraficoMesAtual.filter((item) => {
-      const areaId = item.area_id || item.area_fazenda_id || "";
-      const calibreId = item.calibre_id || "";
-      const responsavelId = item.responsavel_id || "";
-
-      const passouArea = !filtros.areaId || areaId === filtros.areaId;
-      const passouCalibre = !filtros.calibreId || calibreId === filtros.calibreId;
-      const passouResponsavel =
-        !filtros.responsavelId || responsavelId === filtros.responsavelId;
-
-      return passouArea && passouCalibre && passouResponsavel;
-    });
-  }, [
-    registrosGraficoMesAtual,
-    filtros.areaId,
-    filtros.calibreId,
-    filtros.responsavelId,
-  ]);
-
   async function carregarDados() {
     try {
       setCarregando(true);
@@ -736,7 +716,7 @@ export default function ProdutoFinal() {
         </div>
       ) : null}
 
-      <ProdutoFinalBiGraficos registros={registros} registrosLinha={registrosGraficoLinha} />
+      <ProdutoFinalBiGraficos registros={registros} registrosLinha={registrosGraficoMesAtual} />
 
       <section className="grid gap-6 xl:grid-cols-2">
         <ListaResumo

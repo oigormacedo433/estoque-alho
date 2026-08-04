@@ -110,7 +110,7 @@ function normalizarProdutoFinal(item, relacionamentos) {
 
     quantidade_caixas: quantidadeCaixas,
     peso_por_caixa_kg: pesoPorCaixa,
-    tipo_embalagem: item.tipo_embalagem || "caixa",
+    tipo_embalagem: dados.tipo_embalagem || "caixa",
     peso_total_kg: pesoTotal,
     tipo_embalagem: item.tipo_embalagem || "caixa",
   };
@@ -218,7 +218,6 @@ function montarPayload(dados) {
     calibre_id: dados.calibre_id || null,
     quantidade_caixas: quantidadeCaixas,
     peso_por_caixa_kg: pesoPorCaixa,
-    tipo_embalagem: dados.tipo_embalagem || "caixa",
     responsavel_id: dados.responsavel_id || null,
     observacao: texto(dados.observacao),
   };

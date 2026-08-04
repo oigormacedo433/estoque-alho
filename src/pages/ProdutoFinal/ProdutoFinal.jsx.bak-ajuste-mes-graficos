@@ -205,7 +205,6 @@ export default function ProdutoFinal() {
   const [sucesso, setSucesso] = useState("");
 
   const [registros, setRegistros] = useState([]);
-  const [registrosGraficoMesAtual, setRegistrosGraficoMesAtual] = useState([]);
   const [areas, setAreas] = useState([]);
   const [calibres, setCalibres] = useState([]);
   const [responsaveis, setResponsaveis] = useState([]);
@@ -319,39 +318,17 @@ export default function ProdutoFinal() {
     return registros.slice(inicio, fim);
   }, [registros, paginaAtual]);
 
-  const registrosGraficoLinha = useMemo(() => {
-    return registrosGraficoMesAtual.filter((item) => {
-      const areaId = item.area_id || item.area_fazenda_id || "";
-      const calibreId = item.calibre_id || "";
-      const responsavelId = item.responsavel_id || "";
-
-      const passouArea = !filtros.areaId || areaId === filtros.areaId;
-      const passouCalibre = !filtros.calibreId || calibreId === filtros.calibreId;
-      const passouResponsavel =
-        !filtros.responsavelId || responsavelId === filtros.responsavelId;
-
-      return passouArea && passouCalibre && passouResponsavel;
-    });
-  }, [
-    registrosGraficoMesAtual,
-    filtros.areaId,
-    filtros.calibreId,
-    filtros.responsavelId,
-  ]);
-
   async function carregarDados() {
     try {
       setCarregando(true);
       setErro("");
 
-      const [listaProdutoFinal, listaProdutoFinalCompleta, opcoes] = await Promise.all([
+      const [listaProdutoFinal, opcoes] = await Promise.all([
         listarProdutoFinal(filtros),
-        listarProdutoFinal(),
         listarOpcoesProdutoFinal(),
       ]);
 
       setRegistros(listaProdutoFinal || []);
-      setRegistrosGraficoMesAtual(listaProdutoFinalCompleta || []);
       setAreas(opcoes.areas || []);
       setCalibres(opcoes.calibres || []);
       setResponsaveis(opcoes.responsaveis || []);
@@ -396,43 +373,6 @@ export default function ProdutoFinal() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
-
-  useEffect(() => {
-    const elementosAlterados = [];
-
-    function esconderTituloSuperior() {
-      const titulos = Array.from(document.querySelectorAll("h1"));
-
-      titulos.forEach((titulo) => {
-        const texto = titulo.textContent?.trim();
-        const posicao = titulo.getBoundingClientRect();
-
-        if (texto !== "Produto Final") return;
-        if (posicao.top > 170) return;
-
-        const container = titulo.parentElement;
-        if (!container) return;
-
-        if (!elementosAlterados.includes(container)) {
-          elementosAlterados.push(container);
-        }
-
-        container.style.setProperty("display", "none", "important");
-      });
-    }
-
-    esconderTituloSuperior();
-
-    const intervaloTituloProdutoFinal = window.setInterval(esconderTituloSuperior, 250);
-
-    return () => {
-      window.clearInterval(intervaloTituloProdutoFinal);
-
-      elementosAlterados.forEach((elemento) => {
-        elemento.style.removeProperty("display");
-      });
-    };
   }, []);
 
   async function aplicarFiltros() {
@@ -736,7 +676,7 @@ export default function ProdutoFinal() {
         </div>
       ) : null}
 
-      <ProdutoFinalBiGraficos registros={registros} registrosLinha={registrosGraficoLinha} />
+      <ProdutoFinalBiGraficos registros={registros} />
 
       <section className="grid gap-6 xl:grid-cols-2">
         <ListaResumo
