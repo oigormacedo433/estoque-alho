@@ -118,11 +118,11 @@ function estadoInicialFormulario(numeroCarga = "") {
     numero_pedido: "",
     status: "pendente",
     tipo_embalagem: "caixa",
-    quantidade_total_caixas: "",
+    quantidade_total_unidades: "",
     peso_por_unidade_kg: "",
     responsavel_id: "",
     observacao: "",
-    itens: [{ calibre_id: "", quantidade_caixas: "" }],
+    itens: [{ calibre_id: "", quantidade_unidades: "" }],
   };
 }
 
@@ -194,13 +194,13 @@ function BotaoOrdenacao({ children, campo, ordenacao, onClick, alinhado = "left"
 
 function normalizarCarga(carga, itensPorCarga, responsaveisPorId) {
   const itens = itensPorCarga.get(carga.id) || [];
-  const quantidadeTotal = numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas);
+  const quantidadeTotal = numero(carga.quantidade_total_unidades ?? carga.quantidade_total_caixas);
   const pesoTotal = numero(carga.peso_total_kg);
   const pesoPorCaixa = quantidadeTotal > 0 ? pesoTotal / quantidadeTotal : 0;
 
   return {
     ...carga,
-    quantidade_total_caixas: quantidadeTotal,
+    quantidade_total_unidades: quantidadeTotal,
     peso_total_kg: pesoTotal,
     peso_por_unidade_kg: pesoPorCaixa,
     responsavel_nome: responsaveisPorId.get(carga.responsavel_id)?.nome || "",
@@ -214,7 +214,7 @@ function montarTextoCalibres(carga) {
   return carga.itens
     .map((item) => {
       const codigo = item.calibre_codigo || item.calibre_nome || "-";
-      return `${codigo} ${formatarNumero(item.quantidade_caixas)}`;
+      return `${codigo} ${formatarNumero(item.quantidade_unidades)}`;
     })
     .join(" | ");
 }
@@ -269,7 +269,7 @@ function analisarEstoqueCarga(carga, estoquePorCalibre) {
 
   const detalhes = itens.map((item) => {
     const estoque = estoquePorCalibre.get(item.calibre_id);
-    const necessario = numero(item.quantidade_caixas);
+    const necessario = numero(item.quantidade_unidades);
     const disponivel = numero(estoque?.saldo_unidades);
     const suficiente = disponivel >= necessario && necessario > 0;
     const possuiAlgumSaldo = disponivel > 0;
@@ -938,12 +938,12 @@ export default function Cargas() {
   }, [estoqueAtual]);
 
   const totalDistribuido = useMemo(() => {
-    return formulario.itens.reduce((total, item) => total + numero(item.quantidade_caixas), 0);
+    return formulario.itens.reduce((total, item) => total + numero(item.quantidade_unidades), 0);
   }, [formulario.itens]);
 
   const totalCaixasFormulario = useMemo(() => {
-    return numero(formulario.quantidade_total_caixas);
-  }, [formulario.quantidade_total_caixas]);
+    return numero(formulario.quantidade_total_unidades);
+  }, [formulario.quantidade_total_unidades]);
 
   const pesoPorCaixaFormulario = useMemo(() => {
     return numero(formulario.peso_por_unidade_kg);
@@ -970,7 +970,7 @@ export default function Cargas() {
     const itensValidos = formulario.itens.every((item) => {
       const areaId = item.area_id || formulario.area_id || "";
       const calibreId = item.calibre_id || "";
-      const quantidade = numero(item.quantidade_caixas);
+      const quantidade = numero(item.quantidade_unidades);
 
       return areaId && calibreId && quantidade > 0;
     });
@@ -1077,7 +1077,7 @@ export default function Cargas() {
 
       return {
         ...carga,
-        unidades: numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas),
+        unidades: numero(carga.quantidade_total_unidades ?? carga.quantidade_total_caixas),
         peso_total: numero(carga.peso_total_kg),
         calibres_texto: montarTextoCalibres(carga),
         confirmada_texto: carga.status === "confirmada" ? "Sim" : "Nao",
@@ -1175,7 +1175,7 @@ export default function Cargas() {
 
         const itemNormalizado = {
           ...item,
-          quantidade_caixas: numero(item.quantidade_caixas),
+          quantidade_unidades: numero(item.quantidade_unidades),
           calibre_codigo: calibre?.codigo || "-",
           calibre_nome: calibre?.nome || "-",
           calibre_ordem: numero(calibre?.ordem),
@@ -1256,13 +1256,13 @@ export default function Cargas() {
       });
 
       const totalItens = itens.reduce((total, item) => {
-        return total + numero(item.quantidade_caixas);
+        return total + numero(item.quantidade_unidades);
       }, 0);
 
       return {
         ...estadoAtual,
         itens,
-        quantidade_total_caixas: totalItens > 0 ? String(totalItens) : "",
+        quantidade_total_unidades: totalItens > 0 ? String(totalItens) : "",
       };
     });
   }
@@ -1270,7 +1270,7 @@ export default function Cargas() {
   function adicionarCalibre() {
     setFormulario((estadoAtual) => ({
       ...estadoAtual,
-      itens: [...estadoAtual.itens, { calibre_id: "", quantidade_caixas: "" }],
+      itens: [...estadoAtual.itens, { calibre_id: "", quantidade_unidades: "" }],
     }));
   }
 
@@ -1279,7 +1279,7 @@ export default function Cargas() {
       if (estadoAtual.itens.length === 1) {
         return {
           ...estadoAtual,
-          itens: [{ calibre_id: "", quantidade_caixas: "" }],
+          itens: [{ calibre_id: "", quantidade_unidades: "" }],
         };
       }
 
@@ -1339,8 +1339,8 @@ export default function Cargas() {
 
   function abrirEdicao(carga) {
     const pesoPorCaixa =
-      numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas) > 0
-        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas)
+      numero(carga.quantidade_total_unidades ?? carga.quantidade_total_caixas) > 0
+        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_unidades ?? carga.quantidade_total_caixas)
         : 0;
 
     setRegistroEditando(carga);
@@ -1353,7 +1353,7 @@ export default function Cargas() {
       numero_pedido: carga.numero_pedido || "",
       status: carga.status || "pendente",
       tipo_embalagem: carga.tipo_embalagem || "unidade",
-      quantidade_total_caixas: carga.quantidade_total_caixas || "",
+      quantidade_total_unidades: carga.quantidade_total_unidades || "",
       peso_por_unidade_kg: pesoPorCaixa || "",
       responsavel_id: carga.responsavel_id || "",
       observacao: carga.observacao || "",
@@ -1363,9 +1363,9 @@ export default function Cargas() {
               area_id: item.area_id || registro.area_id || "",
       area_nome: item.areas_fazenda?.nome || item.area_nome || registro.area_nome || "",
       calibre_id: item.calibre_id || "",
-              quantidade_caixas: item.quantidade_caixas || "",
+              quantidade_unidades: item.quantidade_unidades || "",
             }))
-          : [{ calibre_id: "", quantidade_caixas: "" }],
+          : [{ calibre_id: "", quantidade_unidades: "" }],
     });
     setErro("");
     setSucesso("");
@@ -1444,10 +1444,10 @@ export default function Cargas() {
       }
 
       const itensPayload = formulario.itens.map((item) => ({
-      area_id: item.area_id || null,
+      area_id: item.area_id || formulario.area_id || null,
         carga_id: cargaId,
         calibre_id: item.calibre_id || null,
-        quantidade_caixas: numero(item.quantidade_caixas),
+        quantidade_unidades: numero(item.quantidade_unidades),
       }));
 
       const respostaItens = await supabase.from("carga_itens").insert(itensPayload);
@@ -1914,7 +1914,7 @@ export default function Cargas() {
                     <td className="px-4 py-3 text-slate-600">{carga.numero_carga || "-"}</td>
 
                     <td className="px-4 py-3 text-right font-medium text-slate-950">
-                      {formatarNumero(carga.quantidade_total_caixas)}
+                      {formatarNumero(carga.quantidade_total_unidades)}
                     </td>
 
                     <td className="px-4 py-3 text-right font-medium text-slate-950">
@@ -2117,7 +2117,7 @@ export default function Cargas() {
                   />
                 </label>
 
-                <label className="hidden">
+                <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">
                     Área / Pivô de saída
                   </span>
@@ -2172,9 +2172,9 @@ export default function Cargas() {
                     type="number"
                     min="0"
                     step="1"
-                    value={formulario.quantidade_total_caixas}
+                    value={formulario.quantidade_total_unidades}
                     onChange={(event) =>
-                      atualizarFormulario("quantidade_total_caixas", event.target.value)
+                      atualizarFormulario("quantidade_total_unidades", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   />
@@ -2257,7 +2257,7 @@ export default function Cargas() {
                         estoque?.saldo_disponivel_unidades
                     );
 
-                    const quantidadePedida = numero(item.quantidade_caixas);
+                    const quantidadePedida = numero(item.quantidade_unidades);
                     const possuiArea = Boolean(areaItemId);
                     const possuiCalibre = Boolean(item.calibre_id);
 
@@ -2348,9 +2348,9 @@ export default function Cargas() {
                               type="number"
                               min="0"
                               step="1"
-                              value={item.quantidade_caixas}
+                              value={item.quantidade_unidades}
                               onChange={(event) =>
-                                atualizarItem(index, "quantidade_caixas", event.target.value)
+                                atualizarItem(index, "quantidade_unidades", event.target.value)
                               }
                               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
                             />

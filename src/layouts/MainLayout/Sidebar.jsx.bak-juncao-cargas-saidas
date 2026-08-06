@@ -33,7 +33,11 @@ const menuItems = [
     path: "/produto-final",
     icon: PackageCheck,
   },
-  
+  {
+    label: "Saída / Venda",
+    path: "/saida-venda",
+    icon: Truck,
+  },
 {
     label: "Cargas",
     path: "/cargas",

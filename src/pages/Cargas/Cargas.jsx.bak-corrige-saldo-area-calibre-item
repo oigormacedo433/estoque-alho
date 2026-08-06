@@ -84,7 +84,7 @@ function classeStatus(status) {
   }
 
   if (status === "cancelada") {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-amber-200 bg-amber-50 text-amber-700";
   }
 
   return "border-amber-200 bg-amber-50 text-amber-700";
@@ -99,7 +99,7 @@ function classeEstoque(status) {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
 
-  return "border-red-200 bg-red-50 text-red-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 function textoEstoque(status) {
@@ -119,7 +119,7 @@ function estadoInicialFormulario(numeroCarga = "") {
     status: "pendente",
     tipo_embalagem: "caixa",
     quantidade_total_caixas: "",
-    peso_por_unidade_kg: "",
+    peso_por_caixa_kg: "",
     responsavel_id: "",
     observacao: "",
     itens: [{ calibre_id: "", quantidade_caixas: "" }],
@@ -194,7 +194,7 @@ function BotaoOrdenacao({ children, campo, ordenacao, onClick, alinhado = "left"
 
 function normalizarCarga(carga, itensPorCarga, responsaveisPorId) {
   const itens = itensPorCarga.get(carga.id) || [];
-  const quantidadeTotal = numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas);
+  const quantidadeTotal = numero(carga.quantidade_total_caixas);
   const pesoTotal = numero(carga.peso_total_kg);
   const pesoPorCaixa = quantidadeTotal > 0 ? pesoTotal / quantidadeTotal : 0;
 
@@ -202,7 +202,7 @@ function normalizarCarga(carga, itensPorCarga, responsaveisPorId) {
     ...carga,
     quantidade_total_caixas: quantidadeTotal,
     peso_total_kg: pesoTotal,
-    peso_por_unidade_kg: pesoPorCaixa,
+    peso_por_caixa_kg: pesoPorCaixa,
     responsavel_nome: responsaveisPorId.get(carga.responsavel_id)?.nome || "",
     itens,
   };
@@ -236,7 +236,7 @@ function montarMapaEstoque(estoqueAtual = []) {
     };
 
     atual.saldo_unidades += numero(
-      item.saldo_disponivel_unidades ||
+      item.saldo_disponivel_caixas ||
         item.saldo_unidades ||
         item.disponivel_unidades ||
         item.estoque_unidades
@@ -856,51 +856,7 @@ export default function Cargas() {
   }, []);
 
   const estoquePorCalibre = useMemo(() => {
-    const mapa = new Map();
-
-    estoqueAtual.forEach((item) => {
-      const areaId = item.area_id || item.area_fazenda_id || "";
-      const calibreId = item.calibre_id || "";
-
-      if (!calibreId) return;
-
-      const saldo =
-        item.saldo_disponivel_caixas !== null &&
-        item.saldo_disponivel_caixas !== undefined
-          ? numero(item.saldo_disponivel_caixas)
-          : item.saldo_disponivel_unidades !== null &&
-              item.saldo_disponivel_unidades !== undefined
-            ? numero(item.saldo_disponivel_unidades)
-            : item.saldo_unidades !== null && item.saldo_unidades !== undefined
-              ? numero(item.saldo_unidades)
-              : numero(item.produto_final_caixas) - numero(item.saidas_caixas);
-
-      const registro = {
-        ...item,
-        saldo_unidades: saldo,
-        saldo_disponivel_unidades: saldo,
-        saldo_disponivel_caixas: saldo,
-      };
-
-      if (areaId) {
-        mapa.set(`${areaId}-${calibreId}`, registro);
-      }
-
-      const agregado = mapa.get(calibreId) || {
-        ...registro,
-        saldo_unidades: 0,
-        saldo_disponivel_unidades: 0,
-        saldo_disponivel_caixas: 0,
-      };
-
-      agregado.saldo_unidades += saldo;
-      agregado.saldo_disponivel_unidades += saldo;
-      agregado.saldo_disponivel_caixas += saldo;
-
-      mapa.set(calibreId, agregado);
-    });
-
-    return mapa;
+    return montarMapaEstoque(estoqueAtual);
   }, [estoqueAtual]);
 
   const opcoesAreaFormulario = useMemo(() => {
@@ -911,16 +867,14 @@ export default function Cargas() {
 
       if (!areaId) return;
 
+      const saldoDireto = item.saldo_disponivel_caixas;
+      const saldoCalculado =
+        numero(item.produto_final_caixas) - numero(item.saidas_caixas);
+
       const saldo =
-        item.saldo_disponivel_caixas !== null &&
-        item.saldo_disponivel_caixas !== undefined
-          ? numero(item.saldo_disponivel_caixas)
-          : item.saldo_disponivel_unidades !== null &&
-              item.saldo_disponivel_unidades !== undefined
-            ? numero(item.saldo_disponivel_unidades)
-            : item.saldo_unidades !== null && item.saldo_unidades !== undefined
-              ? numero(item.saldo_unidades)
-              : numero(item.produto_final_caixas) - numero(item.saidas_caixas);
+        saldoDireto === null || saldoDireto === undefined
+          ? saldoCalculado
+          : numero(saldoDireto);
 
       const atual = mapa.get(areaId) || {
         id: areaId,
@@ -946,8 +900,8 @@ export default function Cargas() {
   }, [formulario.quantidade_total_caixas]);
 
   const pesoPorCaixaFormulario = useMemo(() => {
-    return numero(formulario.peso_por_unidade_kg);
-  }, [formulario.peso_por_unidade_kg]);
+    return numero(formulario.peso_por_caixa_kg);
+  }, [formulario.peso_por_caixa_kg]);
 
   const pesoTotalFormulario = useMemo(() => {
     return totalCaixasFormulario * pesoPorCaixaFormulario;
@@ -1077,7 +1031,7 @@ export default function Cargas() {
 
       return {
         ...carga,
-        unidades: numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas),
+        unidades: numero(carga.quantidade_total_caixas),
         peso_total: numero(carga.peso_total_kg),
         calibres_texto: montarTextoCalibres(carga),
         confirmada_texto: carga.status === "confirmada" ? "Sim" : "Nao",
@@ -1245,9 +1199,7 @@ export default function Cargas() {
   function atualizarItem(index, campo, valor) {
     setFormulario((estadoAtual) => {
       const itens = estadoAtual.itens.map((item, itemIndex) => {
-        if (itemIndex !== index) {
-          return item;
-        }
+        if (itemIndex !== index) return item;
 
         return {
           ...item,
@@ -1339,8 +1291,8 @@ export default function Cargas() {
 
   function abrirEdicao(carga) {
     const pesoPorCaixa =
-      numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas) > 0
-        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas)
+      numero(carga.quantidade_total_caixas) > 0
+        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas)
         : 0;
 
     setRegistroEditando(carga);
@@ -1354,7 +1306,7 @@ export default function Cargas() {
       status: carga.status || "pendente",
       tipo_embalagem: carga.tipo_embalagem || "unidade",
       quantidade_total_caixas: carga.quantidade_total_caixas || "",
-      peso_por_unidade_kg: pesoPorCaixa || "",
+      peso_por_caixa_kg: pesoPorCaixa || "",
       responsavel_id: carga.responsavel_id || "",
       observacao: carga.observacao || "",
       itens:
@@ -1444,7 +1396,7 @@ export default function Cargas() {
       }
 
       const itensPayload = formulario.itens.map((item) => ({
-      area_id: item.area_id || null,
+      area_id: item.area_id || formulario.area_id || null,
         carga_id: cargaId,
         calibre_id: item.calibre_id || null,
         quantidade_caixas: numero(item.quantidade_caixas),
@@ -1642,7 +1594,7 @@ export default function Cargas() {
       </section>
 
       {erro ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
           <strong>Atencao</strong>
           <p className="mt-1">{erro}</p>
         </div>
@@ -1958,7 +1910,7 @@ export default function Cargas() {
                         className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
                           carga.status === "confirmada"
                             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border-red-200 bg-red-50 text-red-700"
+                            : "border-amber-200 bg-amber-50 text-amber-700"
                         }`}
                       >
                         {carga.status === "confirmada" ? "Sim" : "Nao"}
@@ -1980,7 +1932,7 @@ export default function Cargas() {
                             <button
                               type="button"
                               onClick={() => mudarStatus(carga, "cancelada")}
-                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-red-50"
                             >
                               Cancelar
                             </button>
@@ -2000,7 +1952,7 @@ export default function Cargas() {
                             <button
                               type="button"
                               onClick={() => mudarStatus(carga, "cancelada")}
-                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-red-50"
                             >
                               Cancelar
                             </button>
@@ -2117,23 +2069,7 @@ export default function Cargas() {
                   />
                 </label>
 
-                <label className="hidden">
-                  <span className="text-sm font-medium text-slate-700">
-                    Área / Pivô de saída
-                  </span>
-                  <select
-                    value={formulario.area_id}
-                    onChange={(event) => atualizarFormulario("area_id", event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="">Selecione a área com Produto Final</option>
-                    {opcoesAreaFormulario.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.nome} — saldo {formatarNumero(area.saldo)} unidades
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                
 
                 
 
@@ -2188,9 +2124,9 @@ export default function Cargas() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={formulario.peso_por_unidade_kg}
+                    value={formulario.peso_por_caixa_kg}
                     onChange={(event) =>
-                      atualizarFormulario("peso_por_unidade_kg", event.target.value)
+                      atualizarFormulario("peso_por_caixa_kg", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   />
@@ -2245,52 +2181,33 @@ export default function Cargas() {
 
                 <div className="space-y-4">
                   {formulario.itens.map((item, index) => {
-                    const areaItemId = item.area_id || formulario.area_id || "";
-                    const estoque =
-                      areaItemId && item.calibre_id
-                        ? estoquePorCalibre.get(`${areaItemId}-${item.calibre_id}`)
-                        : null;
-
-                    const saldoDisponivel = numero(
-                      estoque?.saldo_unidades ??
-                        estoque?.saldo_disponivel_caixas ??
-                        estoque?.saldo_disponivel_unidades
-                    );
-
+                    const estoque = estoquePorCalibre.get(item.calibre_id);
+                    const saldoDisponivel = numero(estoque?.saldo_unidades);
                     const quantidadePedida = numero(item.quantidade_caixas);
-                    const possuiArea = Boolean(areaItemId);
                     const possuiCalibre = Boolean(item.calibre_id);
 
                     let mensagemEstoque = "Selecione área e calibre para ver o saldo atual.";
                     let classeMensagemEstoque = "border-blue-200 bg-blue-50 text-blue-700";
 
-                    if ((possuiArea || possuiCalibre) && (!possuiArea || !possuiCalibre)) {
-                      mensagemEstoque = "Selecione área e calibre para ver o saldo atual.";
-                      classeMensagemEstoque = "border-blue-200 bg-blue-50 text-blue-700";
-                    }
-
-                    if (possuiArea && possuiCalibre && saldoDisponivel <= 0) {
-                      mensagemEstoque =
-                        "Sem saldo nessa Área/Pivô para este calibre. Pode salvar; o estoque ficará negativo.";
+                    if (possuiCalibre && saldoDisponivel <= 0) {
+                      mensagemEstoque = "Sem saldo atual para este calibre. Pode salvar; o estoque ficará negativo.";
                       classeMensagemEstoque = "border-amber-200 bg-amber-50 text-amber-700";
                     }
 
-                    if (possuiArea && possuiCalibre && saldoDisponivel > 0) {
+                    if (possuiCalibre && saldoDisponivel > 0) {
                       mensagemEstoque = `Estoque atual: ${formatarNumero(saldoDisponivel)} unidades.`;
                       classeMensagemEstoque = "border-emerald-200 bg-emerald-50 text-emerald-700";
                     }
 
                     if (
-                      possuiArea &&
                       possuiCalibre &&
                       quantidadePedida > 0 &&
+                      saldoDisponivel > 0 &&
                       saldoDisponivel < quantidadePedida
                     ) {
                       mensagemEstoque = `Aviso: ${formatarNumero(
                         saldoDisponivel
-                      )} unidades disponíveis para ${formatarNumero(
-                        quantidadePedida
-                      )} solicitadas. Pode salvar; o estoque ficará negativo.`;
+                      )} unidades disponiveis para ${formatarNumero(quantidadePedida)} solicitadas.`;
                       classeMensagemEstoque = "border-amber-200 bg-amber-50 text-amber-700";
                     }
 
@@ -2392,7 +2309,7 @@ export default function Cargas() {
                     <p className="text-xs font-medium uppercase text-slate-400">Diferenca</p>
                     <strong
                       className={`mt-1 block text-lg font-medium ${
-                        diferencaDistribuicao === 0 ? "text-emerald-700" : "text-red-700"
+                        diferencaDistribuicao === 0 ? "text-emerald-700" : "text-amber-700"
                       }`}
                     >
                       {formatarNumero(diferencaDistribuicao)} unidades

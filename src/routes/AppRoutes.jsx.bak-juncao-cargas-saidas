@@ -8,6 +8,7 @@ import BI from "../pages/BI/BI";
 import ChegadaFazenda from "../pages/ChegadaFazenda/ChegadaFazenda";
 import AlhoClassificado from "../pages/AlhoClassificado/AlhoClassificado";
 import ProdutoFinal from "../pages/ProdutoFinal/ProdutoFinal";
+import SaidaVenda from "../pages/SaidaVenda/SaidaVenda";
 import Cargas from "../pages/Cargas/Cargas";
 import EstoqueAtual from "../pages/EstoqueAtual/EstoqueAtual";
 import Calibres from "../pages/Calibres/Calibres";
@@ -28,7 +29,7 @@ function AppRoutes() {
         <Route path="/chegada-fazenda" element={<ChegadaFazenda />} />
         <Route path="/alho-classificado" element={<AlhoClassificado />} />
         <Route path="/produto-final" element={<ProdutoFinal />} />
-        <Route path="/saida-venda" element={<Navigate to="/cargas" replace />} />
+        <Route path="/saida-venda" element={<SaidaVenda />} />
         <Route path="/cargas" element={<Cargas />} />
         <Route path="/estoque-atual" element={<EstoqueAtual />} />
         <Route path="/calibres" element={<Calibres />} />
@@ -51,7 +52,7 @@ function AppRoutes() {
 
         <Route
           path="/consulta-saidas"
-          element={<Navigate to="/cargas" replace />}
+          element={<Navigate to="/saida-venda" replace />}
         />
 
         <Route path="*" element={<Navigate to="/bi" replace />} />

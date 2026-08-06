@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { supabase } from "../../services/supabaseClient";
 
-import { confirmarCargaComoSaida } from "../../services/cargasSaidasService";
-
 const filtrosIniciais = {
   dataInicial: "",
   dataFinal: "",
@@ -114,12 +112,9 @@ function estadoInicialFormulario(numeroCarga = "") {
     hora: horaAgora(),
     numero_carga: numeroCarga,
     cliente: "",
-    area_id: "",
-    numero_pedido: "",
     status: "pendente",
-    tipo_embalagem: "caixa",
     quantidade_total_caixas: "",
-    peso_por_unidade_kg: "",
+    peso_por_caixa_kg: "",
     responsavel_id: "",
     observacao: "",
     itens: [{ calibre_id: "", quantidade_caixas: "" }],
@@ -194,7 +189,7 @@ function BotaoOrdenacao({ children, campo, ordenacao, onClick, alinhado = "left"
 
 function normalizarCarga(carga, itensPorCarga, responsaveisPorId) {
   const itens = itensPorCarga.get(carga.id) || [];
-  const quantidadeTotal = numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas);
+  const quantidadeTotal = numero(carga.quantidade_total_caixas);
   const pesoTotal = numero(carga.peso_total_kg);
   const pesoPorCaixa = quantidadeTotal > 0 ? pesoTotal / quantidadeTotal : 0;
 
@@ -202,7 +197,7 @@ function normalizarCarga(carga, itensPorCarga, responsaveisPorId) {
     ...carga,
     quantidade_total_caixas: quantidadeTotal,
     peso_total_kg: pesoTotal,
-    peso_por_unidade_kg: pesoPorCaixa,
+    peso_por_caixa_kg: pesoPorCaixa,
     responsavel_nome: responsaveisPorId.get(carga.responsavel_id)?.nome || "",
     itens,
   };
@@ -231,15 +226,15 @@ function montarMapaEstoque(estoqueAtual = []) {
       calibre_id: calibreId,
       calibre_codigo: item.calibre_codigo || "",
       calibre_nome: item.calibre_nome || "",
-      saldo_unidades: 0,
+      saldo_caixas: 0,
       peso_kg: 0,
     };
 
-    atual.saldo_unidades += numero(
-      item.saldo_disponivel_unidades ||
-        item.saldo_unidades ||
-        item.disponivel_unidades ||
-        item.estoque_unidades
+    atual.saldo_caixas += numero(
+      item.saldo_disponivel_caixas ||
+        item.saldo_caixas ||
+        item.disponivel_caixas ||
+        item.estoque_caixas
     );
 
     atual.peso_kg += numero(
@@ -270,7 +265,7 @@ function analisarEstoqueCarga(carga, estoquePorCalibre) {
   const detalhes = itens.map((item) => {
     const estoque = estoquePorCalibre.get(item.calibre_id);
     const necessario = numero(item.quantidade_caixas);
-    const disponivel = numero(estoque?.saldo_unidades);
+    const disponivel = numero(estoque?.saldo_caixas);
     const suficiente = disponivel >= necessario && necessario > 0;
     const possuiAlgumSaldo = disponivel > 0;
 
@@ -856,85 +851,7 @@ export default function Cargas() {
   }, []);
 
   const estoquePorCalibre = useMemo(() => {
-    const mapa = new Map();
-
-    estoqueAtual.forEach((item) => {
-      const areaId = item.area_id || item.area_fazenda_id || "";
-      const calibreId = item.calibre_id || "";
-
-      if (!calibreId) return;
-
-      const saldo =
-        item.saldo_disponivel_caixas !== null &&
-        item.saldo_disponivel_caixas !== undefined
-          ? numero(item.saldo_disponivel_caixas)
-          : item.saldo_disponivel_unidades !== null &&
-              item.saldo_disponivel_unidades !== undefined
-            ? numero(item.saldo_disponivel_unidades)
-            : item.saldo_unidades !== null && item.saldo_unidades !== undefined
-              ? numero(item.saldo_unidades)
-              : numero(item.produto_final_caixas) - numero(item.saidas_caixas);
-
-      const registro = {
-        ...item,
-        saldo_unidades: saldo,
-        saldo_disponivel_unidades: saldo,
-        saldo_disponivel_caixas: saldo,
-      };
-
-      if (areaId) {
-        mapa.set(`${areaId}-${calibreId}`, registro);
-      }
-
-      const agregado = mapa.get(calibreId) || {
-        ...registro,
-        saldo_unidades: 0,
-        saldo_disponivel_unidades: 0,
-        saldo_disponivel_caixas: 0,
-      };
-
-      agregado.saldo_unidades += saldo;
-      agregado.saldo_disponivel_unidades += saldo;
-      agregado.saldo_disponivel_caixas += saldo;
-
-      mapa.set(calibreId, agregado);
-    });
-
-    return mapa;
-  }, [estoqueAtual]);
-
-  const opcoesAreaFormulario = useMemo(() => {
-    const mapa = new Map();
-
-    estoqueAtual.forEach((item) => {
-      const areaId = item.area_id || item.area_fazenda_id;
-
-      if (!areaId) return;
-
-      const saldo =
-        item.saldo_disponivel_caixas !== null &&
-        item.saldo_disponivel_caixas !== undefined
-          ? numero(item.saldo_disponivel_caixas)
-          : item.saldo_disponivel_unidades !== null &&
-              item.saldo_disponivel_unidades !== undefined
-            ? numero(item.saldo_disponivel_unidades)
-            : item.saldo_unidades !== null && item.saldo_unidades !== undefined
-              ? numero(item.saldo_unidades)
-              : numero(item.produto_final_caixas) - numero(item.saidas_caixas);
-
-      const atual = mapa.get(areaId) || {
-        id: areaId,
-        nome: item.area_nome || item.area_pivo_nome || "Área sem nome",
-        saldo: 0,
-      };
-
-      atual.saldo += saldo;
-      mapa.set(areaId, atual);
-    });
-
-    return Array.from(mapa.values()).sort((a, b) =>
-      String(a.nome).localeCompare(String(b.nome), "pt-BR")
-    );
+    return montarMapaEstoque(estoqueAtual);
   }, [estoqueAtual]);
 
   const totalDistribuido = useMemo(() => {
@@ -946,8 +863,8 @@ export default function Cargas() {
   }, [formulario.quantidade_total_caixas]);
 
   const pesoPorCaixaFormulario = useMemo(() => {
-    return numero(formulario.peso_por_unidade_kg);
-  }, [formulario.peso_por_unidade_kg]);
+    return numero(formulario.peso_por_caixa_kg);
+  }, [formulario.peso_por_caixa_kg]);
 
   const pesoTotalFormulario = useMemo(() => {
     return totalCaixasFormulario * pesoPorCaixaFormulario;
@@ -963,26 +880,28 @@ export default function Cargas() {
     if (!formulario.hora) return false;
     if (!texto(formulario.cliente)) return false;
     if (!texto(formulario.numero_carga)) return false;
-    if (!formulario.responsavel_id) return false;
+    if (totalCaixasFormulario <= 0) return false;
     if (pesoPorCaixaFormulario <= 0) return false;
-    if (!Array.isArray(formulario.itens) || formulario.itens.length === 0) return false;
+    if (formulario.itens.length === 0) return false;
+    if (diferencaDistribuicao !== 0) return false;
 
     const itensValidos = formulario.itens.every((item) => {
-      const areaId = item.area_id || formulario.area_id || "";
-      const calibreId = item.calibre_id || "";
-      const quantidade = numero(item.quantidade_caixas);
-
-      return areaId && calibreId && quantidade > 0;
+      return item.calibre_id && numero(item.quantidade_caixas) > 0;
     });
 
     if (!itensValidos) return false;
 
-    const combinacoes = formulario.itens.map((item) => {
-      return `${item.area_id || formulario.area_id || ""}-${item.calibre_id || ""}`;
-    });
+    const calibresUsados = formulario.itens.map((item) => item.calibre_id).filter(Boolean);
+    const semDuplicidade = new Set(calibresUsados).size === calibresUsados.length;
 
-    return new Set(combinacoes).size === combinacoes.length;
-  }, [salvando, formulario, pesoPorCaixaFormulario]);
+    return semDuplicidade;
+  }, [
+    salvando,
+    formulario,
+    totalCaixasFormulario,
+    pesoPorCaixaFormulario,
+    diferencaDistribuicao,
+  ]);
 
   const clientesFiltro = useMemo(() => {
     return Array.from(new Set(todasCargas.map((carga) => carga.cliente).filter(Boolean))).sort(
@@ -1077,7 +996,7 @@ export default function Cargas() {
 
       return {
         ...carga,
-        unidades: numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas),
+        caixas: numero(carga.quantidade_total_caixas),
         peso_total: numero(carga.peso_total_kg),
         calibres_texto: montarTextoCalibres(carga),
         confirmada_texto: carga.status === "confirmada" ? "Sim" : "Nao",
@@ -1151,7 +1070,7 @@ export default function Cargas() {
       if (cargasIds.length > 0) {
         const respostaItens = await supabase
           .from("carga_itens")
-          .select("*, areas_fazenda!carga_itens_area_id_fkey(id, nome), calibres(id, codigo, nome, ordem)")
+          .select("*")
           .in("carga_id", cargasIds);
 
         if (respostaItens.error) {
@@ -1242,12 +1161,10 @@ export default function Cargas() {
     }));
   }
 
-  function atualizarItem(index, campo, valor) {
+  function atualizarItem(indice, campo, valor) {
     setFormulario((estadoAtual) => {
-      const itens = estadoAtual.itens.map((item, itemIndex) => {
-        if (itemIndex !== index) {
-          return item;
-        }
+      const itens = estadoAtual.itens.map((item, index) => {
+        if (index !== indice) return item;
 
         return {
           ...item,
@@ -1255,14 +1172,9 @@ export default function Cargas() {
         };
       });
 
-      const totalItens = itens.reduce((total, item) => {
-        return total + numero(item.quantidade_caixas);
-      }, 0);
-
       return {
         ...estadoAtual,
         itens,
-        quantidade_total_caixas: totalItens > 0 ? String(totalItens) : "",
       };
     });
   }
@@ -1339,8 +1251,8 @@ export default function Cargas() {
 
   function abrirEdicao(carga) {
     const pesoPorCaixa =
-      numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas) > 0
-        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas)
+      numero(carga.quantidade_total_caixas) > 0
+        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas)
         : 0;
 
     setRegistroEditando(carga);
@@ -1349,20 +1261,15 @@ export default function Cargas() {
       hora: String(carga.hora || horaAgora()).slice(0, 5),
       numero_carga: carga.numero_carga || "",
       cliente: carga.cliente || "",
-      area_id: carga.area_id || carga.area_fazenda_id || "",
-      numero_pedido: carga.numero_pedido || "",
       status: carga.status || "pendente",
-      tipo_embalagem: carga.tipo_embalagem || "unidade",
       quantidade_total_caixas: carga.quantidade_total_caixas || "",
-      peso_por_unidade_kg: pesoPorCaixa || "",
+      peso_por_caixa_kg: pesoPorCaixa || "",
       responsavel_id: carga.responsavel_id || "",
       observacao: carga.observacao || "",
       itens:
         Array.isArray(carga.itens) && carga.itens.length > 0
           ? carga.itens.map((item) => ({
-              area_id: item.area_id || registro.area_id || "",
-      area_nome: item.areas_fazenda?.nome || item.area_nome || registro.area_nome || "",
-      calibre_id: item.calibre_id || "",
+              calibre_id: item.calibre_id || "",
               quantidade_caixas: item.quantidade_caixas || "",
             }))
           : [{ calibre_id: "", quantidade_caixas: "" }],
@@ -1400,9 +1307,8 @@ export default function Cargas() {
         numero_carga: numeroCarga,
         cliente: texto(formulario.cliente),
         status: formulario.status || "pendente",
-        tipo_embalagem: formulario.tipo_embalagem || "caixa",
         quantidade_total_caixas: totalCaixasFormulario,
-        peso_total_kg: totalDistribuido * pesoPorCaixaFormulario,
+        peso_total_kg: pesoTotalFormulario,
         responsavel_id: formulario.responsavel_id || null,
         observacao: texto(formulario.observacao),
       };
@@ -1444,7 +1350,6 @@ export default function Cargas() {
       }
 
       const itensPayload = formulario.itens.map((item) => ({
-      area_id: item.area_id || null,
         carga_id: cargaId,
         calibre_id: item.calibre_id || null,
         quantidade_caixas: numero(item.quantidade_caixas),
@@ -1474,42 +1379,19 @@ export default function Cargas() {
       setErro("");
       setSucesso("");
 
-      const mensagem =
-        status === "confirmada"
-          ? `Confirmar a carga ${carga.numero_carga || ""}?`
-          : status === "cancelada"
-            ? `Cancelar a carga ${carga.numero_carga || ""}? Ela deixará de descontar do estoque.`
-            : `Voltar a carga ${carga.numero_carga || ""} para pendente?`;
+      const resposta = await supabase
+        .from("cargas")
+        .update({ status })
+        .eq("id", carga.id);
 
-      const confirmado = window.confirm(mensagem);
-
-      if (!confirmado) return;
-
-      if (status === "confirmada") {
-        await confirmarCargaComoSaida(carga);
-      } else {
-        const resposta = await supabase
-          .from("cargas")
-          .update({
-            status,
-            confirmada_em: status === "pendente" ? null : carga.confirmada_em || null,
-          })
-          .eq("id", carga.id);
-
-        if (resposta.error) {
-          throw new Error(resposta.error.message || "Não foi possível atualizar o status.");
-        }
+      if (resposta.error) {
+        throw new Error(resposta.error.message || "Nao foi possivel atualizar o status.");
       }
 
-      setSucesso(
-        status === "cancelada"
-          ? "Carga cancelada. Ela não desconta mais do estoque."
-          : "Status da carga atualizado com sucesso."
-      );
-
+      setSucesso("Carga atualizada com sucesso.");
       await carregarDados(filtros);
     } catch (error) {
-      setErro(error.message || "Não foi possível atualizar o status da carga.");
+      setErro(error.message || "Nao foi possivel atualizar o status da carga.");
     }
   }
 
@@ -1856,7 +1738,7 @@ export default function Cargas() {
                   </BotaoOrdenacao>
                 </th>
                 <th className="px-4 py-3">
-                  <BotaoOrdenacao campo="unidades" ordenacao={ordenacaoTabela} onClick={setOrdenacaoTabela} alinhado="right">
+                  <BotaoOrdenacao campo="caixas" ordenacao={ordenacaoTabela} onClick={setOrdenacaoTabela} alinhado="right">
                     Caixas
                   </BotaoOrdenacao>
                 </th>
@@ -2117,26 +1999,6 @@ export default function Cargas() {
                   />
                 </label>
 
-                <label className="hidden">
-                  <span className="text-sm font-medium text-slate-700">
-                    Área / Pivô de saída
-                  </span>
-                  <select
-                    value={formulario.area_id}
-                    onChange={(event) => atualizarFormulario("area_id", event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="">Selecione a área com Produto Final</option>
-                    {opcoesAreaFormulario.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.nome} — saldo {formatarNumero(area.saldo)} unidades
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                
-
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">Status</span>
                   <select
@@ -2151,23 +2013,7 @@ export default function Cargas() {
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">
-                    Tipo de embalagem
-                  </span>
-                  <select
-                    value={formulario.tipo_embalagem || "caixa"}
-                    onChange={(event) =>
-                      atualizarFormulario("tipo_embalagem", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="caixa">Caixa</option>
-                    <option value="saco">Saco</option>
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Total de unidades</span>
+                  <span className="text-sm font-medium text-slate-700">Total de caixas</span>
                   <input
                     type="number"
                     min="0"
@@ -2182,15 +2028,15 @@ export default function Cargas() {
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">
-                    Peso por unidade em kg
+                    Peso por caixa em kg
                   </span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={formulario.peso_por_unidade_kg}
+                    value={formulario.peso_por_caixa_kg}
                     onChange={(event) =>
-                      atualizarFormulario("peso_por_unidade_kg", event.target.value)
+                      atualizarFormulario("peso_por_caixa_kg", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
                   />
@@ -2245,52 +2091,33 @@ export default function Cargas() {
 
                 <div className="space-y-4">
                   {formulario.itens.map((item, index) => {
-                    const areaItemId = item.area_id || formulario.area_id || "";
-                    const estoque =
-                      areaItemId && item.calibre_id
-                        ? estoquePorCalibre.get(`${areaItemId}-${item.calibre_id}`)
-                        : null;
-
-                    const saldoDisponivel = numero(
-                      estoque?.saldo_unidades ??
-                        estoque?.saldo_disponivel_caixas ??
-                        estoque?.saldo_disponivel_unidades
-                    );
-
+                    const estoque = estoquePorCalibre.get(item.calibre_id);
+                    const saldoDisponivel = numero(estoque?.saldo_caixas);
                     const quantidadePedida = numero(item.quantidade_caixas);
-                    const possuiArea = Boolean(areaItemId);
                     const possuiCalibre = Boolean(item.calibre_id);
 
-                    let mensagemEstoque = "Selecione área e calibre para ver o saldo atual.";
+                    let mensagemEstoque = "Selecione um calibre para ver o estoque atual.";
                     let classeMensagemEstoque = "border-blue-200 bg-blue-50 text-blue-700";
 
-                    if ((possuiArea || possuiCalibre) && (!possuiArea || !possuiCalibre)) {
-                      mensagemEstoque = "Selecione área e calibre para ver o saldo atual.";
-                      classeMensagemEstoque = "border-blue-200 bg-blue-50 text-blue-700";
+                    if (possuiCalibre && saldoDisponivel <= 0) {
+                      mensagemEstoque = "Sem estoque atual para este calibre.";
+                      classeMensagemEstoque = "border-red-200 bg-red-50 text-red-700";
                     }
 
-                    if (possuiArea && possuiCalibre && saldoDisponivel <= 0) {
-                      mensagemEstoque =
-                        "Sem saldo nessa Área/Pivô para este calibre. Pode salvar; o estoque ficará negativo.";
-                      classeMensagemEstoque = "border-amber-200 bg-amber-50 text-amber-700";
-                    }
-
-                    if (possuiArea && possuiCalibre && saldoDisponivel > 0) {
-                      mensagemEstoque = `Estoque atual: ${formatarNumero(saldoDisponivel)} unidades.`;
+                    if (possuiCalibre && saldoDisponivel > 0) {
+                      mensagemEstoque = `Estoque atual: ${formatarNumero(saldoDisponivel)} caixas.`;
                       classeMensagemEstoque = "border-emerald-200 bg-emerald-50 text-emerald-700";
                     }
 
                     if (
-                      possuiArea &&
                       possuiCalibre &&
                       quantidadePedida > 0 &&
+                      saldoDisponivel > 0 &&
                       saldoDisponivel < quantidadePedida
                     ) {
-                      mensagemEstoque = `Aviso: ${formatarNumero(
+                      mensagemEstoque = `Estoque parcial: ${formatarNumero(
                         saldoDisponivel
-                      )} unidades disponíveis para ${formatarNumero(
-                        quantidadePedida
-                      )} solicitadas. Pode salvar; o estoque ficará negativo.`;
+                      )} caixas disponiveis para ${formatarNumero(quantidadePedida)} solicitadas.`;
                       classeMensagemEstoque = "border-amber-200 bg-amber-50 text-amber-700";
                     }
 
@@ -2300,27 +2127,7 @@ export default function Cargas() {
                         className="rounded-2xl border border-slate-200 bg-white p-4"
                       >
                         <div className="grid gap-4 md:grid-cols-[1fr_180px_130px] md:items-end">
-                                                    <label className="space-y-2">
-                            <span className="text-sm font-medium text-slate-700">
-                              Área / Pivô
-                            </span>
-                            <select
-                              value={item.area_id || ""}
-                              onChange={(event) =>
-                                atualizarItem(index, "area_id", event.target.value)
-                              }
-                              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                            >
-                              <option value="">Selecione a área</option>
-                              {opcoesAreaFormulario.map((area) => (
-                                <option key={area.id} value={area.id}>
-                                  {area.nome} — saldo {formatarNumero(area.saldo)} unidades
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-<label className="space-y-2">
+                          <label className="space-y-2">
                             <span className="text-sm font-medium text-slate-700">
                               Calibre {index + 1}
                             </span>
@@ -2359,7 +2166,7 @@ export default function Cargas() {
                           <button
                             type="button"
                             onClick={() => removerCalibre(index)}
-                            className="inline-flex h-11 w-auto items-center justify-center justify-self-start rounded-xl bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700"
+                            className="rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-red-700"
                           >
                             Remover
                           </button>
@@ -2377,14 +2184,14 @@ export default function Cargas() {
                   <div className="rounded-xl bg-white px-4 py-3">
                     <p className="text-xs font-medium uppercase text-slate-400">Total informado</p>
                     <strong className="mt-1 block text-lg font-medium text-slate-950">
-                      {formatarNumero(totalCaixasFormulario)} unidades
+                      {formatarNumero(totalCaixasFormulario)} caixas
                     </strong>
                   </div>
 
                   <div className="rounded-xl bg-white px-4 py-3">
                     <p className="text-xs font-medium uppercase text-slate-400">Total distribuido</p>
                     <strong className="mt-1 block text-lg font-medium text-slate-950">
-                      {formatarNumero(totalDistribuido)} unidades
+                      {formatarNumero(totalDistribuido)} caixas
                     </strong>
                   </div>
 
@@ -2395,7 +2202,7 @@ export default function Cargas() {
                         diferencaDistribuicao === 0 ? "text-emerald-700" : "text-red-700"
                       }`}
                     >
-                      {formatarNumero(diferencaDistribuicao)} unidades
+                      {formatarNumero(diferencaDistribuicao)} caixas
                     </strong>
                   </div>
                 </div>
