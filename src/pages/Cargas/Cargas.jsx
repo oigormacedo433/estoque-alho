@@ -34,11 +34,30 @@ function horaAgora() {
 function numero(valor) {
   if (valor === null || valor === undefined || valor === "") return 0;
 
-  const convertido = Number(String(valor).replace(/\./g, "").replace(",", "."));
+  if (typeof valor === "number") {
+    return Number.isFinite(valor) ? valor : 0;
+  }
 
-  if (!Number.isFinite(convertido)) return 0;
+  let textoValor = String(valor).trim().replace(/\s/g, "");
 
-  return convertido;
+  if (!textoValor) return 0;
+
+  const temVirgula = textoValor.includes(",");
+  const temPonto = textoValor.includes(".");
+
+  if (temVirgula && temPonto) {
+    textoValor = textoValor.replace(/\./g, "").replace(",", ".");
+  } else if (temVirgula) {
+    textoValor = textoValor.replace(",", ".");
+  } else if (temPonto && /^\d{1,3}(\.\d{3})+$/.test(textoValor)) {
+    textoValor = textoValor.replace(/\./g, "");
+  }
+
+  textoValor = textoValor.replace(/[^0-9.-]/g, "");
+
+  const convertido = Number(textoValor);
+
+  return Number.isFinite(convertido) ? convertido : 0;
 }
 
 function texto(valor) {
@@ -213,8 +232,29 @@ function montarTextoCalibres(carga) {
 
   return carga.itens
     .map((item) => {
-      const codigo = item.calibre_codigo || item.calibre_nome || "-";
-      return `${codigo} ${formatarNumero(item.quantidade_caixas)}`;
+      const area =
+        item.area_nome ||
+        item.areas_fazenda?.nome ||
+        item.area?.nome ||
+        item.area_pivo_nome ||
+        "Área não informada";
+
+      const calibre =
+        item.calibre_codigo ||
+        item.calibres?.codigo ||
+        item.calibre?.codigo ||
+        item.calibre_nome ||
+        item.calibres?.nome ||
+        "-";
+
+      const quantidade = numero(
+        item.quantidade_caixas ??
+          item.quantidade_unidades ??
+          item.quantidade ??
+          0
+      );
+
+      return `${area} · ${calibre} · ${formatarNumero(quantidade)}`;
     })
     .join(" | ");
 }
@@ -942,20 +982,20 @@ export default function Cargas() {
   }, [formulario.itens]);
 
   const totalCaixasFormulario = useMemo(() => {
-    return numero(formulario.quantidade_total_caixas);
-  }, [formulario.quantidade_total_caixas]);
+    return totalDistribuido;
+  }, [totalDistribuido]);
 
   const pesoPorCaixaFormulario = useMemo(() => {
     return numero(formulario.peso_por_unidade_kg);
   }, [formulario.peso_por_unidade_kg]);
 
   const pesoTotalFormulario = useMemo(() => {
-    return totalCaixasFormulario * pesoPorCaixaFormulario;
-  }, [totalCaixasFormulario, pesoPorCaixaFormulario]);
+    return totalDistribuido * pesoPorCaixaFormulario;
+  }, [totalDistribuido, pesoPorCaixaFormulario]);
 
   const diferencaDistribuicao = useMemo(() => {
-    return totalCaixasFormulario - totalDistribuido;
-  }, [totalCaixasFormulario, totalDistribuido]);
+    return 0;
+  }, []);
 
   const formularioPodeSalvar = useMemo(() => {
     if (salvando) return false;
@@ -1337,40 +1377,65 @@ export default function Cargas() {
     }
   }
 
-  function abrirEdicao(carga) {
-    const pesoPorCaixa =
-      numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas) > 0
-        ? numero(carga.peso_total_kg) / numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas)
-        : 0;
+    function abrirEdicao(carga) {
+    const quantidadeTotal = numero(
+      carga.quantidade_total_caixas ??
+        carga.quantidade_total_unidades ??
+        carga.quantidade_caixas ??
+        0
+    );
+
+    const pesoTotal = numero(carga.peso_total_kg);
+    const pesoPorUnidade = quantidadeTotal > 0 ? pesoTotal / quantidadeTotal : 0;
+
+    const itensEditaveis =
+      Array.isArray(carga.itens) && carga.itens.length > 0
+        ? carga.itens.map((item) => ({
+            area_id:
+              item.area_id ||
+              item.area_fazenda_id ||
+              carga.area_id ||
+              carga.area_fazenda_id ||
+              "",
+            calibre_id: item.calibre_id || "",
+            quantidade_caixas:
+              item.quantidade_caixas ??
+              item.quantidade_unidades ??
+              item.quantidade ??
+              "",
+          }))
+        : [
+            {
+              area_id: carga.area_id || carga.area_fazenda_id || "",
+              calibre_id: "",
+              quantidade_caixas: "",
+            },
+          ];
 
     setRegistroEditando(carga);
+
     setFormulario({
+      ...estadoInicialFormulario(carga.numero_carga || ""),
       data_carga: carga.data_carga || dataHoje(),
       hora: String(carga.hora || horaAgora()).slice(0, 5),
       numero_carga: carga.numero_carga || "",
       cliente: carga.cliente || "",
-      area_id: carga.area_id || carga.area_fazenda_id || "",
-      numero_pedido: carga.numero_pedido || "",
+      area_id: "",
+      numero_pedido: "",
       status: carga.status || "pendente",
-      tipo_embalagem: carga.tipo_embalagem || "unidade",
-      quantidade_total_caixas: carga.quantidade_total_caixas || "",
-      peso_por_unidade_kg: pesoPorCaixa || "",
+      tipo_embalagem: carga.tipo_embalagem || "caixa",
+      quantidade_total_caixas: quantidadeTotal || "",
+      peso_por_unidade_kg: pesoPorUnidade || "",
       responsavel_id: carga.responsavel_id || "",
       observacao: carga.observacao || "",
-      itens:
-        Array.isArray(carga.itens) && carga.itens.length > 0
-          ? carga.itens.map((item) => ({
-              area_id: item.area_id || registro.area_id || "",
-      area_nome: item.areas_fazenda?.nome || item.area_nome || registro.area_nome || "",
-      calibre_id: item.calibre_id || "",
-              quantidade_caixas: item.quantidade_caixas || "",
-            }))
-          : [{ calibre_id: "", quantidade_caixas: "" }],
+      itens: itensEditaveis,
     });
+
     setErro("");
     setSucesso("");
     setModalAberto(true);
   }
+
 
   function fecharModal() {
     if (salvando) return;
@@ -1401,7 +1466,7 @@ export default function Cargas() {
         cliente: texto(formulario.cliente),
         status: formulario.status || "pendente",
         tipo_embalagem: formulario.tipo_embalagem || "caixa",
-        quantidade_total_caixas: totalCaixasFormulario,
+        quantidade_total_caixas: totalDistribuido,
         peso_total_kg: totalDistribuido * pesoPorCaixaFormulario,
         responsavel_id: formulario.responsavel_id || null,
         observacao: texto(formulario.observacao),
@@ -1965,7 +2030,7 @@ export default function Cargas() {
                       </span>
                     </td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 relative z-40 pointer-events-auto">
                       <div className="flex flex-wrap justify-end gap-2">
                         {carga.status === "pendente" ? (
                           <>
@@ -2019,8 +2084,12 @@ export default function Cargas() {
 
                         <button
                           type="button"
-                          onClick={() => abrirEdicao(carga)}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            abrirEdicao(carga);
+                          }}
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 relative z-50 pointer-events-auto cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-1">
                             <Edit3 size={13} />
@@ -2117,23 +2186,8 @@ export default function Cargas() {
                   />
                 </label>
 
-                <label className="hidden">
-                  <span className="text-sm font-medium text-slate-700">
-                    Área / Pivô de saída
-                  </span>
-                  <select
-                    value={formulario.area_id}
-                    onChange={(event) => atualizarFormulario("area_id", event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  >
-                    <option value="">Selecione a área com Produto Final</option>
-                    {opcoesAreaFormulario.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.nome} — saldo {formatarNumero(area.saldo)} unidades
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                
+
 
                 
 
@@ -2166,28 +2220,16 @@ export default function Cargas() {
                   </select>
                 </label>
 
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Total de unidades</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formulario.quantidade_total_caixas}
-                    onChange={(event) =>
-                      atualizarFormulario("quantidade_total_caixas", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
-                  />
-                </label>
+                
+
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">
                     Peso por unidade em kg
                   </span>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={formulario.peso_por_unidade_kg}
                     onChange={(event) =>
                       atualizarFormulario("peso_por_unidade_kg", event.target.value)
