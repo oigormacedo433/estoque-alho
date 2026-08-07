@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { supabase } from "../../services/supabaseClient";
+import { supabase } from "../services/supabaseClient";
 
 const BI_MARKER = "BI_REFERENCIA_COMPLETA_FORMATADA_20260806";
 
@@ -503,7 +503,7 @@ function StackedSaidaAreaCalibre({ dados, metrica }) {
                   return (
                     <div
                       key={parte.nome}
-                      className={["flex items-center justify-center text-[13px] font-semibold text-white", cores[index % cores.length]].join(" ")}
+                      className={["flex items-center justify-center text-[10px] font-semibold text-white", cores[index % cores.length]].join(" ")}
                       style={{ width: largura + "%" }}
                       title={parte.nome + " - " + formatarMetrica(v, metrica)}
                     >
@@ -676,9 +676,9 @@ function VerticalBars({ dados, metrica }) {
 
         return (
           <div key={item.id || item.nome} className="flex min-w-[70px] flex-col items-center gap-2">
-            <span className="text-center text-[13px] font-semibold leading-3 text-slate-700">{formatarMetrica(v, metrica)}</span>
+            <span className="text-center text-[10px] font-semibold leading-3 text-slate-700">{formatarMetrica(v, metrica)}</span>
             <div className="w-9 rounded-t-sm bg-emerald-700 shadow-sm" style={{ height: altura }} />
-            <span className="max-w-[82px] text-center text-[13px] font-medium leading-3 text-slate-500">{item.nome}</span>
+            <span className="max-w-[82px] text-center text-[10px] font-medium leading-3 text-slate-500">{item.nome}</span>
           </div>
         );
       })}
@@ -845,29 +845,10 @@ function FluxoCard() {
   );
 }
 
-
-function obterHojeInputBI() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoje.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-}
-
-function obterPrimeiroDiaMesAtualBI() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  return `${ano}-${mes}-01`;
-}
-
 export default function BI() {
-
-  
-  
   const [filtros, setFiltros] = useState({
-    dataInicial: obterPrimeiroDiaMesAtualBI(),
-    dataFinal: obterHojeInputBI(),
+    dataInicial: inicioMesISO(),
+    dataFinal: hojeISO(),
     areaId: "",
     calibreId: "",
     cliente: "",
@@ -1430,8 +1411,8 @@ export default function BI() {
               type="button"
               onClick={() =>
                 setFiltros({
-                  dataInicial: obterPrimeiroDiaMesAtualBI(),
-                  dataFinal: obterHojeInputBI(),
+                  dataInicial: inicioMesISO(),
+                  dataFinal: hojeISO(),
                   areaId: "",
                   calibreId: "",
                   cliente: "",
@@ -1550,7 +1531,7 @@ export default function BI() {
               subtitulo="Composição das cargas por área e calibre."
               ajuda="Mostra de qual área saiu cada calibre, com participação visual na barra."
               icon={Layers}
-             className="col-span-full min-h-[460px]">
+            >
               <StackedSaidaAreaCalibre dados={graficos.composicaoAreaCalibre} metrica={metrica} />
             </ChartCard>
 
@@ -1559,7 +1540,7 @@ export default function BI() {
               subtitulo="Comparativo diário do período, com valor em cada ponto."
               ajuda="Compara o que foi criado em Produto Final contra o que saiu em Cargas."
               icon={Activity}
-             className="col-span-full min-h-[460px]">
+            >
               <LineChart dados={graficos.linhaTempo} metrica={metrica} />
             </ChartCard>
           </section>

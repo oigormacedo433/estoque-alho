@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { supabase } from "../../services/supabaseClient";
+import { supabase } from "../services/supabaseClient";
 
 const BI_MARKER = "BI_REFERENCIA_COMPLETA_FORMATADA_20260806";
 
@@ -362,19 +362,58 @@ function KpiCard({ titulo, ajuda, valorPrincipal, valorSecundario, detalhe, icon
   };
 
   return (
-    <article className="flex min-h-[165px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="flex min-h-[156px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
             <p className="break-words text-[13px] font-semibold leading-5 text-slate-600">{titulo}</p>
             <HelpIcon texto={ajuda} />
           </div>
 
-          <strong className="mt-2 block min-h-[54px] break-words text-[25px] font-semibold leading-tight tracking-tight text-slate-950">
+          <strong className="mt-2 block min-h-[58px] break-words text-[25px] font-semibold leading-tight tracking-tight text-slate-950">
             {valorPrincipal}
           </strong>
 
           <span className="mt-1 block break-words text-[13px] font-medium leading-5 text-slate-500">{valorSecundario}</span>
+        </div>
+
+        <div className={["shrink-0 rounded-xl p-2.5", tons[tone] || tons.green].join(" ")}>
+          <Icon size={27} strokeWidth={1.6} />
+        </div>
+      </div>
+
+      {detalhe ? (
+        <p className="mt-3 flex items-start gap-1 break-words text-[13px] font-semibold leading-5 text-emerald-700">
+          <ArrowDownRight size={14} className="mt-0.5 shrink-0 rotate-180" />
+          <span>{detalhe}</span>
+        </p>
+      ) : null}
+    </article>
+  );
+}) {
+  const tons = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    orange: "bg-orange-50 text-orange-700",
+    red: "bg-red-50 text-red-700",
+    violet: "bg-violet-50 text-violet-700",
+    slate: "bg-slate-50 text-slate-700",
+  };
+
+  return (
+    <article className="flex min-h-[156px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-[13px] font-medium text-slate-500">{titulo}</p>
+            <HelpIcon texto={ajuda} />
+          </div>
+
+          <strong className="mt-2 block min-h-[54px] break-words text-[22px] font-semibold leading-tight tracking-tight text-slate-950">
+            {valorPrincipal}
+          </strong>
+
+          <span className="mt-1 block text-[13px] font-medium leading-4 text-slate-500">{valorSecundario}</span>
         </div>
 
         <div className={["shrink-0 rounded-xl p-2.5", tons[tone] || tons.green].join(" ")}>
@@ -383,7 +422,7 @@ function KpiCard({ titulo, ajuda, valorPrincipal, valorSecundario, detalhe, icon
       </div>
 
       {detalhe ? (
-        <p className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-700">
+        <p className="mt-3 flex items-center gap-1 text-[13px] font-medium text-emerald-700">
           <ArrowDownRight size={13} className="rotate-180" />
           <span className="truncate">{detalhe}</span>
         </p>
@@ -398,10 +437,10 @@ function ChartCard({ titulo, ajuda, subtitulo, icon: Icon = BarChart3, children,
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold leading-5 text-slate-950">{titulo}</h2>
+            <h2 className="text-[15px] font-semibold leading-5 text-slate-950">{titulo}</h2>
             <HelpIcon texto={ajuda || subtitulo || titulo} />
           </div>
-          {subtitulo ? <p className="mt-1 text-xs leading-5 text-slate-500">{subtitulo}</p> : null}
+          {subtitulo ? <p className="mt-1 text-[13px] leading-5 text-slate-500">{subtitulo}</p> : null}
         </div>
 
         <div className="shrink-0 rounded-lg bg-emerald-50 p-2 text-emerald-700">
@@ -416,14 +455,56 @@ function ChartCard({ titulo, ajuda, subtitulo, icon: Icon = BarChart3, children,
 
 function EmptyChart({ texto = "Sem dados para exibir." }) {
   return (
-    <div className="flex h-[230px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+    <div className="flex h-[230px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[15px] text-slate-500">
       {texto}
     </div>
   );
 }
 
 function HorizontalRanking({ dados, metrica, cor = "bg-emerald-700", limite = 7, compacto = false }) {
-  const linhas = [...(dados || [])].sort((a, b) => Math.abs(valor(b, metrica)) - Math.abs(valor(a, metrica))).slice(0, limite);
+  const linhas = [...(dados || [])]
+    .sort((a, b) => Math.abs(valor(b, metrica)) - Math.abs(valor(a, metrica)))
+    .slice(0, limite);
+
+  const maximo = Math.max(1, ...linhas.map((item) => Math.abs(valor(item, metrica))));
+
+  if (!linhas.length) return <EmptyChart />;
+
+  return (
+    <div className={compacto ? "space-y-3.5" : "space-y-4"}>
+      {linhas.map((item) => {
+        const v = valor(item, metrica);
+        const largura = Math.max(v === 0 ? 2 : 6, percentual(Math.abs(v), maximo));
+
+        return (
+          <div key={item.id || item.nome} className="grid gap-1.5">
+            <div className="flex items-start justify-between gap-3">
+              <span className="min-w-0 max-w-[72%] break-words text-[13px] font-semibold leading-5 text-slate-950">{item.nome}</span>
+              <span className={["shrink-0 text-right text-[13px] font-semibold leading-5", v < 0 ? "text-red-600" : "text-slate-950"].join(" ")}>
+                {formatarMetrica(v, metrica)}
+              </span>
+            </div>
+
+            <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={[
+                  "h-full rounded-full",
+                  v < 0 ? "bg-red-500" : cor,
+                ].join(" ")}
+                style={{ width: largura + "%" }}
+              />
+            </div>
+
+            <p className="break-words text-[13px] leading-5 text-slate-400">
+              {formatarNumero(item.caixas)} caixas · {formatarPesoDetalhado(item.peso)}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}) {
+  const linhas = (dados || []).slice(0, limite);
   const maximo = Math.max(1, ...linhas.map((item) => Math.abs(valor(item, metrica))));
 
   if (!linhas.length) return <EmptyChart />;
@@ -436,7 +517,7 @@ function HorizontalRanking({ dados, metrica, cor = "bg-emerald-700", limite = 7,
 
         return (
           <div key={item.id || item.nome} className="grid gap-1.5">
-            <div className="flex items-start justify-between gap-3 text-xs">
+            <div className="flex items-start justify-between gap-3 text-[13px]">
               <span className="min-w-0 max-w-[70%] break-words font-semibold leading-4 text-slate-950">{item.nome}</span>
               <span className={["shrink-0 text-right font-semibold", v < 0 ? "text-red-600" : "text-slate-950"].join(" ")}>
                 {formatarMetrica(v, metrica)}
@@ -453,7 +534,7 @@ function HorizontalRanking({ dados, metrica, cor = "bg-emerald-700", limite = 7,
               />
             </div>
 
-            <p className="text-xs leading-4 text-slate-400">
+            <p className="text-[13px] leading-4 text-slate-400">
               {formatarNumero(item.caixas)} caixas · {formatarPesoDetalhado(item.peso)}
             </p>
           </div>
@@ -476,7 +557,7 @@ function StackedSaidaAreaCalibre({ dados, metrica }) {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {legendas.map((nome, index) => (
-          <span key={nome} className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-100">
+          <span key={nome} className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[13px] text-slate-600 ring-1 ring-slate-100">
             <span className={["h-2 w-2 rounded-full", cores[index % cores.length]].join(" ")} />
             {nome}
           </span>
@@ -489,7 +570,7 @@ function StackedSaidaAreaCalibre({ dados, metrica }) {
 
         return (
           <div key={area.nome} className="grid gap-1.5">
-            <div className="flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center justify-between gap-3 text-[13px]">
               <span className="min-w-0 break-words font-semibold text-slate-700">{area.nome}</span>
               <span className="shrink-0 font-semibold text-slate-950">{formatarMetrica(total, metrica)}</span>
             </div>
@@ -600,7 +681,7 @@ function LineChart({ dados, metrica }) {
         })}
       </svg>
 
-      <div className="flex items-center justify-center gap-5 text-xs text-slate-600">
+      <div className="flex items-center justify-center gap-5 text-[13px] text-slate-600">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-emerald-700" />
           Produto Final criado
@@ -640,14 +721,14 @@ function DonutChart({ dados, metrica }) {
         style={{ background: "conic-gradient(" + gradiente + ")" }}
       >
         <div className="absolute inset-11 flex flex-col items-center justify-center rounded-full bg-white text-center shadow-inner">
-          <span className="text-xs text-slate-500">Total</span>
-          <strong className="text-sm font-semibold leading-4 text-slate-950">{formatarMetrica(total, metrica)}</strong>
+          <span className="text-[13px] text-slate-500">Total</span>
+          <strong className="text-[15px] font-semibold leading-4 text-slate-950">{formatarMetrica(total, metrica)}</strong>
         </div>
       </div>
 
       <div className="space-y-2">
         {lista.map((item, index) => (
-          <div key={item.id || item.nome} className="flex items-start justify-between gap-2 text-xs">
+          <div key={item.id || item.nome} className="flex items-start justify-between gap-2 text-[13px]">
             <span className="flex min-w-0 items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: cores[index % cores.length] }} />
               <span className="break-words text-slate-600">{item.nome}</span>
@@ -706,16 +787,16 @@ function Heatmap({ dados, metrica }) {
           className="grid gap-1"
           style={{ gridTemplateColumns: "120px repeat(" + calibres.length + ", minmax(78px, 1fr))" }}
         >
-          <div className="rounded bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-500">Área / Pivô</div>
+          <div className="rounded bg-slate-50 px-2 py-2 text-[13px] font-semibold text-slate-500">Área / Pivô</div>
           {calibres.map((calibre) => (
-            <div key={calibre.id} className="truncate rounded bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-600">
+            <div key={calibre.id} className="truncate rounded bg-slate-50 px-2 py-2 text-center text-[13px] font-semibold text-slate-600">
               {calibre.nome}
             </div>
           ))}
 
           {areas.map((area) => (
             <>
-              <div key={area.id + "-nome"} className="rounded bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700">
+              <div key={area.id + "-nome"} className="rounded bg-slate-50 px-2 py-2 text-[13px] font-semibold text-slate-700">
                 {area.nome}
               </div>
 
@@ -727,7 +808,7 @@ function Heatmap({ dados, metrica }) {
                 return (
                   <div
                     key={area.id + "-" + calibre.id}
-                    className="rounded px-2 py-2 text-center text-xs font-semibold ring-1 ring-white"
+                    className="rounded px-2 py-2 text-center text-[13px] font-semibold ring-1 ring-white"
                     style={{
                       backgroundColor: v < 0
                         ? "rgba(239, 68, 68, " + Math.max(0.08, intensidade) + ")"
@@ -743,7 +824,7 @@ function Heatmap({ dados, metrica }) {
           ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
+        <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-slate-500">
           <span>Menor saldo</span>
           <div className="h-2 w-44 rounded-full bg-gradient-to-r from-emerald-50 to-emerald-700" />
           <span>Maior saldo</span>
@@ -755,6 +836,34 @@ function Heatmap({ dados, metrica }) {
 
 function InsightCard({ titulo, ajuda, valor, detalhe, icon: Icon, mini }) {
   return (
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="shrink-0 rounded-lg bg-emerald-50 p-2 text-emerald-700">
+            <Icon size={18} />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-start gap-2">
+              <p className="break-words text-[13px] font-semibold leading-5 text-slate-700">{titulo}</p>
+              <HelpIcon texto={ajuda || titulo} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <strong className="block break-words text-[22px] font-semibold leading-tight text-slate-950">{valor}</strong>
+      <p className="mt-1 break-words text-[13px] leading-5 text-slate-500">{detalhe}</p>
+
+      {mini ? (
+        <div className="mt-4 max-h-[230px] overflow-y-auto pr-2">
+          {mini}
+        </div>
+      ) : null}
+    </article>
+  );
+}) {
+  return (
     <article className="min-h-[180px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
@@ -763,7 +872,7 @@ function InsightCard({ titulo, ajuda, valor, detalhe, icon: Icon, mini }) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold leading-4 text-slate-700">{titulo}</p>
+              <p className="text-[13px] font-semibold leading-4 text-slate-700">{titulo}</p>
               <HelpIcon texto={ajuda || titulo} />
             </div>
           </div>
@@ -771,9 +880,9 @@ function InsightCard({ titulo, ajuda, valor, detalhe, icon: Icon, mini }) {
       </div>
 
       <strong className="block break-words text-xl font-semibold leading-tight text-slate-950">{valor}</strong>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{detalhe}</p>
+      <p className="mt-1 text-[13px] leading-5 text-slate-500">{detalhe}</p>
 
-      {mini ? <div className="mt-3 max-h-[240px] overflow-y-auto pr-2">{mini}</div> : null}
+      {mini ? <div className="mt-3 max-h-[170px] overflow-hidden">{mini}</div> : null}
     </article>
   );
 }
@@ -790,16 +899,16 @@ function ModuloLateral({ titulo, ajuda, textoModulo, action, tone = "orange", ic
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Icon size={20} />
-          <h3 className="text-sm font-semibold leading-5">{titulo}</h3>
+          <h3 className="text-[15px] font-semibold leading-5">{titulo}</h3>
           <HelpIcon texto={ajuda || textoModulo} />
         </div>
 
-        <span className="rounded-full bg-white/80 px-2 py-1 text-xs font-semibold">Info</span>
+        <span className="rounded-full bg-white/80 px-2 py-1 text-[13px] font-semibold">Info</span>
       </div>
 
-      <p className="text-xs leading-5">{textoModulo}</p>
+      <p className="text-[13px] leading-5">{textoModulo}</p>
 
-      {action ? <p className="mt-4 text-xs font-semibold">{action}</p> : null}
+      {action ? <p className="mt-4 text-[13px] font-semibold">{action}</p> : null}
     </article>
   );
 }
@@ -808,11 +917,11 @@ function FluxoCard() {
   return (
     <article className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-orange-900 shadow-sm">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">Entenda o fluxo</h3>
+        <h3 className="text-[15px] font-semibold">Entenda o fluxo</h3>
         <HelpIcon texto="Mostra a regra principal do sistema: Produto Final cria estoque, Estoque mostra o saldo e Cargas baixa o saldo." />
       </div>
 
-      <div className="mt-4 space-y-3 text-xs">
+      <div className="mt-4 space-y-3 text-[13px]">
         <div className="flex gap-3">
           <Package size={18} />
           <div>
@@ -845,29 +954,10 @@ function FluxoCard() {
   );
 }
 
-
-function obterHojeInputBI() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoje.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-}
-
-function obterPrimeiroDiaMesAtualBI() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  return `${ano}-${mes}-01`;
-}
-
 export default function BI() {
-
-  
-  
   const [filtros, setFiltros] = useState({
-    dataInicial: obterPrimeiroDiaMesAtualBI(),
-    dataFinal: obterHojeInputBI(),
+    dataInicial: inicioMesISO(),
+    dataFinal: hojeISO(),
     areaId: "",
     calibreId: "",
     cliente: "",
@@ -1319,29 +1409,29 @@ export default function BI() {
         <div className="grid gap-4 xl:grid-cols-[1fr_310px] xl:items-end">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <label className="grid gap-1.5">
-              <span className="text-xs font-semibold text-slate-700">Período</span>
+              <span className="text-[13px] font-semibold text-slate-700">Período</span>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={filtros.dataInicial}
                   onChange={(event) => setFiltros((atual) => ({ ...atual, dataInicial: event.target.value }))}
-                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-600"
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-600"
                 />
                 <input
                   type="date"
                   value={filtros.dataFinal}
                   onChange={(event) => setFiltros((atual) => ({ ...atual, dataFinal: event.target.value }))}
-                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-600"
+                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-600"
                 />
               </div>
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-semibold text-slate-700">Área / Pivô</span>
+              <span className="text-[13px] font-semibold text-slate-700">Área / Pivô</span>
               <select
                 value={filtros.areaId}
                 onChange={(event) => setFiltros((atual) => ({ ...atual, areaId: event.target.value }))}
-                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-600"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-600"
               >
                 <option value="">Todas</option>
                 {(opcoes.areas || []).map((area) => (
@@ -1353,11 +1443,11 @@ export default function BI() {
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-semibold text-slate-700">Calibre</span>
+              <span className="text-[13px] font-semibold text-slate-700">Calibre</span>
               <select
                 value={filtros.calibreId}
                 onChange={(event) => setFiltros((atual) => ({ ...atual, calibreId: event.target.value }))}
-                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-600"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-600"
               >
                 <option value="">Todos</option>
                 {(opcoes.calibres || []).map((calibre) => (
@@ -1369,11 +1459,11 @@ export default function BI() {
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-semibold text-slate-700">Cliente</span>
+              <span className="text-[13px] font-semibold text-slate-700">Cliente</span>
               <select
                 value={filtros.cliente}
                 onChange={(event) => setFiltros((atual) => ({ ...atual, cliente: event.target.value }))}
-                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-600"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-600"
               >
                 <option value="">Todos</option>
                 {(opcoes.clientes || []).map((cliente) => (
@@ -1385,7 +1475,7 @@ export default function BI() {
             </label>
 
             <div className="grid gap-1.5">
-              <span className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+              <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-700">
                 Métrica <HelpIcon texto="Altera todos os gráficos para análise por peso em kg ou por quantidade de caixas." />
               </span>
               <div className="grid h-10 grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -1393,7 +1483,7 @@ export default function BI() {
                   type="button"
                   onClick={() => setFiltros((atual) => ({ ...atual, metrica: "peso" }))}
                   className={[
-                    "inline-flex items-center justify-center gap-2 rounded-md text-xs font-semibold transition",
+                    "inline-flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold transition",
                     metrica === "peso" ? "bg-emerald-700 text-white shadow-sm" : "text-slate-600",
                   ].join(" ")}
                 >
@@ -1405,7 +1495,7 @@ export default function BI() {
                   type="button"
                   onClick={() => setFiltros((atual) => ({ ...atual, metrica: "caixas" }))}
                   className={[
-                    "inline-flex items-center justify-center gap-2 rounded-md text-xs font-semibold transition",
+                    "inline-flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold transition",
                     metrica === "caixas" ? "bg-emerald-700 text-white shadow-sm" : "text-slate-600",
                   ].join(" ")}
                 >
@@ -1420,7 +1510,7 @@ export default function BI() {
             <button
               type="button"
               onClick={carregar}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-[13px] font-semibold text-white shadow-sm hover:bg-emerald-800"
             >
               <Filter size={14} />
               Aplicar filtros
@@ -1430,15 +1520,15 @@ export default function BI() {
               type="button"
               onClick={() =>
                 setFiltros({
-                  dataInicial: obterPrimeiroDiaMesAtualBI(),
-                  dataFinal: obterHojeInputBI(),
+                  dataInicial: inicioMesISO(),
+                  dataFinal: hojeISO(),
                   areaId: "",
                   calibreId: "",
                   cliente: "",
                   metrica,
                 })
               }
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
             >
               <RefreshCw size={14} />
               Limpar
@@ -1448,13 +1538,13 @@ export default function BI() {
       </section>
 
       {erro ? (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[15px] text-amber-800">
           <strong>Atenção</strong>
           <p className="mt-1">{erro}</p>
         </section>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3">
             <KpiCard
@@ -1550,7 +1640,7 @@ export default function BI() {
               subtitulo="Composição das cargas por área e calibre."
               ajuda="Mostra de qual área saiu cada calibre, com participação visual na barra."
               icon={Layers}
-             className="col-span-full min-h-[460px]">
+            >
               <StackedSaidaAreaCalibre dados={graficos.composicaoAreaCalibre} metrica={metrica} />
             </ChartCard>
 
@@ -1559,7 +1649,7 @@ export default function BI() {
               subtitulo="Comparativo diário do período, com valor em cada ponto."
               ajuda="Compara o que foi criado em Produto Final contra o que saiu em Cargas."
               icon={Activity}
-             className="col-span-full min-h-[460px]">
+            >
               <LineChart dados={graficos.linhaTempo} metrica={metrica} />
             </ChartCard>
           </section>
@@ -1595,7 +1685,7 @@ export default function BI() {
 
           <section>
             <div className="mb-3 flex items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-950">Análises complementares e rankings</h2>
+              <h2 className="text-lg font-semibold text-slate-950">Análises complementares e rankings</h2>
               <HelpIcon texto="Cards de leitura rápida com destaques do período filtrado." />
             </div>
 
@@ -1632,7 +1722,7 @@ export default function BI() {
                 valor={graficos.linhaTempo?.length ? graficos.linhaTempo[graficos.linhaTempo.length - 1]?.label : "-"}
                 detalhe="Baseado nas cargas confirmadas."
                 icon={Calendar}
-                mini={<HorizontalRanking dados={(graficos.linhaTempo || []).map((item) => ({ id: item.data, nome: item.label, caixas: item.cargaCaixas, peso: item.cargaPeso }))} metrica={metrica} limite={3} compacto />}
+                mini={<HorizontalRanking dados={(graficos.linhaTempo || []).map((item) => ({ id: item.data, nome: item.label, caixas: item.cargaCaixas, peso: item.cargaPeso })).sort((a, b) => valor(b, metrica) - valor(a, metrica))} metrica={metrica} limite={6} compacto />}
               />
 
               <InsightCard
@@ -1701,11 +1791,11 @@ export default function BI() {
 
           <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-950">Status operacional</h3>
+              <h3 className="text-[15px] font-semibold text-slate-950">Status operacional</h3>
               <HelpIcon texto="Resumo do status das cargas do período filtrado." />
             </div>
 
-            <div className="mt-3 space-y-2 text-xs">
+            <div className="mt-3 space-y-2 text-[13px]">
               <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">
                 <span className="inline-flex items-center gap-2"><CheckCircle2 size={14} /> Confirmadas</span>
                 <strong>{formatarNumero(resumo.cargasConfirmadas)}</strong>
@@ -1730,7 +1820,7 @@ export default function BI() {
         </aside>
       </section>
 
-      <footer className="flex items-center justify-center gap-4 pt-2 text-xs text-slate-500">
+      <footer className="flex items-center justify-center gap-4 pt-2 text-[13px] text-slate-500">
         <span>Dados atualizados automaticamente no painel.</span>
         <button type="button" onClick={carregar} className="inline-flex items-center gap-2 font-semibold text-emerald-700">
           <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />

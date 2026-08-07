@@ -1430,8 +1430,8 @@ export default function BI() {
               type="button"
               onClick={() =>
                 setFiltros({
-                  dataInicial: obterPrimeiroDiaMesAtualBI(),
-                  dataFinal: obterHojeInputBI(),
+                  dataInicial: inicioMesISO(),
+                  dataFinal: obterHojeInputBI()ISO(),
                   areaId: "",
                   calibreId: "",
                   cliente: "",

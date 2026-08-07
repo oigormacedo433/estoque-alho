@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { supabase } from "../../services/supabaseClient";
+import { supabase } from "../services/supabaseClient";
 
 const BI_MARKER = "BI_REFERENCIA_COMPLETA_FORMATADA_20260806";
 
