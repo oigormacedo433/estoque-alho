@@ -1,0 +1,54 @@
+body[data-app-route*="alho-classificado"] .recharts-wrapper,
+body[data-app-route*="alho-classificado"] .recharts-surface {
+  overflow: visible !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-default-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 10px 18px !important;
+  padding-top: 16px !important;
+  line-height: 1.4 !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-legend-item {
+  margin-right: 0 !important;
+  white-space: nowrap !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-legend-item-text {
+  color: #334155 !important;
+  font-size: 13px !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-cartesian-axis-tick-value {
+  fill: #475569 !important;
+  font-size: 12px !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-cartesian-grid-horizontal line,
+body[data-app-route*="alho-classificado"] .recharts-cartesian-grid-vertical line {
+  stroke: #e2e8f0 !important;
+  stroke-dasharray: 4 4 !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-label-list text {
+  pointer-events: none !important;
+}
+
+body[data-app-route*="alho-classificado"] .recharts-tooltip-wrapper {
+  z-index: 50 !important;
+}
+
+/* limpa os textos espremidos dentro de barras empilhadas muito pequenas */
+body[data-app-route*="alho-classificado"] svg text[font-size="10"],
+body[data-app-route*="alho-classificado"] svg text[font-size="9"] {
+  display: none !important;
+}
+
+/* mantém os gráficos respirando dentro dos cards */
+body[data-app-route*="alho-classificado"] section:has(.recharts-wrapper),
+body[data-app-route*="alho-classificado"] div:has(> .recharts-wrapper) {
+  overflow: visible !important;
+}

@@ -8,6 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 
 import "./index.css";
 import "./utils/autoExcelTables";
+import "./utils/routeBodyClass";
+import "./styles/alhoClassificadoCharts.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
