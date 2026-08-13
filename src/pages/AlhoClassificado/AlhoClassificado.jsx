@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -341,153 +341,267 @@ function EmptyChart({ texto = "Sem dados para exibir." }) {
 }
 
 
-function GraficoMovimentoDiario({ dados = [] }) {
-  if (!dados.length) {
-    return <EmptyChart />;
+function GraficoMovimentoDiario({ dados }) {
+  const serie = Array.isArray(dados)
+    ? dados.filter((item) => numero(item?.entradas) || numero(item?.saidas))
+    : [];
+
+  if (!serie.length) {
+    return (
+      <div className="flex h-[390px] items-center justify-center rounded-3xl bg-slate-50 text-sm text-slate-400">
+        Nenhuma movimentação encontrada no período.
+      </div>
+    );
   }
 
-  const largura = 1000;
-  const altura = 330;
-  const topo = 34;
-  const direita = 34;
-  const baixo = 54;
-  const esquerda = 34;
+  function valor(valorRecebido) {
+    const convertido = Number(valorRecebido || 0);
+    return Number.isFinite(convertido) ? convertido : 0;
+  }
+
+  function formatarValor(valorRecebido) {
+    return Number(valorRecebido || 0).toLocaleString("pt-BR", {
+      maximumFractionDigits: 0,
+    });
+  }
+
+  function rotuloData(item) {
+    const bruto = String(item?.label || item?.data || item?.dia || item?.data_classificacao || item?.data_saida || "");
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(bruto)) {
+      const [, mes, dia] = bruto.slice(0, 10).split("-");
+      return dia + "/" + mes;
+    }
+
+    if (/^\d{2}\/\d{2}/.test(bruto)) return bruto.slice(0, 5);
+
+    return bruto;
+  }
+
+  const largura = 1120;
+  const altura = 430;
+  const esquerda = 78;
+  const direita = 50;
+  const topo = 50;
+  const baixo = 78;
   const areaLargura = largura - esquerda - direita;
   const areaAltura = altura - topo - baixo;
+  const baseY = topo + areaAltura;
 
-  const maiorValor = Math.max(
-    1,
-    ...dados.map((item) => Math.max(numero(item.entradas), numero(item.saidas)))
-  );
+  const maiorValor = Math.max(1, ...serie.flatMap((item) => [valor(item.entradas), valor(item.saidas)]));
+  const teto = Math.max(100, Math.ceil(maiorValor / 500) * 500);
 
-  const obterX = (indice) => {
-    if (dados.length === 1) return esquerda + areaLargura / 2;
-    return esquerda + (indice / (dados.length - 1)) * areaLargura;
-  };
+  function obterX(indice) {
+    if (serie.length === 1) return esquerda + areaLargura / 2;
+    return esquerda + (indice / (serie.length - 1)) * areaLargura;
+  }
 
-  const obterY = (valor) => topo + areaAltura - (numero(valor) / maiorValor) * areaAltura;
+  function obterY(v) {
+    return topo + areaAltura - (valor(v) / teto) * areaAltura;
+  }
 
-  const pontosEntrada = dados
-    .map((item, indice) => `${obterX(indice)},${obterY(item.entradas)}`)
-    .join(" ");
+  const pontosEntrada = serie.map((item, indice) => ({
+    x: obterX(indice),
+    y: obterY(item.entradas),
+    valor: valor(item.entradas),
+    item,
+    indice,
+  }));
 
-  const pontosSaida = dados
-    .map((item, indice) => `${obterX(indice)},${obterY(item.saidas)}`)
-    .join(" ");
+  const pontosSaida = serie.map((item, indice) => ({
+    x: obterX(indice),
+    y: obterY(item.saidas),
+    valor: valor(item.saidas),
+    item,
+    indice,
+  }));
 
-  const areaEntrada = [
-    `${esquerda},${topo + areaAltura}`,
-    pontosEntrada,
-    `${esquerda + areaLargura},${topo + areaAltura}`,
-  ].join(" ");
+  function criarPathSuave(pontos) {
+    if (!pontos.length) return "";
+    if (pontos.length === 1) return "M " + pontos[0].x + " " + pontos[0].y;
+
+    let d = "M " + pontos[0].x + " " + pontos[0].y;
+
+    for (let i = 0; i < pontos.length - 1; i += 1) {
+      const p0 = pontos[i - 1] || pontos[i];
+      const p1 = pontos[i];
+      const p2 = pontos[i + 1];
+      const p3 = pontos[i + 2] || p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) / 5.8;
+      const cp1y = p1.y + (p2.y - p0.y) / 5.8;
+      const cp2x = p2.x - (p3.x - p1.x) / 5.8;
+      const cp2y = p2.y - (p3.y - p1.y) / 5.8;
+
+      d += " C " + cp1x + " " + cp1y + ", " + cp2x + " " + cp2y + ", " + p2.x + " " + p2.y;
+    }
+
+    return d;
+  }
+
+  function criarArea(pontos) {
+    if (!pontos.length) return "";
+
+    const linha = criarPathSuave(pontos);
+    const primeiro = pontos[0];
+    const ultimo = pontos[pontos.length - 1];
+
+    return linha + " L " + ultimo.x + " " + baseY + " L " + primeiro.x + " " + baseY + " Z";
+  }
+
+  function LabelValor({ ponto, cor, acima }) {
+    const texto = formatarValor(ponto.valor);
+    const larguraLabel = Math.max(42, texto.length * 7.8 + 18);
+    const x = ponto.x - larguraLabel / 2;
+    const y = acima ? Math.max(10, ponto.y - 31) : Math.min(altura - 103, ponto.y + 13);
+
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={larguraLabel}
+          height="23"
+          rx="11.5"
+          fill="#ffffff"
+          stroke="#E2E8F0"
+          opacity="0.98"
+          filter="url(#sombraLabelGraficoClassificado)"
+        />
+        <text
+          x={ponto.x}
+          y={y + 15.5}
+          textAnchor="middle"
+          fontSize="12"
+          fontWeight="700"
+          fill={cor}
+        >
+          {texto}
+        </text>
+      </g>
+    );
+  }
+
+  const passoData = Math.max(1, Math.ceil(serie.length / 9));
 
   return (
-    <div className="h-[340px] w-full">
-      <svg viewBox={`0 0 ${largura} ${altura}`} className="h-full w-full overflow-visible">
+    <div className="relative overflow-hidden rounded-[30px] border border-slate-100 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(248,250,252,0.88),rgba(255,255,255,0.4)_42%,rgba(255,255,255,1)),radial-gradient(circle_at_28%_18%,rgba(16,185,129,0.10),transparent_38%)]" />
+
+      <svg viewBox={"0 0 " + largura + " " + altura} className="relative h-[400px] w-full">
         <defs>
-          <linearGradient id="graficoAlhoClassificadoEntrada" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#047857" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#047857" stopOpacity="0.03" />
+          <linearGradient id="areaEntradaClassificadoFinal" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#10B981" stopOpacity="0.24" />
+            <stop offset="62%" stopColor="#10B981" stopOpacity="0.075" />
+            <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
           </linearGradient>
+
+          <linearGradient id="areaSaidaClassificadoFinal" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#EF4444" stopOpacity="0.10" />
+            <stop offset="65%" stopColor="#EF4444" stopOpacity="0.025" />
+            <stop offset="100%" stopColor="#EF4444" stopOpacity="0" />
+          </linearGradient>
+
+          <filter id="sombraLinhaGraficoClassificado" x="-12%" y="-12%" width="124%" height="130%">
+            <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.12" />
+          </filter>
+
+          <filter id="sombraPontoGraficoClassificado" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="6" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.15" />
+          </filter>
+
+          <filter id="sombraLabelGraficoClassificado" x="-30%" y="-60%" width="160%" height="220%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" floodColor="#0f172a" floodOpacity="0.10" />
+          </filter>
         </defs>
 
-        {[0, 1, 2, 3].map((linha) => {
-          const y = topo + (linha / 3) * areaAltura;
+        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+          const y = topo + areaAltura - areaAltura * tick;
 
           return (
-            <line
-              key={linha}
-              x1={esquerda}
-              x2={largura - direita}
-              y1={y}
-              y2={y}
-              stroke="#E8EEF2"
-              strokeWidth="1"
-            />
-          );
-        })}
-
-        <polygon points={areaEntrada} fill="url(#graficoAlhoClassificadoEntrada)" />
-
-        <polyline
-          points={pontosEntrada}
-          fill="none"
-          stroke="#047857"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        <polyline
-          points={pontosSaida}
-          fill="none"
-          stroke="#DC2626"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {dados.map((item, indice) => {
-          const x = obterX(indice);
-          const yEntrada = obterY(item.entradas);
-          const ySaida = obterY(item.saidas);
-
-          return (
-            <g key={item.data || indice}>
-              <circle cx={x} cy={yEntrada} r="7" fill="#047857" stroke="#FFFFFF" strokeWidth="4" />
-              <text
-                x={x}
-                y={yEntrada - 16}
-                textAnchor="middle"
-                fontSize="18"
-                fontWeight="600"
-                fill="#0F172A"
-              >
-                {formatarNumero(item.entradas)}
-              </text>
-
-              {numero(item.saidas) > 0 ? (
-                <>
-                  <circle cx={x} cy={ySaida} r="7" fill="#DC2626" stroke="#FFFFFF" strokeWidth="4" />
-                  <text
-                    x={x}
-                    y={ySaida + 28}
-                    textAnchor="middle"
-                    fontSize="16"
-                    fontWeight="600"
-                    fill="#DC2626"
-                  >
-                    {formatarNumero(item.saidas)}
-                  </text>
-                </>
-              ) : null}
-
-              <text
-                x={x}
-                y={altura - 14}
-                textAnchor="middle"
-                fontSize="17"
-                fontWeight="500"
-                fill="#64748B"
-              >
-                {item.label}
+            <g key={tick}>
+              <line
+                x1={esquerda}
+                x2={largura - direita}
+                y1={y}
+                y2={y}
+                stroke="#E2E8F0"
+                strokeWidth="1"
+                strokeDasharray="7 10"
+                opacity="0.72"
+              />
+              <text x={esquerda - 18} y={y + 5} textAnchor="end" fontSize="12.5" fill="#94A3B8">
+                {formatarValor(teto * tick)}
               </text>
             </g>
           );
         })}
+
+        <path d={criarArea(pontosSaida)} fill="url(#areaSaidaClassificadoFinal)" />
+        <path d={criarArea(pontosEntrada)} fill="url(#areaEntradaClassificadoFinal)" />
+
+        <path
+          d={criarPathSuave(pontosEntrada)}
+          fill="none"
+          stroke="#047857"
+          strokeWidth="4.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#sombraLinhaGraficoClassificado)"
+        />
+
+        <path
+          d={criarPathSuave(pontosSaida)}
+          fill="none"
+          stroke="#DC2626"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#sombraLinhaGraficoClassificado)"
+        />
+
+        {pontosEntrada.map((ponto) => (
+          <g key={"entrada-" + ponto.indice}>
+            <circle cx={ponto.x} cy={ponto.y} r="8" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+            <circle cx={ponto.x} cy={ponto.y} r="5.2" fill="#047857" stroke="#ffffff" strokeWidth="1.4" />
+            <LabelValor ponto={ponto} cor="#0F172A" acima />
+          </g>
+        ))}
+
+        {pontosSaida.map((ponto) => (
+          <g key={"saida-" + ponto.indice}>
+            <circle cx={ponto.x} cy={ponto.y} r="7.2" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+            <circle cx={ponto.x} cy={ponto.y} r="4.8" fill="#DC2626" stroke="#ffffff" strokeWidth="1.3" />
+            <LabelValor ponto={ponto} cor="#DC2626" />
+          </g>
+        ))}
+
+        {serie.map((item, indice) => {
+          if (indice !== 0 && indice !== serie.length - 1 && indice % passoData !== 0) return null;
+
+          return (
+            <text
+              key={"data-" + indice}
+              x={obterX(indice)}
+              y={altura - 42}
+              textAnchor="middle"
+              fontSize="12.5"
+              fontWeight="600"
+              fill="#64748B"
+            >
+              {rotuloData(item)}
+            </text>
+          );
+        })}
+
+        <g transform={"translate(" + (largura / 2 - 98) + " " + (altura - 14) + ")"}>
+          <rect x="-22" y="-24" width="240" height="42" rx="21" fill="#ffffff" stroke="#E2E8F0" filter="url(#sombraLabelGraficoClassificado)" />
+          <circle cx="0" cy="-3" r="5" fill="#047857" />
+          <text x="15" y="2" fontSize="13" fontWeight="600" fill="#047857">Entradas</text>
+          <circle cx="110" cy="-3" r="5" fill="#DC2626" />
+          <text x="125" y="2" fontSize="13" fontWeight="600" fill="#DC2626">Saídas</text>
+        </g>
       </svg>
-
-      <div className="mt-1 flex justify-center gap-5 text-sm text-slate-600">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-emerald-700" />
-          Entradas
-        </span>
-
-        <span className="inline-flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-red-600" />
-          Saídas
-        </span>
-      </div>
     </div>
   );
 }
