@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { Info } from "lucide-react";
 
 function numero(valor) {
@@ -512,6 +512,234 @@ function MatrizAreaCalibre({ dados, modo, titulo, subtitulo }) {
   );
 }
 
+
+function quebrarTextoBarrasDistribuicao(valor) {
+  const bruto = String(valor || "").trim();
+
+  if (bruto.length <= 11) return [bruto];
+
+  const partes = bruto.split(/\s+/);
+  const linhas = [];
+  let atual = "";
+
+  for (const parte of partes) {
+    const tentativa = atual ? atual + " " + parte : parte;
+
+    if (tentativa.length <= 12) {
+      atual = tentativa;
+    } else {
+      if (atual) linhas.push(atual);
+      atual = parte;
+    }
+  }
+
+  if (atual) linhas.push(atual);
+
+  return linhas.slice(0, 2);
+}
+
+function GraficoBarrasDistribuicaoCalibresArea({ dados }) {
+  if (!dados || !Array.isArray(dados.areas) || !Array.isArray(dados.calibres)) return null;
+  if (!dados.areas.length || !dados.calibres.length) return null;
+
+  const areas = dados.areas;
+  const calibres = dados.calibres.filter((calibre) => {
+    return areas.some((area) => numero(area.valores?.get?.(calibre.calibre)) > 0);
+  });
+
+  if (!calibres.length) return null;
+
+  const cores = ["#047857", "#14B8A6", "#2563EB", "#7C3AED", "#EA580C", "#0EA5E9"];
+
+  const maiorValor = Math.max(
+    1,
+    ...areas.flatMap((area) =>
+      calibres.map((calibre) => numero(area.valores?.get?.(calibre.calibre)))
+    )
+  );
+
+  const larguraCalibre = 140;
+  const esquerda = 78;
+  const direita = 42;
+  const topo = 48;
+  const base = 292;
+  const alturaPlot = base - topo;
+  const alturaSvg = 392;
+  const larguraSvg = esquerda + calibres.length * larguraCalibre + direita;
+
+  const larguraBarra = Math.max(15, Math.min(23, 66 / Math.max(areas.length, 1)));
+  const espacoBarra = 7;
+  const larguraGrupo = areas.length * larguraBarra + (areas.length - 1) * espacoBarra;
+
+  return (
+    <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.06)]">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[18px] leading-7 tracking-tight text-slate-950">
+              Distribuição dos calibres por área
+            </h2>
+            <Info className="h-4 w-4 text-slate-300" />
+          </div>
+
+          <p className="mt-1 text-[12px] leading-5 text-slate-500">
+            Barras agrupadas usando exatamente os mesmos dados do total classificado por Área/Pivô.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 text-[12px] text-slate-600">
+          {areas.map((area, indice) => (
+            <span key={area.area} className="inline-flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: cores[indice % cores.length] }}
+              />
+              {area.area}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-2">
+        <svg
+          viewBox={"0 0 " + larguraSvg + " " + alturaSvg}
+          className="h-[400px]"
+          style={{ minWidth: larguraSvg + "px", width: "100%" }}
+        >
+          <defs>
+            <linearGradient id="fundoBarrasDistribuicaoCalibresAreaFinal" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stopColor="#ECFDF5" stopOpacity="0.9" />
+              <stop offset="48%" stopColor="#FFFFFF" stopOpacity="1" />
+              <stop offset="100%" stopColor="#EFF6FF" stopOpacity="0.88" />
+            </linearGradient>
+
+            <filter id="sombraBarrasDistribuicaoCalibresAreaFinal" x="-35%" y="-35%" width="170%" height="190%">
+              <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#0f172a" floodOpacity="0.13" />
+            </filter>
+          </defs>
+
+          <rect
+            x="0"
+            y="0"
+            width={larguraSvg}
+            height={alturaSvg}
+            rx="24"
+            fill="url(#fundoBarrasDistribuicaoCalibresAreaFinal)"
+          />
+
+          {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+            const y = base - alturaPlot * tick;
+            const valorTick = maiorValor * tick;
+
+            return (
+              <g key={tick}>
+                <line
+                  x1={esquerda}
+                  x2={larguraSvg - direita}
+                  y1={y}
+                  y2={y}
+                  stroke="#CBD5E1"
+                  strokeWidth="1"
+                  strokeDasharray="7 10"
+                  opacity="0.62"
+                />
+
+                <text
+                  x={esquerda - 18}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize="12"
+                  fontWeight="600"
+                  fill="#94A3B8"
+                >
+                  {formatarNumero(valorTick)}
+                </text>
+              </g>
+            );
+          })}
+
+          {calibres.map((calibre, indiceCalibre) => {
+            const centro = esquerda + indiceCalibre * larguraCalibre + larguraCalibre / 2;
+            const inicioGrupo = centro - larguraGrupo / 2;
+
+            return (
+              <g key={calibre.calibre}>
+                {areas.map((area, indiceArea) => {
+                  const valor = numero(area.valores?.get?.(calibre.calibre));
+                  if (valor <= 0) return null;
+
+                  const altura = Math.max(10, (valor / maiorValor) * alturaPlot);
+                  const x = inicioGrupo + indiceArea * (larguraBarra + espacoBarra);
+                  const y = base - altura;
+                  const cor = cores[indiceArea % cores.length];
+
+                  return (
+                    <g key={area.area + "-" + calibre.calibre}>
+                      <rect
+                        x={x}
+                        y={y}
+                        width={larguraBarra}
+                        height={altura}
+                        rx="8"
+                        fill={cor}
+                        filter="url(#sombraBarrasDistribuicaoCalibresAreaFinal)"
+                      />
+
+                      <text
+                        x={x + larguraBarra / 2}
+                        y={Math.max(16, y - 8)}
+                        textAnchor="middle"
+                        fontSize="11.5"
+                        fontWeight="800"
+                        fill="#0F172A"
+                      >
+                        {formatarNumero(valor)}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                <text
+                  x={centro}
+                  y={base + 32}
+                  textAnchor="middle"
+                  fontSize="12"
+                  fontWeight="700"
+                  fill="#334155"
+                >
+                  {quebrarTextoBarrasDistribuicao(calibre.calibre).map((linha, indiceLinha) => (
+                    <tspan
+                      key={linha + indiceLinha}
+                      x={centro}
+                      dy={indiceLinha === 0 ? 0 : 13}
+                    >
+                      {linha}
+                    </tspan>
+                  ))}
+                </text>
+              </g>
+            );
+          })}
+
+          <line
+            x1={esquerda}
+            x2={larguraSvg - direita}
+            y1={base}
+            y2={base}
+            stroke="#CBD5E1"
+            strokeWidth="1.2"
+          />
+        </svg>
+      </div>
+
+      <p className="mt-2 text-[11.5px] leading-5 text-slate-500">
+        Esse gráfico não altera cálculo. Ele só mostra em barras os mesmos valores usados no total classificado.
+      </p>
+    </section>
+  );
+}
+
+
 export function AlhoClassificadoQuebraAreaCalibre({
   entradas = [],
   estoqueClassificado = [],
@@ -541,6 +769,8 @@ export function AlhoClassificadoQuebraAreaCalibre({
         titulo="Total classificado por Área / Pivô"
         subtitulo="Distribuição de tudo que foi classificado por calibre dentro de cada área."
       />
+
+      <GraficoBarrasDistribuicaoCalibresArea dados={dadosTotal} />
     </div>
   );
 }
