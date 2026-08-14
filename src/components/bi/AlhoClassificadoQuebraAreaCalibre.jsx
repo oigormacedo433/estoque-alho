@@ -1,697 +1,548 @@
 ﻿import { useMemo } from "react";
 import { Info } from "lucide-react";
 
-const CORES_CALIBRES = [
-  "#2563EB",
-  "#065F46",
-  "#14B8A6",
-  "#84CC16",
-  "#7C3AED",
-  "#F59E0B",
-  "#EC4899",
-  "#06B6D4",
-  "#DC2626",
-  "#64748B",
-];
+function numero(valor) {
+  if (valor === null || valor === undefined || valor === "") return 0;
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
 
-const CORES_AREAS = [
-  "#065F46",
-  "#14B8A6",
-  "#2563EB",
-  "#7C3AED",
-  "#F59E0B",
-  "#EC4899",
-];
+  const tratado = String(valor)
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
 
-function normalizarNumero(valor) {
-  if (typeof valor === "number") {
-    return Number.isFinite(valor) ? valor : 0;
-  }
+  const n = Number(tratado);
+  return Number.isFinite(n) ? n : 0;
+}
 
-  if (typeof valor === "string") {
-    const limpo = valor
-      .replace(/\./g, "")
-      .replace(",", ".")
-      .replace(/[^\d.-]/g, "");
-
-    const numero = Number(limpo);
-    return Number.isFinite(numero) ? numero : 0;
-  }
-
-  return 0;
+function texto(valor, fallback = "") {
+  if (valor === null || valor === undefined) return fallback;
+  const t = String(valor).trim();
+  return t || fallback;
 }
 
 function formatarNumero(valor) {
-  return normalizarNumero(valor).toLocaleString("pt-BR");
+  return numero(valor).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  });
 }
 
 function formatarPercentual(valor) {
   return (
-    normalizarNumero(valor).toLocaleString("pt-BR", {
+    numero(valor).toLocaleString("pt-BR", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     }) + "%"
   );
 }
 
-function compararTexto(a, b) {
-  return String(a || "").localeCompare(String(b || ""), "pt-BR", {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
-function obterValorPorCaminho(obj, caminho) {
-  return caminho.split(".").reduce((acc, chave) => {
-    if (acc == null) return undefined;
-    return acc[chave];
-  }, obj);
-}
-
-function obterPrimeiroValor(obj, caminhos = []) {
+function obterValor(obj, caminhos) {
   for (const caminho of caminhos) {
-    const valor = obterValorPorCaminho(obj, caminho);
+    const partes = caminho.split(".");
+    let atual = obj;
 
-    if (valor !== undefined && valor !== null && valor !== "") {
-      return valor;
+    for (const parte of partes) {
+      if (atual === null || atual === undefined) break;
+      atual = atual[parte];
     }
+
+    if (atual !== null && atual !== undefined && atual !== "") return atual;
   }
 
   return null;
 }
 
-function obterAreaId(item) {
-  return String(
-    obterPrimeiroValor(item, [
-      "area_id",
-      "areaId",
-      "area.id",
-      "area_pivo_id",
-      "area_pivo.id",
-      "areaPivo.id",
-      "pivo_id",
-      "pivo.id",
-      "area_fazenda_id",
-      "area_nome",
-      "area.nome",
-      "pivo_nome",
-    ]) || ""
-  );
-}
-
-function obterAreaNome(item) {
-  return (
-    obterPrimeiroValor(item, [
+function obterArea(item) {
+  return texto(
+    obterValor(item, [
       "area_nome",
       "areaNome",
-      "area.nome",
-      "area_pivo_nome",
-      "area_pivo.nome",
-      "areaPivo.nome",
-      "pivo_nome",
-      "pivo.nome",
+      "nome_area",
       "area",
-      "pivo",
-    ]) || "Sem área"
+      "area_pivo",
+      "area_pivo_nome",
+      "pivo_nome",
+      "areas_fazenda.nome",
+      "area.nome",
+      "pivo.nome",
+      "areaPivo.nome",
+    ]),
+    "Sem área"
   );
 }
 
-function obterCalibreId(item) {
-  return String(
-    obterPrimeiroValor(item, [
-      "calibre_id",
-      "calibreId",
-      "calibre.id",
-      "calibre_codigo",
-      "calibre.codigo",
-      "calibre_nome",
-    ]) || ""
-  );
+function obterNumeroArea(nome) {
+  const achado = String(nome || "").match(/\d+/);
+  if (!achado) return 999999;
+  return Number(achado[0]);
 }
 
-function obterCalibreCodigo(item) {
-  return (
-    obterPrimeiroValor(item, [
+function ordenarAreas(a, b) {
+  const numeroA = obterNumeroArea(a.area);
+  const numeroB = obterNumeroArea(b.area);
+
+  if (numeroA !== numeroB) return numeroA - numeroB;
+
+  return String(a.area).localeCompare(String(b.area), "pt-BR", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function obterCalibre(item) {
+  const codigo = texto(
+    obterValor(item, [
       "calibre_codigo",
-      "calibreCodigo",
+      "codigo_calibre",
+      "codigo",
       "calibre.codigo",
-      "calibre.nome",
+      "calibres.codigo",
+    ]),
+    ""
+  );
+
+  const nome = texto(
+    obterValor(item, [
       "calibre_nome",
-      "calibreNome",
+      "nome_calibre",
       "calibre",
-    ]) || "Sem calibre"
+      "nome",
+      "calibre.nome",
+      "calibres.nome",
+    ]),
+    ""
+  );
+
+  return codigo || nome || "Sem calibre";
+}
+
+function obterOrdemCalibre(item) {
+  const ordem = numero(
+    obterValor(item, [
+      "calibre_ordem",
+      "ordem_calibre",
+      "ordem",
+      "calibre.ordem",
+      "calibres.ordem",
+    ])
+  );
+
+  if (ordem > 0) return ordem;
+
+  const calibre = obterCalibre(item);
+  const numeroNoNome = String(calibre || "").match(/\d+/);
+
+  if (numeroNoNome) return Number(numeroNoNome[0]);
+
+  return 999999;
+}
+
+function obterEntradaEstoque(item) {
+  return numero(
+    obterValor(item, [
+      "entrada_classificado_caixas",
+      "entradas_classificado_caixas",
+      "classificado_caixas",
+      "entradas_caixas",
+      "entradas",
+      "total_entradas",
+      "total_caixas_calculado",
+      "total_caixas",
+      "quantidade_caixas",
+    ])
   );
 }
 
-function obterCalibreOrdem(item) {
-  const ordemExplicita = obterPrimeiroValor(item, [
-    "calibre_ordem",
-    "calibreOrdem",
-    "calibre.ordem",
+function obterSaidaEstoque(item) {
+  return numero(
+    obterValor(item, [
+      "saida_classificado_caixas",
+      "saidas_classificado_caixas",
+      "saidas_caixas",
+      "saidas",
+      "total_saidas",
+      "quantidade_saida_caixas",
+    ])
+  );
+}
+
+function obterSaldoReal(item) {
+  const saldoDireto = obterValor(item, [
+    "saldo_classificado_caixas",
+    "saldo_disponivel_caixas",
+    "saldo_caixas",
+    "saldo_atual_caixas",
+    "saldo_atual",
+    "estoque_classificado_caixas",
+    "estoque_caixas",
   ]);
 
-  if (ordemExplicita !== null && ordemExplicita !== undefined) {
-    return normalizarNumero(ordemExplicita);
-  }
+  if (saldoDireto !== null) return Math.max(0, numero(saldoDireto));
 
-  const codigo = String(obterCalibreCodigo(item) || "");
-  const match = codigo.match(/\d+/);
+  const entradas = obterEntradaEstoque(item);
+  const saidas = obterSaidaEstoque(item);
 
-  if (match) return Number(match[0]);
-
-  return 9999;
+  return Math.max(0, entradas - saidas);
 }
 
-function calcularTotalEntrada(item) {
-  const manual = normalizarNumero(item?.total_caixas_manual);
+function obterTotalClassificadoEntrada(item) {
+  const totalDireto = obterValor(item, [
+    "total_caixas_calculado",
+    "total_caixas_manual",
+    "total_classificado_caixas",
+    "total_classificado",
+    "total_caixas",
+    "quantidade_caixas",
+    "entradas_caixas",
+    "entradas",
+  ]);
 
-  if (manual > 0) return manual;
+  if (totalDireto !== null) return Math.max(0, numero(totalDireto));
 
-  const camposDiretos = [
-    item?.total_caixas,
-    item?.total_caixas_calculado,
-    item?.quantidade_caixas,
-    item?.caixas,
-    item?.caixas_classificadas,
-    item?.quantidade,
-    item?.total,
-    item?.classificado_caixas,
-    item?.entrada_classificado_caixas,
-  ];
+  const paletes = numero(
+    obterValor(item, [
+      "quantidade_paletes",
+      "paletes",
+      "total_paletes",
+    ])
+  );
 
-  for (const campo of camposDiretos) {
-    const valor = normalizarNumero(campo);
-
-    if (valor > 0) return valor;
-  }
-
-  const paletes = normalizarNumero(item?.quantidade_paletes ?? item?.paletes);
-  const caixasPorPalete = normalizarNumero(item?.caixas_por_palete);
+  const caixasPorPalete = numero(
+    obterValor(item, [
+      "caixas_por_palete",
+      "caixasPalete",
+      "quantidade_caixas_por_palete",
+    ])
+  );
 
   if (paletes > 0 && caixasPorPalete > 0) {
-    return paletes * caixasPorPalete;
+    return Math.max(0, paletes * caixasPorPalete);
   }
 
   return 0;
 }
 
-function obterTotalClassificado(item) {
-  const campos = [
-    item?.classificado_caixas,
-    item?.total_classificado_caixas,
-    item?.total_entrada_caixas,
-    item?.entradas_caixas,
-    item?.entrada_caixas,
-    item?.total_entradas,
-    item?.entradas,
-  ];
+function registrarValor(mapaAreas, mapaCalibres, item, quantidade) {
+  const area = obterArea(item);
+  const calibre = obterCalibre(item);
+  const ordem = obterOrdemCalibre(item);
 
-  for (const campo of campos) {
-    const valor = normalizarNumero(campo);
+  if (!area || area === "Sem área") return;
+  if (!calibre || calibre === "Sem calibre") return;
+  if (quantidade <= 0) return;
 
-    if (valor > 0) return valor;
+  if (!mapaAreas.has(area)) {
+    mapaAreas.set(area, {
+      area,
+      total: 0,
+      valores: new Map(),
+    });
   }
 
-  return calcularTotalEntrada(item);
+  const linha = mapaAreas.get(area);
+  linha.total += quantidade;
+  linha.valores.set(calibre, (linha.valores.get(calibre) || 0) + quantidade);
+
+  const calibreAtual = mapaCalibres.get(calibre) || {
+    calibre,
+    ordem,
+    total: 0,
+  };
+
+  calibreAtual.ordem = Math.min(calibreAtual.ordem, ordem);
+  calibreAtual.total += quantidade;
+
+  mapaCalibres.set(calibre, calibreAtual);
 }
 
-function obterSaldoAtual(item) {
-  const camposSaldo = [
-    item?.saldo_classificado_caixas,
-    item?.saldo_atual,
-    item?.saldoAtual,
-    item?.saldo,
-    item?.saldo_caixas,
-    item?.saldo_disponivel_caixas,
-    item?.caixas_disponiveis,
-    item?.quantidade_atual,
-    item?.quantidade_atual_caixas,
-  ];
+function montarDadosSaldo(estoqueClassificado) {
+  const mapaAreas = new Map();
+  const mapaCalibres = new Map();
 
-  for (const campo of camposSaldo) {
-    if (campo !== undefined && campo !== null && campo !== "") {
-      return Math.max(normalizarNumero(campo), 0);
-    }
+  const lista = Array.isArray(estoqueClassificado) ? estoqueClassificado : [];
+
+  for (const item of lista) {
+    registrarValor(mapaAreas, mapaCalibres, item, obterSaldoReal(item));
   }
 
-  const total = obterTotalClassificado(item);
-  const saidas = normalizarNumero(
-    item?.saidas_caixas ??
-      item?.saida_caixas ??
-      item?.total_saidas ??
-      item?.saidas ??
-      item?.quantidade_saida
-  );
+  const areas = Array.from(mapaAreas.values()).sort(ordenarAreas);
 
-  return Math.max(total - saidas, 0);
+  const calibres = Array.from(mapaCalibres.values()).sort((a, b) => {
+    if (a.ordem !== b.ordem) return a.ordem - b.ordem;
+
+    return String(a.calibre).localeCompare(String(b.calibre), "pt-BR", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+
+  return {
+    areas,
+    calibres,
+    totalGeral: areas.reduce((total, item) => total + item.total, 0),
+  };
 }
 
-function obterCorCalibre(indice) {
-  return CORES_CALIBRES[indice % CORES_CALIBRES.length];
+function montarDadosTotal(entradas) {
+  const mapaAreas = new Map();
+  const mapaCalibres = new Map();
+
+  const lista = Array.isArray(entradas) ? entradas : [];
+
+  for (const item of lista) {
+    registrarValor(mapaAreas, mapaCalibres, item, obterTotalClassificadoEntrada(item));
+  }
+
+  const areas = Array.from(mapaAreas.values()).sort(ordenarAreas);
+
+  const calibres = Array.from(mapaCalibres.values()).sort((a, b) => {
+    if (a.ordem !== b.ordem) return a.ordem - b.ordem;
+
+    return String(a.calibre).localeCompare(String(b.calibre), "pt-BR", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+
+  return {
+    areas,
+    calibres,
+    totalGeral: areas.reduce((total, item) => total + item.total, 0),
+  };
 }
 
-function obterCorArea(indice) {
-  return CORES_AREAS[indice % CORES_AREAS.length];
+function corCelula(percentual, valor) {
+  if (valor <= 0) {
+    return {
+      background: "#F8FAFC",
+      borderColor: "#E2E8F0",
+      color: "#94A3B8",
+    };
+  }
+
+  if (percentual >= 40) {
+    return {
+      background: "linear-gradient(135deg, #86EFAC, #DCFCE7)",
+      borderColor: "#86EFAC",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 25) {
+    return {
+      background: "linear-gradient(135deg, #BBF7D0, #E5F9CE)",
+      borderColor: "#BBF7D0",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 12) {
+    return {
+      background: "linear-gradient(135deg, #FEF3C7, #FDE68A)",
+      borderColor: "#FDE68A",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 4) {
+    return {
+      background: "linear-gradient(135deg, #FED7AA, #FDBA74)",
+      borderColor: "#FDBA74",
+      color: "#0F172A",
+    };
+  }
+
+  return {
+    background: "linear-gradient(135deg, #FECACA, #FCA5A5)",
+    borderColor: "#FCA5A5",
+    color: "#0F172A",
+  };
 }
 
-function TituloGrafico({ titulo }) {
-  return (
-    <div className="flex items-center gap-2">
-      <h3 className="text-[16px] font-semibold text-slate-900">{titulo}</h3>
-      <Info className="h-4 w-4 text-slate-300" />
-    </div>
-  );
-}
-
-function PainelSemDados() {
-  return (
-    <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-      Nenhum dado para exibir.
-    </div>
-  );
-}
-
-function LegendaCalibres({ calibres }) {
-  if (!calibres.length) return null;
-
-  return (
-    <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-      {calibres.map((calibre, indice) => (
-        <div key={calibre.id} className="flex items-center gap-2">
-          <span
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: obterCorCalibre(indice) }}
-          />
-          <span className="text-sm font-medium text-slate-600">{calibre.codigo}</span>
+function MatrizAreaCalibre({ dados, modo, titulo, subtitulo }) {
+  if (!dados.areas.length || !dados.calibres.length) {
+    return (
+      <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[18px] leading-7 tracking-tight text-slate-950">{titulo}</h2>
+          <Info className="h-4 w-4 text-slate-300" />
         </div>
-      ))}
-    </div>
-  );
-}
-
-function GraficoBarraEmpilhadaArea({ titulo, dados, calibres }) {
-  return (
-    <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <TituloGrafico titulo={titulo} />
-
-      {!dados.length ? (
-        <div className="mt-5">
-          <PainelSemDados />
+        <p className="mt-1 text-[12px] leading-5 text-slate-500">{subtitulo}</p>
+        <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
+          Sem dados suficientes para montar este gráfico.
         </div>
-      ) : (
-        <>
-          <div className="mt-5 grid grid-cols-[120px_minmax(0,1fr)_105px] gap-4 border-b border-slate-100 pb-3">
-            <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      </section>
+    );
+  }
+
+  const larguraArea = 110;
+  const larguraColuna = 86;
+  const larguraTotal = 82;
+
+  const gridTemplateColumns =
+    larguraArea + "px repeat(" + dados.calibres.length + ", minmax(" + larguraColuna + "px, 1fr)) " + larguraTotal + "px";
+
+  const minWidth = larguraArea + dados.calibres.length * larguraColuna + larguraTotal;
+
+  return (
+    <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.06)]">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[18px] leading-7 tracking-tight text-slate-950">{titulo}</h2>
+            <Info className="h-4 w-4 text-slate-300" />
+          </div>
+
+          <p className="mt-1 text-[12px] leading-5 text-slate-500">{subtitulo}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
+          <span>{modo === "saldo" ? "Menor saldo" : "Menor volume"}</span>
+
+          <div className="flex overflow-hidden rounded-full ring-1 ring-slate-200">
+            <span className="h-4 w-8 bg-[#FCA5A5]" />
+            <span className="h-4 w-8 bg-[#FDBA74]" />
+            <span className="h-4 w-8 bg-[#FDE68A]" />
+            <span className="h-4 w-8 bg-[#BBF7D0]" />
+            <span className="h-4 w-8 bg-[#86EFAC]" />
+          </div>
+
+          <span>{modo === "saldo" ? "Maior saldo" : "Maior volume"}</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-2">
+        <div style={{ minWidth }}>
+          <div
+            className="grid items-center gap-2 border-b border-slate-100 pb-2"
+            style={{ gridTemplateColumns }}
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               Área / Pivô
             </div>
 
-            <div className="text-center text-xs font-medium uppercase tracking-wide text-slate-400">
-              Distribuição por calibre (caixas)
-            </div>
+            {dados.calibres.map((calibre) => (
+              <div
+                key={calibre.calibre}
+                className="flex min-h-[36px] items-end justify-center break-words text-center text-[10px] font-semibold uppercase leading-[1.15] text-slate-950"
+              >
+                {calibre.calibre}
+              </div>
+            ))}
 
-            <div className="text-right text-xs font-medium uppercase tracking-wide text-slate-400">
+            <div className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               Total
             </div>
           </div>
 
-          <div className="mt-4 space-y-5">
-            {dados.map((area) => {
-              const partes = area.partes.filter((parte) => parte.valor > 0);
-
-              return (
-                <div
-                  key={area.id}
-                  className="grid grid-cols-[120px_minmax(0,1fr)_105px] items-center gap-4"
-                >
-                  <div className="text-[15px] font-medium text-slate-800">
-                    {area.nome}
-                  </div>
-
-                  <div className="overflow-hidden">
-                    <div className="flex h-[66px] w-full overflow-hidden border border-slate-200 bg-slate-50">
-                      {partes.map((parte) => {
-                        const percentual = area.total > 0 ? (parte.valor / area.total) * 100 : 0;
-                        const largura = percentual;
-
-                        return (
-                          <div
-                            key={parte.id}
-                            className="flex h-full min-w-0 flex-col items-center justify-center border-r border-white/50 px-1 text-white last:border-r-0"
-                            style={{
-                              width: `${largura}%`,
-                              backgroundColor: parte.cor,
-                            }}
-                            title={`${parte.label}: ${formatarNumero(parte.valor)} caixas (${formatarPercentual(percentual)})`}
-                          >
-                            <span className="text-[10px] font-semibold leading-none">
-                              {formatarNumero(parte.valor)}
-                            </span>
-
-                            <span className="mt-1 text-[9px] font-medium leading-none text-white/90">
-                              {formatarPercentual(percentual)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-[16px] font-semibold text-slate-900">
-                      {formatarNumero(area.total)}
-                    </div>
-                    <div className="text-xs text-slate-400">caixas</div>
-                  </div>
+          <div className="mt-2 space-y-2">
+            {dados.areas.map((area) => (
+              <div
+                key={area.area}
+                className="grid items-center gap-2"
+                style={{ gridTemplateColumns }}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-slate-950">
+                    {area.area}
+                  </p>
                 </div>
-              );
-            })}
+
+                {dados.calibres.map((calibre) => {
+                  const valor = area.valores.get(calibre.calibre) || 0;
+                  const percentual = area.total > 0 ? (valor / area.total) * 100 : 0;
+                  const cor = corCelula(percentual, valor);
+
+                  return (
+                    <div
+                      key={area.area + "-" + calibre.calibre}
+                      className="flex h-[58px] flex-col items-center justify-center rounded-lg border px-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      style={{
+                        background: cor.background,
+                        borderColor: cor.borderColor,
+                        color: cor.color,
+                      }}
+                      title={
+                        area.area +
+                        " · " +
+                        calibre.calibre +
+                        " · " +
+                        formatarNumero(valor) +
+                        " caixas · " +
+                        formatarPercentual(percentual)
+                      }
+                    >
+                      {valor > 0 ? (
+                        <>
+                          <span className="block max-w-full truncate text-[12.5px] font-bold leading-4">
+                            {formatarNumero(valor)}
+                          </span>
+                          <span className="mt-0.5 block text-[10.5px] font-semibold leading-3">
+                            {formatarPercentual(percentual)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block text-[13px] font-semibold leading-4 text-slate-400">-</span>
+                          <span className="mt-0.5 block text-[10px] leading-3 text-slate-400">0%</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="flex h-[58px] flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 px-1.5 text-center">
+                  <span className="text-[13px] font-bold leading-4 text-slate-950">
+                    {formatarNumero(area.total)}
+                  </span>
+                  <span className="mt-0.5 text-[10.5px] font-semibold leading-3 text-emerald-700">
+                    100%
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-
-          <LegendaCalibres calibres={calibres} />
-        </>
-      )}
-    </section>
-  );
-}
-
-function GraficoDistribuicaoCalibresPorArea({ mapaDistribuicao, areas, calibres }) {
-  const linhas = useMemo(() => {
-    return calibres
-      .map((calibre) => {
-        const valores = areas.map((area, indice) => {
-          const valor = normalizarNumero(mapaDistribuicao?.[calibre.id]?.[area.id] || 0);
-
-          return {
-            areaId: area.id,
-            areaNome: area.nome,
-            valor,
-            cor: obterCorArea(indice),
-          };
-        });
-
-        const total = valores.reduce((soma, item) => soma + item.valor, 0);
-
-        return {
-          id: calibre.id,
-          codigo: calibre.codigo,
-          valores,
-          total,
-        };
-      })
-      .filter((linha) => linha.total > 0);
-  }, [mapaDistribuicao, areas, calibres]);
-
-  const maiorValor = useMemo(() => {
-    let maior = 0;
-
-    linhas.forEach((linha) => {
-      linha.valores.forEach((item) => {
-        if (item.valor > maior) maior = item.valor;
-      });
-    });
-
-    return maior || 1;
-  }, [linhas]);
-
-  return (
-    <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <TituloGrafico titulo="Distribuição dos calibres por área" />
-
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          {areas.map((area, indice) => (
-            <div key={area.id} className="flex items-center gap-2">
-              <span
-                className="h-3.5 w-3.5 rounded-md"
-                style={{ backgroundColor: obterCorArea(indice) }}
-              />
-              <span className="text-sm font-medium text-slate-600">{area.nome}</span>
-            </div>
-          ))}
         </div>
       </div>
 
-      {!linhas.length || !areas.length ? (
-        <div className="mt-5">
-          <PainelSemDados />
-        </div>
-      ) : (
-        <div className="mt-6 overflow-hidden">
-          <div className="w-full">
-            <div className="relative h-[390px] border-b border-slate-200">
-              {[0, 1, 2, 3, 4].map((linha) => (
-                <div
-                  key={linha}
-                  className="absolute left-12 right-0 border-t border-dashed border-slate-200"
-                  style={{ top: `${linha * 22}%` }}
-                />
-              ))}
-
-              <div className="absolute left-0 top-0 flex h-[310px] w-10 flex-col justify-between text-xs font-medium text-slate-400">
-                {[1, 0.75, 0.5, 0.25, 0].map((fator) => (
-                  <span key={fator}>{formatarNumero(maiorValor * fator)}</span>
-                ))}
-              </div>
-
-              <div className="absolute bottom-[34px] left-12 right-0 top-0 flex items-end justify-around gap-8">
-                {linhas.map((linha) => (
-                  <div
-                    key={linha.id}
-                    className="flex h-full min-w-[130px] flex-col items-center justify-end"
-                  >
-                    <div className="flex h-full items-end justify-center gap-4">
-                      {linha.valores.map((item) => {
-                        const altura =
-                          item.valor > 0
-                            ? Math.max((item.valor / maiorValor) * 285, 12)
-                            : 0;
-
-                        return (
-                          <div
-                            key={`${linha.id}-${item.areaId}`}
-                            className="flex h-full flex-col items-center justify-end"
-                            title={`${linha.codigo} • ${item.areaNome}: ${formatarNumero(item.valor)} caixas`}
-                          >
-                            <span className="mb-2 text-[13px] font-medium text-slate-800">
-                              {item.valor > 0 ? formatarNumero(item.valor) : ""}
-                            </span>
-
-                            <div
-                              className="w-[52px] rounded-t-xl shadow-sm"
-                              style={{
-                                height: `${altura}px`,
-                                backgroundColor: item.cor,
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-4 text-sm font-medium text-slate-700">
-                      {linha.codigo}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex justify-center gap-6">
-              {areas.map((area, indice) => (
-                <div key={area.id} className="flex items-center gap-2">
-                  <span
-                    className="h-3.5 w-3.5 rounded-md"
-                    style={{ backgroundColor: obterCorArea(indice) }}
-                  />
-                  <span className="text-sm font-medium text-slate-600">{area.nome}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <p className="mt-4 text-[11.5px] leading-5 text-slate-500">
+        Valores em caixas e percentuais calculados sobre o total de cada linha.
+      </p>
     </section>
   );
 }
 
-function montarCalibres(entradas, estoqueClassificado) {
-  const mapa = new Map();
-
-  [...entradas, ...estoqueClassificado].forEach((item) => {
-    const id = obterCalibreId(item);
-    if (!id) return;
-
-    const atual = mapa.get(id);
-
-    const novo = {
-      id,
-      codigo: obterCalibreCodigo(item),
-      ordem: obterCalibreOrdem(item),
-    };
-
-    if (!atual) {
-      mapa.set(id, novo);
-      return;
-    }
-
-    if (novo.ordem < atual.ordem) {
-      mapa.set(id, novo);
-    }
-  });
-
-  return Array.from(mapa.values()).sort((a, b) => {
-    if (a.ordem !== b.ordem) return a.ordem - b.ordem;
-    return compararTexto(a.codigo, b.codigo);
-  });
-}
-
-function montarAreas(estoqueClassificado) {
-  const mapa = new Map();
-
-  estoqueClassificado.forEach((item) => {
-    const areaId = obterAreaId(item);
-    if (!areaId) return;
-
-    if (!mapa.has(areaId)) {
-      mapa.set(areaId, {
-        id: areaId,
-        nome: obterAreaNome(item),
-      });
-    }
-  });
-
-  return Array.from(mapa.values()).sort((a, b) => compararTexto(a.nome, b.nome));
-}
-
-function montarBarraPorArea(lista, calibres, tipo = "saldo") {
-  const mapaAreas = new Map();
-
-  lista.forEach((item) => {
-    const areaId = obterAreaId(item);
-    const calibreId = obterCalibreId(item);
-    const valor = tipo === "saldo" ? obterSaldoAtual(item) : obterTotalClassificado(item);
-
-    if (!areaId || !calibreId || valor <= 0) return;
-
-    if (!mapaAreas.has(areaId)) {
-      mapaAreas.set(areaId, {
-        id: areaId,
-        nome: obterAreaNome(item),
-        total: 0,
-        partes: new Map(),
-      });
-    }
-
-    const area = mapaAreas.get(areaId);
-    area.total += valor;
-
-    if (!area.partes.has(calibreId)) {
-      area.partes.set(calibreId, {
-        id: calibreId,
-        label: obterCalibreCodigo(item),
-        ordem: obterCalibreOrdem(item),
-        valor: 0,
-      });
-    }
-
-    const parte = area.partes.get(calibreId);
-    parte.valor += valor;
-    area.partes.set(calibreId, parte);
-
-    mapaAreas.set(areaId, area);
-  });
-
-  return Array.from(mapaAreas.values())
-    .map((area) => {
-      const partesOrdenadas = Array.from(area.partes.values())
-        .sort((a, b) => {
-          if (a.ordem !== b.ordem) return a.ordem - b.ordem;
-          return compararTexto(a.label, b.label);
-        })
-        .map((parte) => {
-          const indiceCor = calibres.findIndex((item) => item.id === parte.id);
-
-          return {
-            ...parte,
-            cor: obterCorCalibre(indiceCor >= 0 ? indiceCor : 0),
-          };
-        });
-
-      return {
-        ...area,
-        partes: partesOrdenadas,
-      };
-    })
-    .sort((a, b) => compararTexto(a.nome, b.nome));
-}
-
-function montarDistribuicaoSaldo(estoqueClassificado) {
-  const mapa = {};
-
-  estoqueClassificado.forEach((item) => {
-    const areaId = obterAreaId(item);
-    const calibreId = obterCalibreId(item);
-    const saldo = obterSaldoAtual(item);
-
-    if (!areaId || !calibreId || saldo <= 0) return;
-
-    if (!mapa[calibreId]) mapa[calibreId] = {};
-    if (!mapa[calibreId][areaId]) mapa[calibreId][areaId] = 0;
-
-    mapa[calibreId][areaId] += saldo;
-  });
-
-  return mapa;
-}
-
-export default function AlhoClassificadoQuebraAreaCalibre({
+export function AlhoClassificadoQuebraAreaCalibre({
   entradas = [],
   estoqueClassificado = [],
 }) {
-  const calibres = useMemo(
-    () => montarCalibres(entradas, estoqueClassificado),
-    [entradas, estoqueClassificado]
-  );
-
-  const areas = useMemo(
-    () => montarAreas(estoqueClassificado),
+  const dadosSaldo = useMemo(
+    () => montarDadosSaldo(estoqueClassificado),
     [estoqueClassificado]
   );
 
-  const saldoDisponivelPorArea = useMemo(
-    () => montarBarraPorArea(estoqueClassificado, calibres, "saldo"),
-    [estoqueClassificado, calibres]
-  );
-
-  const totalClassificadoPorArea = useMemo(
-    () => montarBarraPorArea(estoqueClassificado, calibres, "total"),
-    [estoqueClassificado, calibres]
-  );
-
-  const distribuicaoSaldoPorCalibreArea = useMemo(
-    () => montarDistribuicaoSaldo(estoqueClassificado),
-    [estoqueClassificado]
+  const dadosTotal = useMemo(
+    () => montarDadosTotal(entradas),
+    [entradas]
   );
 
   return (
-    <div className="space-y-6">
-      <GraficoBarraEmpilhadaArea
+    <div className="space-y-4">
+      <MatrizAreaCalibre
+        dados={dadosSaldo}
+        modo="saldo"
         titulo="Saldo disponível por Área / Pivô"
-        dados={saldoDisponivelPorArea}
-        calibres={calibres}
+        subtitulo="Distribuição do saldo real por calibre dentro de cada área."
       />
 
-      <GraficoBarraEmpilhadaArea
+      <MatrizAreaCalibre
+        dados={dadosTotal}
+        modo="total"
         titulo="Total classificado por Área / Pivô"
-        dados={totalClassificadoPorArea}
-        calibres={calibres}
-      />
-
-      <GraficoDistribuicaoCalibresPorArea
-        mapaDistribuicao={distribuicaoSaldoPorCalibreArea}
-        areas={areas}
-        calibres={calibres}
+        subtitulo="Distribuição de tudo que foi classificado por calibre dentro de cada área."
       />
     </div>
   );
 }
+
+export default AlhoClassificadoQuebraAreaCalibre;

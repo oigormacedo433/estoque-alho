@@ -1,0 +1,4049 @@
+============================================================
+LEVANTAMENTO — ALHO CLASSIFICADO / DADOS DOS GRÁFICOS
+SOMENTE LEITURA. NÃO ALTERA CÓDIGO. NÃO ALTERA BANCO.
+============================================================
+
+DATA DO LEVANTAMENTO: 13/08/2026, 20:57:40
+
+ARQUIVOS PRINCIPAIS ENCONTRADOS
+------------------------------------------------------------
+- src/pages/AlhoClassificado/AlhoClassificado.jsx
+- src/components/bi/AlhoClassificadoQuebraAreaCalibre.jsx
+- src/components/bi/AlhoClassificadoBiGraficos.jsx
+- src/styles/alhoClassificadoCharts.css
+
+CHAMADAS DO COMPONENTE AlhoClassificadoQuebraAreaCalibre
+------------------------------------------------------------
+
+### src/components/bi/AlhoClassificadoQuebraAreaCalibre.jsx linha 555
+ 510 |                         formatarNumero(valor) +
+ 511 |                         " caixas · " +
+ 512 |                         formatarPercentual(percentual)
+ 513 |                       }
+ 514 |                     >
+ 515 |                       {valor > 0 ? (
+ 516 |                         <>
+ 517 |                           <span className="block max-w-full truncate text-[12.5px] font-bold leading-4">
+ 518 |                             {formatarNumero(valor)}
+ 519 |                           </span>
+ 520 |                           <span className="mt-0.5 block text-[10.5px] font-semibold leading-3">
+ 521 |                             {formatarPercentual(percentual)}
+ 522 |                           </span>
+ 523 |                         </>
+ 524 |                       ) : (
+ 525 |                         <>
+ 526 |                           <span className="block text-[13px] font-semibold leading-4 text-slate-400">-</span>
+ 527 |                           <span className="mt-0.5 block text-[10px] leading-3 text-slate-400">0%</span>
+ 528 |                         </>
+ 529 |                       )}
+ 530 |                     </div>
+ 531 |                   );
+ 532 |                 })}
+ 533 | 
+ 534 |                 <div className="flex h-[58px] flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 px-1.5 text-center">
+ 535 |                   <span className="text-[13px] font-bold leading-4 text-slate-950">
+ 536 |                     {formatarNumero(area.total)}
+ 537 |                   </span>
+ 538 |                   <span className="mt-0.5 text-[10.5px] font-semibold leading-3 text-emerald-700">
+ 539 |                     100%
+ 540 |                   </span>
+ 541 |                 </div>
+ 542 |               </div>
+ 543 |             ))}
+ 544 |           </div>
+ 545 |         </div>
+ 546 |       </div>
+ 547 | 
+ 548 |       <p className="mt-4 text-[11.5px] leading-5 text-slate-500">
+ 549 |         Valores em caixas e percentuais calculados sobre o total da linha.
+ 550 |       </p>
+ 551 |     </section>
+ 552 |   );
+ 553 | }
+ 554 | 
+ 555 | export function AlhoClassificadoQuebraAreaCalibre(props) {
+ 556 |   const listaSaldo = escolherLista(props, "saldo");
+ 557 |   const listaTotal = escolherLista(props, "total");
+ 558 | 
+ 559 |   const dadosSaldo = useMemo(() => montarDados(listaSaldo, "saldo"), [listaSaldo]);
+ 560 |   const dadosTotal = useMemo(() => montarDados(listaTotal, "total"), [listaTotal]);
+ 561 | 
+ 562 |   return (
+ 563 |     <div className="space-y-4">
+ 564 |       <MatrizAreaCalibre
+ 565 |         dados={dadosSaldo}
+ 566 |         modo="saldo"
+ 567 |         titulo="Saldo disponível por Área / Pivô"
+ 568 |         subtitulo="Distribuição do saldo por calibre dentro de cada área."
+ 569 |       />
+ 570 | 
+ 571 |       <MatrizAreaCalibre
+ 572 |         dados={dadosTotal}
+ 573 |         modo="total"
+ 574 |         titulo="Total classificado por Área / Pivô"
+ 575 |         subtitulo="Distribuição do total classificado por calibre dentro de cada área."
+ 576 |       />
+ 577 |     </div>
+ 578 |   );
+ 579 | }
+ 580 | 
+ 581 | export default AlhoClassificadoQuebraAreaCalibre;
+ 582 | 
+
+### src/components/bi/AlhoClassificadoQuebraAreaCalibre.jsx linha 581
+ 536 |                     {formatarNumero(area.total)}
+ 537 |                   </span>
+ 538 |                   <span className="mt-0.5 text-[10.5px] font-semibold leading-3 text-emerald-700">
+ 539 |                     100%
+ 540 |                   </span>
+ 541 |                 </div>
+ 542 |               </div>
+ 543 |             ))}
+ 544 |           </div>
+ 545 |         </div>
+ 546 |       </div>
+ 547 | 
+ 548 |       <p className="mt-4 text-[11.5px] leading-5 text-slate-500">
+ 549 |         Valores em caixas e percentuais calculados sobre o total da linha.
+ 550 |       </p>
+ 551 |     </section>
+ 552 |   );
+ 553 | }
+ 554 | 
+ 555 | export function AlhoClassificadoQuebraAreaCalibre(props) {
+ 556 |   const listaSaldo = escolherLista(props, "saldo");
+ 557 |   const listaTotal = escolherLista(props, "total");
+ 558 | 
+ 559 |   const dadosSaldo = useMemo(() => montarDados(listaSaldo, "saldo"), [listaSaldo]);
+ 560 |   const dadosTotal = useMemo(() => montarDados(listaTotal, "total"), [listaTotal]);
+ 561 | 
+ 562 |   return (
+ 563 |     <div className="space-y-4">
+ 564 |       <MatrizAreaCalibre
+ 565 |         dados={dadosSaldo}
+ 566 |         modo="saldo"
+ 567 |         titulo="Saldo disponível por Área / Pivô"
+ 568 |         subtitulo="Distribuição do saldo por calibre dentro de cada área."
+ 569 |       />
+ 570 | 
+ 571 |       <MatrizAreaCalibre
+ 572 |         dados={dadosTotal}
+ 573 |         modo="total"
+ 574 |         titulo="Total classificado por Área / Pivô"
+ 575 |         subtitulo="Distribuição do total classificado por calibre dentro de cada área."
+ 576 |       />
+ 577 |     </div>
+ 578 |   );
+ 579 | }
+ 580 | 
+ 581 | export default AlhoClassificadoQuebraAreaCalibre;
+ 582 | 
+
+### src/pages/AlhoClassificado/AlhoClassificado.jsx linha 47
+   2 | import {
+   3 |   ArrowDownToLine,
+   4 |   ArrowUpFromLine,
+   5 |   BarChart3,
+   6 |   Boxes,
+   7 |   CalendarDays,
+   8 |   Edit3,
+   9 |   MapPin,
+  10 |   PackageCheck,
+  11 |   Plus,
+  12 |   RefreshCw,
+  13 |   Scale,
+  14 |   Trash2,
+  15 |   TrendingUp,
+  16 |   Warehouse,
+  17 |   X,
+  18 | } from "lucide-react";
+  19 | import {
+  20 |   Area,
+  21 |   AreaChart,
+  22 |   Bar,
+  23 |   BarChart,
+  24 |   CartesianGrid,
+  25 |   Cell,
+  26 |   Legend,
+  27 |   Line,
+  28 |   ResponsiveContainer,
+  29 |   Tooltip,
+  30 |   XAxis,
+  31 |   YAxis,
+  32 | } from "recharts";
+  33 | import {
+  34 | cadastrarAlhoClassificado,
+  35 |   cadastrarSaidaAlhoClassificado,
+  36 |   calcularResumoAlhoClassificado,
+  37 |   calcularTotalCaixas,
+  38 |   editarAlhoClassificado,
+  39 |   editarSaidaAlhoClassificado,
+  40 |   excluirAlhoClassificado,
+  41 |   excluirSaidaAlhoClassificado,
+  42 |   listarAlhoClassificado,
+  43 |   listarEstoqueAlhoClassificadoAtual,
+  44 |   listarOpcoesAlhoClassificado,
+  45 |   listarSaidasAlhoClassificado,
+  46 | } from "../../services/alhoClassificadoService";
+  47 | import AlhoClassificadoQuebraAreaCalibre from "../../components/bi/AlhoClassificadoQuebraAreaCalibre";
+  48 | const REGISTROS_POR_PAGINA = 10;
+  49 | const LIMITE_PONTOS_GRAFICO = 15;
+  50 | 
+  51 | const estadoInicialFiltros = {
+  52 |   dataInicial: "",
+  53 |   dataFinal: "",
+  54 |   fazendaId: "",
+  55 |   areaId: "",
+  56 |   calibreId: "",
+  57 |   status: "",
+  58 |   responsavelId: "",
+  59 | };
+  60 | 
+  61 | function dataHoje() {
+  62 |   return new Date().toISOString().slice(0, 10);
+  63 | }
+  64 | 
+  65 | function horaAgora() {
+  66 |   return new Date().toTimeString().slice(0, 5);
+  67 | }
+  68 | 
+  69 | function estadoInicialEntrada() {
+  70 |   return {
+  71 |     data_classificacao: dataHoje(),
+  72 |     hora: horaAgora(),
+  73 |     fazenda_id: "",
+  74 |     area_fazenda_id: "",
+  75 |     lote: "",
+  76 |     calibre_id: "",
+  77 |     quantidade_paletes: "",
+  78 |     caixas_por_palete: "",
+  79 |     permitir_edicao_total_caixas: false,
+  80 |     total_caixas_manual: "",
+  81 |     conferido: true,
+  82 |     responsavel_id: "",
+  83 |     observacao: "",
+  84 |   };
+  85 | }
+  86 | 
+  87 | function estadoInicialSaida() {
+  88 |   return {
+  89 |     data_saida: dataHoje(),
+  90 |     hora: horaAgora(),
+  91 |     area_fazenda_id: "",
+  92 |     calibre_id: "",
+
+### src/pages/AlhoClassificado/AlhoClassificado.jsx linha 1918
+1873 |               tone="green"
+1874 |             />
+1875 | 
+1876 |             <DestaqueItem
+1877 |               icon={ArrowUpFromLine}
+1878 |               rotulo="Maior saída"
+1879 |               valor={`${formatarNumero(numero(destaques.maiorSaida?.quantidade_caixas))} caixas`}
+1880 |               detalhe={
+1881 |                 destaques.maiorSaida
+1882 |                   ? `${destaques.maiorSaida.area_nome} • ${formatarData(
+1883 |                       destaques.maiorSaida.data_saida
+1884 |                     )}`
+1885 |                   : "-"
+1886 |               }
+1887 |               tone="red"
+1888 |             />
+1889 | 
+1890 |             <DestaqueItem
+1891 |               icon={MapPin}
+1892 |               rotulo="Área com maior saldo"
+1893 |               valor={destaques.maiorAreaSaldo?.nome || "-"}
+1894 |               detalhe={`${formatarNumero(destaques.maiorAreaSaldo?.saldo)} caixas`}
+1895 |               tone="blue"
+1896 |             />
+1897 | 
+1898 |             <DestaqueItem
+1899 |               icon={BarChart3}
+1900 |               rotulo="Calibre com maior saldo"
+1901 |               valor={destaques.maiorCalibreSaldo?.nome || "-"}
+1902 |               detalhe={`${formatarNumero(destaques.maiorCalibreSaldo?.saldo)} caixas`}
+1903 |               tone="purple"
+1904 |             />
+1905 | 
+1906 |             <DestaqueItem
+1907 |               icon={TrendingUp}
+1908 |               rotulo="Média por lançamento"
+1909 |               valor={`${formatarNumero(destaques.mediaPorLancamento)} caixas`}
+1910 |               detalhe="entradas classificadas"
+1911 |               tone="amber"
+1912 |             />
+1913 |           </div>
+1914 |         </section>
+1915 |       </div>
+1916 | 
+1917 |       
+1918 |       <AlhoClassificadoQuebraAreaCalibre
+1919 |         entradas={entradas}
+1920 |         estoqueClassificado={estoqueClassificado}
+1921 |       />
+1922 | 
+1923 | 
+1924 | 
+1925 |       <div className="space-y-4">
+1926 | <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+1927 |           <div className="mb-4 flex items-center justify-between gap-3">
+1928 |             <h2 className="text-base font-semibold text-slate-950">
+1929 |               Estoque do Alho Classificado
+1930 |             </h2>
+1931 | 
+1932 |             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+1933 |               {formatarNumero(estoqueClassificado.length)} registros
+1934 |             </span>
+1935 |           </div>
+1936 | 
+1937 |           <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
+1938 |             <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
+1939 |               <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+1940 |                 <tr>
+1941 |                   <th className="px-3 py-3 whitespace-nowrap">
+1942 |                     <BotaoOrdenacao
+1943 |                       campo="area"
+1944 |                       ordenacao={ordenacaoEstoque}
+1945 |                       onClick={alternarOrdenacaoEstoque}
+1946 |                     >
+1947 |                       Área / Pivô
+1948 |                     </BotaoOrdenacao>
+1949 |                   </th>
+1950 |                   <th className="px-3 py-3 whitespace-nowrap">
+1951 |                     <BotaoOrdenacao
+1952 |                       campo="calibre"
+1953 |                       ordenacao={ordenacaoEstoque}
+1954 |                       onClick={alternarOrdenacaoEstoque}
+1955 |                     >
+1956 |                       Calibre
+1957 |                     </BotaoOrdenacao>
+1958 |                   </th>
+1959 |                   <th className="px-3 py-3 text-right whitespace-nowrap">
+1960 |                     <BotaoOrdenacao
+1961 |                       campo="entradas"
+1962 |                       ordenacao={ordenacaoEstoque}
+1963 |                       onClick={alternarOrdenacaoEstoque}
+
+
+TRECHOS COM VARIÁVEIS DE SALDO / TOTAL / DISTRIBUIÇÃO
+------------------------------------------------------------
+
+### src/components/bi/AlhoClassificadoBiGraficos.jsx
+  76 |   const entradas =
+  79 |   const saidas =
+  80 |     numero(item?.saida_classificado_caixas) || numero(item?.saidas_classificado_caixas);
+  82 |   return entradas - saidas;
+ 168 | function GraficoMovimentacaoDiaria({ dados }) {
+ 184 |     ...dados.map((item) => Math.max(numero(item.entradas), numero(item.saidas))),
+ 200 |   const pontosEntradas = dados
+ 201 |     .map((item, indice) => `${obterX(indice)},${obterY(item.entradas)}`)
+ 204 |   const pontosSaidas = dados
+ 205 |     .map((item, indice) => `${obterX(indice)},${obterY(item.saidas)}`)
+ 210 |     ...dados.map((item, indice) => `${obterX(indice)},${obterY(item.entradas)}`),
+ 237 |             points={pontosEntradas}
+ 246 |             points={pontosSaidas}
+ 256 |             const yEntrada = obterY(item.entradas);
+ 257 |             const ySaida = obterY(item.saidas);
+ 263 |                   {formatarNumero(item.entradas)}
+ 268 |                   {formatarNumero(item.saidas)}
+ 283 |           Entradas
+ 294 | function GraficoBarrasEmpilhadas({ titulo, dados, calibresOrdenados }) {
+ 355 | function GraficoDistribuicaoCalibresPorArea({ dadosMapa, areasOrdenadas, calibresOrdenados }) {
+ 424 | export default function AlhoClassificadoBiGraficos({
+ 425 |   entradas = [],
+ 426 |   saidas = [],
+ 432 |     [...entradas, ...estoqueClassificado].forEach((item) => {
+ 457 |   }, [entradas, estoqueClassificado]);
+ 462 |     entradas.forEach((item) => {
+ 466 |       if (!mapa.has(data)) mapa.set(data, { data, entradas: 0, saidas: 0 });
+ 469 |       atual.entradas += calcularTotalEntrada(item);
+ 473 |     saidas.forEach((item) => {
+ 477 |       if (!mapa.has(data)) mapa.set(data, { data, entradas: 0, saidas: 0 });
+ 480 |       atual.saidas += calcularTotalSaida(item);
+ 491 |   }, [entradas, saidas]);
+ 493 |   const saldoDisponivelPorArea = useMemo(() => {
+ 549 |   const totalClassificadoPorArea = useMemo(() => {
+ 552 |     entradas.forEach((item) => {
+ 603 |   }, [entradas, calibresOrdenados]);
+ 605 |   const dadosDistribuicao = useMemo(() => {
+ 624 |   const areasOrdenadasDistribuicao = useMemo(() => {
+ 643 |     if (!saldoDisponivelPorArea.length) return null;
+ 644 |     return [...saldoDisponivelPorArea].sort((a, b) => b.total - a.total)[0];
+ 645 |   }, [saldoDisponivelPorArea]);
+ 673 |     if (!entradas.length) return 0;
+ 674 |     const totalEntradas = entradas.reduce((total, item) => total + calcularTotalEntrada(item), 0);
+ 675 |     return totalEntradas / entradas.length;
+ 676 |   }, [entradas]);
+ 682 |           <TituloCard titulo="Movimentação diária de entradas e saídas" />
+ 683 |           <GraficoMovimentacaoDiaria dados={seriesMovimentacao} />
+ 719 |               subtitulo="entradas classificadas"
+ 726 |         <GraficoBarrasEmpilhadas
+ 728 |           dados={saldoDisponivelPorArea}
+ 732 |         <GraficoBarrasEmpilhadas
+ 734 |           dados={totalClassificadoPorArea}
+ 739 |       <GraficoDistribuicaoCalibresPorArea
+ 740 |         dadosMapa={dadosDistribuicao}
+ 741 |         areasOrdenadas={areasOrdenadasDistribuicao}
+
+### src/components/bi/AlhoClassificadoQuebraAreaCalibre.jsx
+ 101 | function obterEntradas(item) {
+ 104 |       "entradas",
+ 107 |       "entradas_caixas",
+ 108 |       "total_entradas",
+ 110 |       "total_classificado_caixas",
+ 111 |       "total_classificado",
+ 120 | function obterSaidas(item) {
+ 123 |       "saidas",
+ 126 |       "saidas_caixas",
+ 127 |       "total_saidas",
+ 137 |     "saldo_atual",
+ 138 |     "saldo_atual_caixas",
+ 139 |     "saldo_disponivel",
+ 140 |     "saldo_disponivel_caixas",
+ 147 |   const entradas = obterEntradas(item);
+ 148 |   const saidas = obterSaidas(item);
+ 150 |   if (entradas || saidas) return entradas - saidas;
+ 161 | function obterTotalClassificado(item) {
+ 163 |     "total_classificado_caixas",
+ 164 |     "total_classificado",
+ 166 |     "entradas",
+ 169 |     "entradas_caixas",
+ 170 |     "total_entradas",
+ 176 |   const entradas = obterEntradas(item);
+ 177 |   if (entradas) return entradas;
+ 232 |     item.distribuicao ||
+ 261 |       quantidade = obterTotalClassificado(item);
+ 325 |       Array.isArray(item.distribuicao)
+ 331 |   if (caminho.includes("grafico")) score += 50;
+ 415 | function MatrizAreaCalibre({ dados, modo, titulo, subtitulo }) {
+ 555 | export function AlhoClassificadoQuebraAreaCalibre(props) {
+ 564 |       <MatrizAreaCalibre
+ 571 |       <MatrizAreaCalibre
+ 581 | export default AlhoClassificadoQuebraAreaCalibre;
+
+### src/pages/AlhoClassificado/AlhoClassificado.jsx
+  45 |   listarSaidasAlhoClassificado,
+  47 | import AlhoClassificadoQuebraAreaCalibre from "../../components/bi/AlhoClassificadoQuebraAreaCalibre";
+  49 | const LIMITE_PONTOS_GRAFICO = 15;
+ 154 |     item?.saldo_disponivel_caixas ??
+ 165 |   const entradas = numero(
+ 168 |       item?.entradas ||
+ 169 |       item?.total_entradas
+ 172 |   const saidas = numero(
+ 174 |       item?.saidas_classificado_caixas ||
+ 175 |       item?.saidas ||
+ 176 |       item?.total_saidas
+ 179 |   return Math.max(entradas - saidas, 0);
+ 187 |   return numero(item?.saida_classificado_caixas || item?.saidas_classificado_caixas);
+ 238 |   if (campo === "entradas") return obterEntradaClassificada(registro);
+ 239 |   if (campo === "saidas") return obterSaidaClassificada(registro);
+ 344 | function GraficoMovimentoDiario({ dados }) {
+ 346 |     ? dados.filter((item) => numero(item?.entradas) || numero(item?.saidas))
+ 391 |   const maiorValor = Math.max(1, ...serie.flatMap((item) => [valor(item.entradas), valor(item.saidas)]));
+ 405 |     y: obterY(item.entradas),
+ 406 |     valor: valor(item.entradas),
+ 413 |     y: obterY(item.saidas),
+ 414 |     valor: valor(item.saidas),
+ 469 |           filter="url(#sombraLabelGraficoClassificado)"
+ 505 |           <filter id="sombraLinhaGraficoClassificado" x="-12%" y="-12%" width="124%" height="130%">
+ 509 |           <filter id="sombraPontoGraficoClassificado" x="-50%" y="-50%" width="200%" height="200%">
+ 513 |           <filter id="sombraLabelGraficoClassificado" x="-30%" y="-60%" width="160%" height="220%">
+ 550 |           filter="url(#sombraLinhaGraficoClassificado)"
+ 560 |           filter="url(#sombraLinhaGraficoClassificado)"
+ 565 |             <circle cx={ponto.x} cy={ponto.y} r="8" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+ 573 |             <circle cx={ponto.x} cy={ponto.y} r="7.2" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+ 598 |           <rect x="-22" y="-24" width="240" height="42" rx="21" fill="#ffffff" stroke="#E2E8F0" filter="url(#sombraLabelGraficoClassificado)" />
+ 600 |           <text x="15" y="2" fontSize="13" fontWeight="600" fill="#047857">Entradas</text>
+ 609 | function GraficoBarrasHorizontais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+ 643 | function GraficoBarrasVerticais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+ 677 | function TooltipGrafico({ active, payload, label }) {
+ 798 |   const [entradas, setEntradas] = useState([]);
+ 799 |   const [saidas, setSaidas] = useState([]);
+ 810 |   const [paginaEntradas, setPaginaEntradas] = useState(1);
+ 811 |   const [paginaSaidas, setPaginaSaidas] = useState(1);
+ 818 |   const [ordenacaoEntradas, setOrdenacaoEntradas] = useState({
+ 823 |   const [ordenacaoSaidas, setOrdenacaoSaidas] = useState({
+ 836 |     () => calcularResumoAlhoClassificado(entradas, saidas),
+ 837 |     [entradas, saidas]
+ 844 |   const entradasOrdenadas = useMemo(() => {
+ 845 |     return ordenarRegistros(entradas, ordenacaoEntradas, "entrada");
+ 846 |   }, [entradas, ordenacaoEntradas]);
+ 848 |   const saidasOrdenadas = useMemo(() => {
+ 849 |     return ordenarRegistros(saidas, ordenacaoSaidas, "saida");
+ 850 |   }, [saidas, ordenacaoSaidas]);
+ 856 |   const totalPaginasEntradas = useMemo(() => {
+ 857 |     return calcularTotalPaginas(entradasOrdenadas.length);
+ 858 |   }, [entradasOrdenadas.length]);
+ 860 |   const totalPaginasSaidas = useMemo(() => {
+ 861 |     return calcularTotalPaginas(saidasOrdenadas.length);
+ 862 |   }, [saidasOrdenadas.length]);
+ 868 |   const entradasPaginadas = useMemo(() => {
+ 869 |     return paginarRegistros(entradasOrdenadas, paginaEntradas);
+ 870 |   }, [entradasOrdenadas, paginaEntradas]);
+ 872 |   const saidasPaginadas = useMemo(() => {
+ 873 |     return paginarRegistros(saidasOrdenadas, paginaSaidas);
+ 874 |   }, [saidasOrdenadas, paginaSaidas]);
+1009 |   const estoqueSaidaSelecionado = useMemo(() => {
+1048 |   const saldoSaidaSelecionado = useMemo(() => {
+1049 |     return obterSaldoClassificado(estoqueSaidaSelecionado) + devolucaoSaidaEdicao;
+1050 |   }, [estoqueSaidaSelecionado, devolucaoSaidaEdicao]);
+1064 |     if (saldoSaidaSelecionado <= 0) {
+1071 |     if (quantidadeSaidaDigitada > saldoSaidaSelecionado) {
+1075 |           saldoSaidaSelecionado
+1083 |         saldoSaidaSelecionado
+1089 |     saldoSaidaSelecionado,
+1101 |     if (quantidadeSaidaDigitada > saldoSaidaSelecionado) return false;
+1104 |   }, [salvando, formularioSaida, quantidadeSaidaDigitada, saldoSaidaSelecionado]);
+1109 |     entradas.forEach((item) => {
+1117 |           entradas: 0,
+1118 |           saidas: 0,
+1123 |       atual.entradas += calcularTotalCaixas(item);
+1127 |     saidas.forEach((item) => {
+1135 |           entradas: 0,
+1136 |           saidas: 0,
+1141 |       atual.saidas += numero(item.quantidade_caixas);
+1146 |   }, [entradas, saidas]);
+1148 |   const movimentoDiarioGrafico = useMemo(() => {
+1153 |     if (movimentoDiarioCompleto.length <= LIMITE_PONTOS_GRAFICO) {
+1157 |     return movimentoDiarioCompleto.slice(-LIMITE_PONTOS_GRAFICO);
+1160 |   const saldoPorArea = useMemo(() => {
+1165 |       const saldoDisponivel = obterSaldoClassificado(item);
+1167 |       if (!areaId || saldoDisponivel <= 0) return;
+1180 |       atual.saldo += saldoDisponivel;
+1195 |   const saldoPorCalibre = useMemo(() => {
+1200 |       const saldoDisponivel = obterSaldoClassificado(item);
+1202 |       if (!calibreId || saldoDisponivel <= 0) return;
+1219 |       atual.saldo += saldoDisponivel;
+1239 |     const maiorEntrada = entradas.reduce((maior, item) => {
+1245 |     const maiorSaida = saidas.reduce((maior, item) => {
+1251 |     const maiorAreaSaldo = saldoPorArea[0] || null;
+1252 |     const maiorCalibreSaldo = saldoPorCalibre[0] || null;
+1255 |       entradas.length > 0 ? Math.round(resumo.totalEntradas / entradas.length) : 0;
+1264 |   }, [entradas, saidas, resumo.totalEntradas, saldoPorArea, saldoPorCalibre]);
+1272 |       return item.entradas > 0 || item.saidas > 0;
+1275 |     const mediaSaldoPorCalibre =
+1276 |       saldoPorCalibre.length > 0
+1278 |             saldoPorCalibre.reduce((total, item) => total + numero(item.saldo), 0) /
+1279 |               saldoPorCalibre.length
+1286 |       mediaSaldoPorCalibre,
+1288 |   }, [estoqueClassificado, movimentoDiarioCompleto, saldoPorCalibre]);
+1297 |     if (paginaEntradas > totalPaginasEntradas) {
+1298 |       setPaginaEntradas(totalPaginasEntradas);
+1300 |   }, [paginaEntradas, totalPaginasEntradas]);
+1303 |     if (paginaSaidas > totalPaginasSaidas) {
+1304 |       setPaginaSaidas(totalPaginasSaidas);
+1306 |   }, [paginaSaidas, totalPaginasSaidas]);
+1313 |       const [opcoes, listaEntradas, listaSaidas, listaEstoque] = await Promise.all([
+1316 |         listarSaidasAlhoClassificado(filtros),
+1325 |       setEntradas(listaEntradas || []);
+1326 |       setSaidas(listaSaidas || []);
+1330 |       setPaginaEntradas(1);
+1331 |       setPaginaSaidas(1);
+1345 |     setPaginaEntradas(1);
+1346 |     setPaginaSaidas(1);
+1353 |     setPaginaEntradas(1);
+1354 |     setPaginaSaidas(1);
+1374 |         direcao: ["entradas", "saidas", "saldo"].includes(campo) ? "desc" : "asc",
+1379 |   function alternarOrdenacaoEntradas(campo) {
+1380 |     setPaginaEntradas(1);
+1382 |     setOrdenacaoEntradas((estadoAtual) => {
+1397 |   function alternarOrdenacaoSaidas(campo) {
+1398 |     setPaginaSaidas(1);
+1400 |     setOrdenacaoSaidas((estadoAtual) => {
+1821 |           titulo="Entradas"
+1822 |           valor={formatarNumero(resumo.totalEntradas)}
+1830 |           valor={formatarNumero(resumo.totalSaidas)}
+1838 |           valor={formatarNumero(resumo.saldoAtual)}
+1854 |         <ChartCard titulo="Movimentação diária de entradas e saídas">
+1855 |           <GraficoMovimentoDiario dados={movimentoDiarioGrafico} />
+1910 |               detalhe="entradas classificadas"
+1918 |       <AlhoClassificadoQuebraAreaCalibre
+1919 |         entradas={entradas}
+1961 |                       campo="entradas"
+1966 |                       Entradas
+1971 |                       campo="saidas"
+2054 |               Entradas registradas
+2058 |               {formatarNumero(entradas.length)} registros
+2069 |                       ordenacao={ordenacaoEntradas}
+2070 |                       onClick={alternarOrdenacaoEntradas}
+2078 |                       ordenacao={ordenacaoEntradas}
+2079 |                       onClick={alternarOrdenacaoEntradas}
+2087 |                       ordenacao={ordenacaoEntradas}
+2088 |                       onClick={alternarOrdenacaoEntradas}
+2096 |                       ordenacao={ordenacaoEntradas}
+2097 |                       onClick={alternarOrdenacaoEntradas}
+2106 |                       ordenacao={ordenacaoEntradas}
+2107 |                       onClick={alternarOrdenacaoEntradas}
+2116 |                       ordenacao={ordenacaoEntradas}
+2117 |                       onClick={alternarOrdenacaoEntradas}
+2130 |                       Carregando entradas...
+2133 |                 ) : entradasOrdenadas.length === 0 ? (
+2140 |                   entradasPaginadas.map((registro) => (
+2189 |             paginaAtual={paginaEntradas}
+2190 |             totalPaginas={totalPaginasEntradas}
+2191 |             totalRegistros={entradasOrdenadas.length}
+2192 |             onChange={setPaginaEntradas}
+2203 |               {formatarNumero(saidas.length)} registros
+2214 |                       ordenacao={ordenacaoSaidas}
+2215 |                       onClick={alternarOrdenacaoSaidas}
+2223 |                       ordenacao={ordenacaoSaidas}
+2224 |                       onClick={alternarOrdenacaoSaidas}
+2232 |                       ordenacao={ordenacaoSaidas}
+2233 |                       onClick={alternarOrdenacaoSaidas}
+2241 |                       ordenacao={ordenacaoSaidas}
+2242 |                       onClick={alternarOrdenacaoSaidas}
+2251 |                       ordenacao={ordenacaoSaidas}
+2252 |                       onClick={alternarOrdenacaoSaidas}
+2268 |                 ) : saidasOrdenadas.length === 0 ? (
+2275 |                   saidasPaginadas.map((registro) => (
+2321 |             paginaAtual={paginaSaidas}
+2322 |             totalPaginas={totalPaginasSaidas}
+2323 |             totalRegistros={saidasOrdenadas.length}
+2324 |             onChange={setPaginaSaidas}
+2712 |                       quantidadeSaidaDigitada > saldoSaidaSelecionado
+
+
+CONSULTAS SUPABASE NO FRONTEND — ALHO CLASSIFICADO
+------------------------------------------------------------
+
+### src/components/bi/AlhoClassificadoBiGraficos.jsx
+ 453 |     return Array.from(mapa.values()).sort((a, b) => {
+ 484 |     return Array.from(mapa.values())
+ 530 |     return Array.from(mapaAreas.values())
+ 533 |         partes: Array.from(area.partes.values())
+ 586 |     return Array.from(mapaAreas.values())
+ 589 |         partes: Array.from(area.partes.values())
+ 639 |     return Array.from(mapa.values()).sort((a, b) => compararTexto(a.nome, b.nome));
+ 668 |     const lista = Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+
+### src/components/bi/AlhoClassificadoQuebraAreaCalibre.jsx
+ 284 |   const calibres = Array.from(mapaCalibres.entries()).map(([calibre, total]) => ({
+ 289 |   const areas = Array.from(mapaAreas.values()).sort((a, b) => {
+
+### src/pages/AlhoClassificado/AlhoClassificado.jsx
+ 954 |     return Array.from(mapa.values()).sort((a, b) =>
+1145 |     return Array.from(mapa.values()).sort((a, b) => a.data.localeCompare(b.data));
+1190 |     return Array.from(mapa.values()).sort((a, b) => {
+1229 |     return Array.from(mapa.values()).sort((a, b) => {
+
+### src/pages/ConsultaEstoqueClassificado/ConsultaEstoqueClassificado.jsx
+  14 | // Tudo vem do Supabase.
+ 234 |           "Não foi possível consultar o estoque classificado. Confira as permissões no Supabase."
+
+### src/services/alhoClassificadoService.js
+   1 | import { supabase } from "./supabaseClient";
+  18 | function tratarErroSupabase(error) {
+  23 |   const idsLimpos = Array.from(new Set((ids || []).filter(Boolean)));
+  29 |   const { data, error } = await supabase
+  30 |     .from(tabela)
+  35 |     throw tratarErroSupabase(error);
+ 147 |   const { data, error } = await supabase
+ 148 |     .from("alho_classificado")
+ 154 |     throw tratarErroSupabase(error);
+ 218 |   const { data, error } = await supabase
+ 219 |     .from("alho_classificado_saidas")
+ 225 |     throw tratarErroSupabase(error);
+ 274 |   let query = supabase
+ 275 |     .from("vw_estoque_alho_classificado_atual")
+ 296 |     throw tratarErroSupabase(error);
+ 314 |       supabase.from("fazendas").select("*").order("nome", { ascending: true }),
+ 315 |       supabase.from("areas_fazenda").select("*").order("nome", { ascending: true }),
+ 316 |       supabase
+ 317 |         .from("calibres")
+ 321 |       supabase.from("responsaveis").select("*").order("nome", { ascending: true }),
+ 324 |   if (fazendasResult.error) throw tratarErroSupabase(fazendasResult.error);
+ 325 |   if (areasResult.error) throw tratarErroSupabase(areasResult.error);
+ 326 |   if (calibresResult.error) throw tratarErroSupabase(calibresResult.error);
+ 327 |   if (responsaveisResult.error) throw tratarErroSupabase(responsaveisResult.error);
+ 450 |   const { data, error } = await supabase
+ 451 |     .from("vw_estoque_alho_classificado_atual")
+ 458 |     throw tratarErroSupabase(error);
+ 469 |   const { data, error } = await supabase
+ 470 |     .from("alho_classificado_saidas")
+ 476 |     throw tratarErroSupabase(error);
+ 520 |   const { data, error } = await supabase
+ 521 |     .from("alho_classificado")
+ 527 |     throw tratarErroSupabase(error);
+ 539 |   const { data, error } = await supabase
+ 540 |     .from("alho_classificado")
+ 547 |     throw tratarErroSupabase(error);
+ 554 |   const { error } = await supabase.from("alho_classificado").delete().eq("id", id);
+ 557 |     throw tratarErroSupabase(error);
+ 568 |   const { data, error } = await supabase
+ 569 |     .from("alho_classificado_saidas")
+ 575 |     throw tratarErroSupabase(error);
+ 586 |   const { data, error } = await supabase
+ 587 |     .from("alho_classificado_saidas")
+ 594 |     throw tratarErroSupabase(error);
+ 601 |   const { error } = await supabase
+ 602 |     .from("alho_classificado_saidas")
+ 607 |     throw tratarErroSupabase(error);
+
+
+SQLS / VIEWS / FUNÇÕES RELACIONADAS A CLASSIFICADO
+------------------------------------------------------------
+
+
+COMPONENTE ATUAL COMPLETO — AlhoClassificadoQuebraAreaCalibre.jsx
+------------------------------------------------------------
+﻿import { useMemo } from "react";
+import { Info } from "lucide-react";
+
+function numero(valor) {
+  if (valor === null || valor === undefined || valor === "") return 0;
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+
+  const n = Number(
+    String(valor)
+      .trim()
+      .replace(/\./g, "")
+      .replace(",", ".")
+  );
+
+  return Number.isFinite(n) ? n : 0;
+}
+
+function texto(valor, fallback = "") {
+  if (valor === null || valor === undefined) return fallback;
+  const t = String(valor).trim();
+  return t || fallback;
+}
+
+function formatarNumero(valor) {
+  return numero(valor).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatarPercentual(valor) {
+  return (
+    numero(valor).toLocaleString("pt-BR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }) + "%"
+  );
+}
+
+function obterValor(obj, caminhos) {
+  for (const caminho of caminhos) {
+    const partes = caminho.split(".");
+    let atual = obj;
+
+    for (const parte of partes) {
+      if (atual === null || atual === undefined) break;
+      atual = atual[parte];
+    }
+
+    if (atual !== null && atual !== undefined && atual !== "") return atual;
+  }
+
+  return null;
+}
+
+function obterArea(item) {
+  return texto(
+    obterValor(item, [
+      "area_nome",
+      "areaNome",
+      "nome_area",
+      "area",
+      "area_pivo",
+      "area_pivo_nome",
+      "pivo_nome",
+      "areas_fazenda.nome",
+      "area.nome",
+      "pivo.nome",
+      "areaPivo.nome",
+    ]),
+    "Sem área"
+  );
+}
+
+function obterCalibre(item) {
+  const codigo = texto(
+    obterValor(item, [
+      "calibre_codigo",
+      "codigo_calibre",
+      "codigo",
+      "calibre.codigo",
+      "calibres.codigo",
+    ]),
+    ""
+  );
+
+  const nome = texto(
+    obterValor(item, [
+      "calibre_nome",
+      "nome_calibre",
+      "calibre",
+      "nome",
+      "calibre.nome",
+      "calibres.nome",
+    ]),
+    ""
+  );
+
+  return codigo || nome || "Sem calibre";
+}
+
+function obterEntradas(item) {
+  return numero(
+    obterValor(item, [
+      "entradas",
+      "entrada",
+      "entrada_caixas",
+      "entradas_caixas",
+      "total_entradas",
+      "total_entrada_caixas",
+      "total_classificado_caixas",
+      "total_classificado",
+      "total_caixas",
+      "quantidade_caixas",
+      "caixas",
+      "quantidade",
+    ])
+  );
+}
+
+function obterSaidas(item) {
+  return numero(
+    obterValor(item, [
+      "saidas",
+      "saida",
+      "saida_caixas",
+      "saidas_caixas",
+      "total_saidas",
+      "total_saida_caixas",
+    ])
+  );
+}
+
+function obterSaldo(item) {
+  const saldoDireto = obterValor(item, [
+    "saldo",
+    "saldo_caixas",
+    "saldo_atual",
+    "saldo_atual_caixas",
+    "saldo_disponivel",
+    "saldo_disponivel_caixas",
+    "estoque_classificado_caixas",
+    "estoque_caixas",
+  ]);
+
+  if (saldoDireto !== null) return numero(saldoDireto);
+
+  const entradas = obterEntradas(item);
+  const saidas = obterSaidas(item);
+
+  if (entradas || saidas) return entradas - saidas;
+
+  return numero(
+    obterValor(item, [
+      "valor",
+      "value",
+      "total",
+    ])
+  );
+}
+
+function obterTotalClassificado(item) {
+  const totalDireto = obterValor(item, [
+    "total_classificado_caixas",
+    "total_classificado",
+    "total_caixas",
+    "entradas",
+    "entrada",
+    "entrada_caixas",
+    "entradas_caixas",
+    "total_entradas",
+    "total_entrada_caixas",
+  ]);
+
+  if (totalDireto !== null) return numero(totalDireto);
+
+  const entradas = obterEntradas(item);
+  if (entradas) return entradas;
+
+  return numero(
+    obterValor(item, [
+      "valor",
+      "value",
+      "total",
+      "quantidade",
+      "quantidade_caixas",
+      "caixas",
+    ])
+  );
+}
+
+function coletarArrays(valor, caminho = "props", saida = [], visitados = new WeakSet(), profundidade = 0) {
+  if (profundidade > 6 || valor === null || valor === undefined) return saida;
+
+  if (typeof valor === "object") {
+    if (visitados.has(valor)) return saida;
+    visitados.add(valor);
+  }
+
+  if (Array.isArray(valor)) {
+    saida.push({
+      caminho,
+      lista: valor,
+    });
+
+    for (let i = 0; i < Math.min(valor.length, 8); i += 1) {
+      coletarArrays(valor[i], caminho + "[" + i + "]", saida, visitados, profundidade + 1);
+    }
+
+    return saida;
+  }
+
+  if (typeof valor === "object") {
+    for (const [chave, item] of Object.entries(valor)) {
+      coletarArrays(item, caminho + "." + chave, saida, visitados, profundidade + 1);
+    }
+  }
+
+  return saida;
+}
+
+function expandirItem(item) {
+  if (!item || typeof item !== "object") return [];
+
+  const areaPai = obterArea(item);
+
+  const filhos =
+    item.itens ||
+    item.items ||
+    item.calibres ||
+    item.series ||
+    item.valores ||
+    item.distribuicao ||
+    null;
+
+  if (Array.isArray(filhos) && filhos.length) {
+    return filhos.map((filho) => ({
+      ...filho,
+      area: obterArea(filho) !== "Sem área" ? obterArea(filho) : areaPai,
+      area_nome: obterArea(filho) !== "Sem área" ? obterArea(filho) : areaPai,
+    }));
+  }
+
+  return [item];
+}
+
+function montarDados(listaOriginal, modo) {
+  const lista = Array.isArray(listaOriginal) ? listaOriginal.flatMap(expandirItem) : [];
+
+  const mapaAreas = new Map();
+  const mapaCalibres = new Map();
+
+  for (const item of lista) {
+    const area = obterArea(item);
+    const calibre = obterCalibre(item);
+
+    let quantidade = 0;
+
+    if (modo === "saldo") {
+      quantidade = obterSaldo(item);
+    } else {
+      quantidade = obterTotalClassificado(item);
+    }
+
+    quantidade = Math.max(0, quantidade);
+
+    if (!area || area === "Sem área") continue;
+    if (!calibre || calibre === "Sem calibre") continue;
+
+    if (!mapaAreas.has(area)) {
+      mapaAreas.set(area, {
+        area,
+        total: 0,
+        valores: new Map(),
+      });
+    }
+
+    const linha = mapaAreas.get(area);
+    linha.total += quantidade;
+    linha.valores.set(calibre, (linha.valores.get(calibre) || 0) + quantidade);
+
+    mapaCalibres.set(calibre, (mapaCalibres.get(calibre) || 0) + quantidade);
+  }
+
+  const calibres = Array.from(mapaCalibres.entries()).map(([calibre, total]) => ({
+    calibre,
+    total,
+  }));
+
+  const areas = Array.from(mapaAreas.values()).sort((a, b) => {
+    const na = Number(String(a.area).match(/\d+/)?.[0] || 9999);
+    const nb = Number(String(b.area).match(/\d+/)?.[0] || 9999);
+
+    if (na !== nb) return na - nb;
+    return String(a.area).localeCompare(String(b.area), "pt-BR");
+  });
+
+  return {
+    areas,
+    calibres,
+    totalGeral: areas.reduce((acc, item) => acc + item.total, 0),
+  };
+}
+
+function pontuarLista(candidato, modo) {
+  const caminho = String(candidato.caminho || "").toLowerCase();
+  const lista = Array.isArray(candidato.lista) ? candidato.lista : [];
+
+  if (!lista.length) return -999999;
+
+  const dados = montarDados(lista, modo);
+
+  if (!dados.areas.length || !dados.calibres.length) return -999999;
+
+  let score = 0;
+
+  const temFilhos = lista.some((item) => {
+    if (!item || typeof item !== "object") return false;
+
+    return (
+      Array.isArray(item.itens) ||
+      Array.isArray(item.items) ||
+      Array.isArray(item.calibres) ||
+      Array.isArray(item.series) ||
+      Array.isArray(item.valores) ||
+      Array.isArray(item.distribuicao)
+    );
+  });
+
+  if (temFilhos) score += 90;
+
+  if (caminho.includes("grafico")) score += 50;
+  if (caminho.includes("distribu")) score += 50;
+  if (caminho.includes("quebra")) score += 50;
+  if (caminho.includes("area")) score += 20;
+  if (caminho.includes("calibre")) score += 20;
+
+  if (modo === "saldo" && caminho.includes("saldo")) score += 80;
+  if (modo === "total" && caminho.includes("total")) score += 80;
+  if (modo === "total" && caminho.includes("classificado")) score += 40;
+
+  if (caminho.includes("movimentacao")) score -= 100;
+  if (caminho.includes("diaria")) score -= 100;
+  if (caminho.includes("tabela")) score -= 40;
+  if (caminho.includes("registro")) score -= 40;
+
+  if (lista.length <= 8) score += 25;
+  if (lista.length > 20) score -= 35;
+
+  score += dados.areas.length * 5;
+  score += Math.min(dados.calibres.length, 14);
+
+  return score;
+}
+
+function escolherLista(props, modo) {
+  const candidatos = coletarArrays(props)
+    .map((candidato) => ({
+      ...candidato,
+      score: pontuarLista(candidato, modo),
+    }))
+    .filter((candidato) => candidato.score > -999999)
+    .sort((a, b) => b.score - a.score);
+
+  return candidatos[0]?.lista || [];
+}
+
+function corCelula(percentual, valor) {
+  if (valor <= 0) {
+    return {
+      background: "#F8FAFC",
+      borderColor: "#E2E8F0",
+      color: "#94A3B8",
+    };
+  }
+
+  if (percentual >= 35) {
+    return {
+      background: "linear-gradient(135deg, #A7F3D0, #DCFCE7)",
+      borderColor: "#86EFAC",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 20) {
+    return {
+      background: "linear-gradient(135deg, #BBF7D0, #E5F9CE)",
+      borderColor: "#BBF7D0",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 10) {
+    return {
+      background: "linear-gradient(135deg, #FEF3C7, #FDE68A)",
+      borderColor: "#FDE68A",
+      color: "#0F172A",
+    };
+  }
+
+  if (percentual >= 3) {
+    return {
+      background: "linear-gradient(135deg, #FED7AA, #FDBA74)",
+      borderColor: "#FDBA74",
+      color: "#0F172A",
+    };
+  }
+
+  return {
+    background: "linear-gradient(135deg, #FECACA, #FCA5A5)",
+    borderColor: "#FCA5A5",
+    color: "#0F172A",
+  };
+}
+
+function MatrizAreaCalibre({ dados, modo, titulo, subtitulo }) {
+  if (!dados.areas.length || !dados.calibres.length) return null;
+
+  const gridTemplateColumns =
+    "124px repeat(" + dados.calibres.length + ", minmax(70px, 1fr)) 78px";
+
+  const minWidth = 124 + dados.calibres.length * 70 + 78;
+
+  return (
+    <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.06)]">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[18px] leading-7 tracking-tight text-slate-950">{titulo}</h2>
+            <Info className="h-4 w-4 text-slate-300" />
+          </div>
+
+          <p className="mt-1 text-[12px] leading-5 text-slate-500">{subtitulo}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
+          <span>{modo === "saldo" ? "Menor saldo" : "Menor volume"}</span>
+
+          <div className="flex overflow-hidden rounded-full ring-1 ring-slate-200">
+            <span className="h-4 w-8 bg-[#FCA5A5]" />
+            <span className="h-4 w-8 bg-[#FDBA74]" />
+            <span className="h-4 w-8 bg-[#FDE68A]" />
+            <span className="h-4 w-8 bg-[#BBF7D0]" />
+            <span className="h-4 w-8 bg-[#86EFAC]" />
+          </div>
+
+          <span>{modo === "saldo" ? "Maior saldo" : "Maior volume"}</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-2">
+        <div style={{ minWidth }}>
+          <div
+            className="grid items-center gap-2 border-b border-slate-100 pb-2"
+            style={{ gridTemplateColumns }}
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Área / Pivô
+            </div>
+
+            {dados.calibres.map((calibre) => (
+              <div
+                key={calibre.calibre}
+                className="flex min-h-[34px] items-end justify-center break-words text-center text-[10.5px] font-semibold uppercase leading-[1.15] text-slate-950"
+              >
+                {calibre.calibre}
+              </div>
+            ))}
+
+            <div className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Total
+            </div>
+          </div>
+
+          <div className="mt-2 space-y-2">
+            {dados.areas.map((area) => (
+              <div
+                key={area.area}
+                className="grid items-center gap-2"
+                style={{ gridTemplateColumns }}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                  </div>
+
+                  <p className="truncate text-[13px] font-semibold text-slate-950">
+                    {area.area}
+                  </p>
+                </div>
+
+                {dados.calibres.map((calibre) => {
+                  const valor = area.valores.get(calibre.calibre) || 0;
+                  const percentual = area.total > 0 ? (valor / area.total) * 100 : 0;
+                  const cor = corCelula(percentual, valor);
+
+                  return (
+                    <div
+                      key={area.area + "-" + calibre.calibre}
+                      className="flex h-[58px] flex-col items-center justify-center rounded-lg border px-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      style={{
+                        background: cor.background,
+                        borderColor: cor.borderColor,
+                        color: cor.color,
+                      }}
+                      title={
+                        area.area +
+                        " · " +
+                        calibre.calibre +
+                        " · " +
+                        formatarNumero(valor) +
+                        " caixas · " +
+                        formatarPercentual(percentual)
+                      }
+                    >
+                      {valor > 0 ? (
+                        <>
+                          <span className="block max-w-full truncate text-[12.5px] font-bold leading-4">
+                            {formatarNumero(valor)}
+                          </span>
+                          <span className="mt-0.5 block text-[10.5px] font-semibold leading-3">
+                            {formatarPercentual(percentual)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block text-[13px] font-semibold leading-4 text-slate-400">-</span>
+                          <span className="mt-0.5 block text-[10px] leading-3 text-slate-400">0%</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="flex h-[58px] flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 px-1.5 text-center">
+                  <span className="text-[13px] font-bold leading-4 text-slate-950">
+                    {formatarNumero(area.total)}
+                  </span>
+                  <span className="mt-0.5 text-[10.5px] font-semibold leading-3 text-emerald-700">
+                    100%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-[11.5px] leading-5 text-slate-500">
+        Valores em caixas e percentuais calculados sobre o total da linha.
+      </p>
+    </section>
+  );
+}
+
+export function AlhoClassificadoQuebraAreaCalibre(props) {
+  const listaSaldo = escolherLista(props, "saldo");
+  const listaTotal = escolherLista(props, "total");
+
+  const dadosSaldo = useMemo(() => montarDados(listaSaldo, "saldo"), [listaSaldo]);
+  const dadosTotal = useMemo(() => montarDados(listaTotal, "total"), [listaTotal]);
+
+  return (
+    <div className="space-y-4">
+      <MatrizAreaCalibre
+        dados={dadosSaldo}
+        modo="saldo"
+        titulo="Saldo disponível por Área / Pivô"
+        subtitulo="Distribuição do saldo por calibre dentro de cada área."
+      />
+
+      <MatrizAreaCalibre
+        dados={dadosTotal}
+        modo="total"
+        titulo="Total classificado por Área / Pivô"
+        subtitulo="Distribuição do total classificado por calibre dentro de cada área."
+      />
+    </div>
+  );
+}
+
+export default AlhoClassificadoQuebraAreaCalibre;
+
+
+PÁGINA ATUAL COMPLETA — AlhoClassificado.jsx
+------------------------------------------------------------
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BarChart3,
+  Boxes,
+  CalendarDays,
+  Edit3,
+  MapPin,
+  PackageCheck,
+  Plus,
+  RefreshCw,
+  Scale,
+  Trash2,
+  TrendingUp,
+  Warehouse,
+  X,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+cadastrarAlhoClassificado,
+  cadastrarSaidaAlhoClassificado,
+  calcularResumoAlhoClassificado,
+  calcularTotalCaixas,
+  editarAlhoClassificado,
+  editarSaidaAlhoClassificado,
+  excluirAlhoClassificado,
+  excluirSaidaAlhoClassificado,
+  listarAlhoClassificado,
+  listarEstoqueAlhoClassificadoAtual,
+  listarOpcoesAlhoClassificado,
+  listarSaidasAlhoClassificado,
+} from "../../services/alhoClassificadoService";
+import AlhoClassificadoQuebraAreaCalibre from "../../components/bi/AlhoClassificadoQuebraAreaCalibre";
+const REGISTROS_POR_PAGINA = 10;
+const LIMITE_PONTOS_GRAFICO = 15;
+
+const estadoInicialFiltros = {
+  dataInicial: "",
+  dataFinal: "",
+  fazendaId: "",
+  areaId: "",
+  calibreId: "",
+  status: "",
+  responsavelId: "",
+};
+
+function dataHoje() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function horaAgora() {
+  return new Date().toTimeString().slice(0, 5);
+}
+
+function estadoInicialEntrada() {
+  return {
+    data_classificacao: dataHoje(),
+    hora: horaAgora(),
+    fazenda_id: "",
+    area_fazenda_id: "",
+    lote: "",
+    calibre_id: "",
+    quantidade_paletes: "",
+    caixas_por_palete: "",
+    permitir_edicao_total_caixas: false,
+    total_caixas_manual: "",
+    conferido: true,
+    responsavel_id: "",
+    observacao: "",
+  };
+}
+
+function estadoInicialSaida() {
+  return {
+    data_saida: dataHoje(),
+    hora: horaAgora(),
+    area_fazenda_id: "",
+    calibre_id: "",
+    quantidade_caixas: "",
+    responsavel_id: "",
+    observacao: "",
+  };
+}
+
+function numero(valor) {
+  const convertido = Number(valor);
+
+  if (!Number.isFinite(convertido)) {
+    return 0;
+  }
+
+  return convertido;
+}
+
+function formatarNumero(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR");
+}
+
+function formatarNumeroCompacto(valor) {
+  const numeroTratado = numero(valor);
+
+  if (Math.abs(numeroTratado) >= 1000) {
+    return `${(numeroTratado / 1000).toLocaleString("pt-BR", {
+      maximumFractionDigits: 1,
+    })}k`;
+  }
+
+  return numeroTratado.toLocaleString("pt-BR");
+}
+
+function formatarData(data) {
+  if (!data) return "-";
+
+  const [ano, mes, dia] = String(data).split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function formatarDataCurta(data) {
+  if (!data) return "-";
+
+  const [, mes, dia] = String(data).split("-");
+  return `${dia}/${mes}`;
+}
+
+function classeBadgeStatus(status) {
+  if (status === "sem_saldo") {
+    return "bg-red-50 text-red-700 border-red-200";
+  }
+
+  if (status === "pendente") {
+    return "bg-amber-50 text-amber-700 border-amber-200";
+  }
+
+  return "bg-emerald-50 text-emerald-700 border-emerald-200";
+}
+
+function obterSaldoClassificado(item) {
+  const saldoInformado =
+    item?.saldo_classificado_caixas ??
+    item?.saldo_disponivel_caixas ??
+    item?.saldo_caixas;
+
+  if (
+    saldoInformado !== null &&
+    saldoInformado !== undefined &&
+    saldoInformado !== ""
+  ) {
+    return Math.max(numero(saldoInformado), 0);
+  }
+
+  const entradas = numero(
+    item?.entrada_classificado_caixas ||
+      item?.classificado_caixas ||
+      item?.entradas ||
+      item?.total_entradas
+  );
+
+  const saidas = numero(
+    item?.saida_classificado_caixas ||
+      item?.saidas_classificado_caixas ||
+      item?.saidas ||
+      item?.total_saidas
+  );
+
+  return Math.max(entradas - saidas, 0);
+}
+
+function obterEntradaClassificada(item) {
+  return numero(item?.entrada_classificado_caixas || item?.classificado_caixas);
+}
+
+function obterSaidaClassificada(item) {
+  return numero(item?.saida_classificado_caixas || item?.saidas_classificado_caixas);
+}
+
+function normalizarTextoOrdenacao(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obterValorOrdenacaoEntrada(registro, campo) {
+  if (campo === "data") return registro.data_classificacao || "";
+  if (campo === "fazenda") return normalizarTextoOrdenacao(registro.fazenda_nome);
+  if (campo === "area") return normalizarTextoOrdenacao(registro.area_nome);
+  if (campo === "lote") return normalizarTextoOrdenacao(registro.lote);
+  if (campo === "calibre") {
+    return `${String(numero(registro.calibre_ordem)).padStart(6, "0")}-${
+      registro.calibre_codigo || ""
+    }`;
+  }
+  if (campo === "paletes") return numero(registro.quantidade_paletes);
+  if (campo === "caixas") return numero(registro.total_caixas_calculado);
+  if (campo === "responsavel") return normalizarTextoOrdenacao(registro.responsavel_nome);
+  if (campo === "status") return normalizarTextoOrdenacao(registro.status_texto);
+
+  return "";
+}
+
+function obterValorOrdenacaoSaida(registro, campo) {
+  if (campo === "data") return registro.data_saida || "";
+  if (campo === "area") return normalizarTextoOrdenacao(registro.area_nome);
+  if (campo === "calibre") {
+    return `${String(numero(registro.calibre_ordem)).padStart(6, "0")}-${
+      registro.calibre_codigo || ""
+    }`;
+  }
+  if (campo === "caixas") return numero(registro.quantidade_caixas);
+  if (campo === "responsavel") return normalizarTextoOrdenacao(registro.responsavel_nome);
+  if (campo === "observacao") return normalizarTextoOrdenacao(registro.observacao);
+
+  return "";
+}
+
+function obterValorOrdenacaoEstoque(registro, campo) {
+  if (campo === "area") return normalizarTextoOrdenacao(registro.area_nome);
+  if (campo === "calibre") {
+    return `${String(numero(registro.calibre_ordem)).padStart(6, "0")}-${
+      registro.calibre_codigo || ""
+    }`;
+  }
+  if (campo === "entradas") return obterEntradaClassificada(registro);
+  if (campo === "saidas") return obterSaidaClassificada(registro);
+  if (campo === "saldo") return obterSaldoClassificado(registro);
+  if (campo === "status") return normalizarTextoOrdenacao(registro.status_classificado);
+
+  return "";
+}
+
+function ordenarRegistros(lista, ordenacao, tipo) {
+  const obterValor = {
+    entrada: obterValorOrdenacaoEntrada,
+    saida: obterValorOrdenacaoSaida,
+    estoque: obterValorOrdenacaoEstoque,
+  }[tipo];
+
+  return [...lista].sort((a, b) => {
+    const valorA = obterValor(a, ordenacao.campo);
+    const valorB = obterValor(b, ordenacao.campo);
+
+    if (typeof valorA === "number" && typeof valorB === "number") {
+      return ordenacao.direcao === "asc" ? valorA - valorB : valorB - valorA;
+    }
+
+    const comparacao = String(valorA).localeCompare(String(valorB), "pt-BR", {
+      numeric: true,
+    });
+
+    return ordenacao.direcao === "asc" ? comparacao : comparacao * -1;
+  });
+}
+
+function calcularTotalPaginas(totalRegistros) {
+  return Math.max(Math.ceil(totalRegistros / REGISTROS_POR_PAGINA), 1);
+}
+
+function paginarRegistros(lista, paginaAtual) {
+  const inicio = (paginaAtual - 1) * REGISTROS_POR_PAGINA;
+  const fim = inicio + REGISTROS_POR_PAGINA;
+
+  return lista.slice(inicio, fim);
+}
+
+function BotaoOrdenacao({ children, campo, ordenacao, onClick, align = "left" }) {
+  const ativo = ordenacao.campo === campo;
+  const icone = ativo ? (ordenacao.direcao === "asc" ? "↑" : "↓") : "↕";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(campo)}
+      className={`inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide transition hover:text-emerald-700 ${
+        align === "right" ? "ml-auto justify-end text-right" : "justify-start text-left"
+      } ${ativo ? "text-emerald-700" : "text-slate-500"}`}
+    >
+      <span>{children}</span>
+      <span className="text-[10px]">{icone}</span>
+    </button>
+  );
+}
+
+function Paginacao({ paginaAtual, totalPaginas, totalRegistros, onChange }) {
+  return (
+    <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 text-xs md:flex-row md:items-center md:justify-between">
+      <p className="text-slate-500">
+        {REGISTROS_POR_PAGINA} registros por página • {formatarNumero(totalRegistros)}{" "}
+        registro(s)
+      </p>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={paginaAtual <= 1}
+          onClick={() => onChange(paginaAtual - 1)}
+          className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ‹
+        </button>
+
+        <span className="rounded-lg bg-emerald-700 px-3 py-2 font-medium text-white">
+          {paginaAtual}
+        </span>
+
+        <span className="text-slate-400">de {totalPaginas}</span>
+
+        <button
+          type="button"
+          disabled={paginaAtual >= totalPaginas}
+          onClick={() => onChange(paginaAtual + 1)}
+          className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyChart({ texto = "Sem dados para exibir." }) {
+  return (
+    <div className="flex h-full min-h-[230px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+      {texto}
+    </div>
+  );
+}
+
+
+function GraficoMovimentoDiario({ dados }) {
+  const serie = Array.isArray(dados)
+    ? dados.filter((item) => numero(item?.entradas) || numero(item?.saidas))
+    : [];
+
+  if (!serie.length) {
+    return (
+      <div className="flex h-[390px] items-center justify-center rounded-3xl bg-slate-50 text-sm text-slate-400">
+        Nenhuma movimentação encontrada no período.
+      </div>
+    );
+  }
+
+  function valor(valorRecebido) {
+    const convertido = Number(valorRecebido || 0);
+    return Number.isFinite(convertido) ? convertido : 0;
+  }
+
+  function formatarValor(valorRecebido) {
+    return Number(valorRecebido || 0).toLocaleString("pt-BR", {
+      maximumFractionDigits: 0,
+    });
+  }
+
+  function rotuloData(item) {
+    const bruto = String(item?.label || item?.data || item?.dia || item?.data_classificacao || item?.data_saida || "");
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(bruto)) {
+      const [, mes, dia] = bruto.slice(0, 10).split("-");
+      return dia + "/" + mes;
+    }
+
+    if (/^\d{2}\/\d{2}/.test(bruto)) return bruto.slice(0, 5);
+
+    return bruto;
+  }
+
+  const largura = 1120;
+  const altura = 430;
+  const esquerda = 78;
+  const direita = 50;
+  const topo = 50;
+  const baixo = 78;
+  const areaLargura = largura - esquerda - direita;
+  const areaAltura = altura - topo - baixo;
+  const baseY = topo + areaAltura;
+
+  const maiorValor = Math.max(1, ...serie.flatMap((item) => [valor(item.entradas), valor(item.saidas)]));
+  const teto = Math.max(100, Math.ceil(maiorValor / 500) * 500);
+
+  function obterX(indice) {
+    if (serie.length === 1) return esquerda + areaLargura / 2;
+    return esquerda + (indice / (serie.length - 1)) * areaLargura;
+  }
+
+  function obterY(v) {
+    return topo + areaAltura - (valor(v) / teto) * areaAltura;
+  }
+
+  const pontosEntrada = serie.map((item, indice) => ({
+    x: obterX(indice),
+    y: obterY(item.entradas),
+    valor: valor(item.entradas),
+    item,
+    indice,
+  }));
+
+  const pontosSaida = serie.map((item, indice) => ({
+    x: obterX(indice),
+    y: obterY(item.saidas),
+    valor: valor(item.saidas),
+    item,
+    indice,
+  }));
+
+  function criarPathSuave(pontos) {
+    if (!pontos.length) return "";
+    if (pontos.length === 1) return "M " + pontos[0].x + " " + pontos[0].y;
+
+    let d = "M " + pontos[0].x + " " + pontos[0].y;
+
+    for (let i = 0; i < pontos.length - 1; i += 1) {
+      const p0 = pontos[i - 1] || pontos[i];
+      const p1 = pontos[i];
+      const p2 = pontos[i + 1];
+      const p3 = pontos[i + 2] || p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) / 5.8;
+      const cp1y = p1.y + (p2.y - p0.y) / 5.8;
+      const cp2x = p2.x - (p3.x - p1.x) / 5.8;
+      const cp2y = p2.y - (p3.y - p1.y) / 5.8;
+
+      d += " C " + cp1x + " " + cp1y + ", " + cp2x + " " + cp2y + ", " + p2.x + " " + p2.y;
+    }
+
+    return d;
+  }
+
+  function criarArea(pontos) {
+    if (!pontos.length) return "";
+
+    const linha = criarPathSuave(pontos);
+    const primeiro = pontos[0];
+    const ultimo = pontos[pontos.length - 1];
+
+    return linha + " L " + ultimo.x + " " + baseY + " L " + primeiro.x + " " + baseY + " Z";
+  }
+
+  function LabelValor({ ponto, cor, acima }) {
+    const texto = formatarValor(ponto.valor);
+    const larguraLabel = Math.max(42, texto.length * 7.8 + 18);
+    const x = ponto.x - larguraLabel / 2;
+    const y = acima ? Math.max(10, ponto.y - 31) : Math.min(altura - 103, ponto.y + 13);
+
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={larguraLabel}
+          height="23"
+          rx="11.5"
+          fill="#ffffff"
+          stroke="#E2E8F0"
+          opacity="0.98"
+          filter="url(#sombraLabelGraficoClassificado)"
+        />
+        <text
+          x={ponto.x}
+          y={y + 15.5}
+          textAnchor="middle"
+          fontSize="12"
+          fontWeight="700"
+          fill={cor}
+        >
+          {texto}
+        </text>
+      </g>
+    );
+  }
+
+  const passoData = Math.max(1, Math.ceil(serie.length / 9));
+
+  return (
+    <div className="relative overflow-hidden rounded-[30px] border border-slate-100 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(248,250,252,0.88),rgba(255,255,255,0.4)_42%,rgba(255,255,255,1)),radial-gradient(circle_at_28%_18%,rgba(16,185,129,0.10),transparent_38%)]" />
+
+      <svg viewBox={"0 0 " + largura + " " + altura} className="relative h-[400px] w-full">
+        <defs>
+          <linearGradient id="areaEntradaClassificadoFinal" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#10B981" stopOpacity="0.24" />
+            <stop offset="62%" stopColor="#10B981" stopOpacity="0.075" />
+            <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+          </linearGradient>
+
+          <linearGradient id="areaSaidaClassificadoFinal" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#EF4444" stopOpacity="0.10" />
+            <stop offset="65%" stopColor="#EF4444" stopOpacity="0.025" />
+            <stop offset="100%" stopColor="#EF4444" stopOpacity="0" />
+          </linearGradient>
+
+          <filter id="sombraLinhaGraficoClassificado" x="-12%" y="-12%" width="124%" height="130%">
+            <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.12" />
+          </filter>
+
+          <filter id="sombraPontoGraficoClassificado" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="6" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.15" />
+          </filter>
+
+          <filter id="sombraLabelGraficoClassificado" x="-30%" y="-60%" width="160%" height="220%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" floodColor="#0f172a" floodOpacity="0.10" />
+          </filter>
+        </defs>
+
+        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+          const y = topo + areaAltura - areaAltura * tick;
+
+          return (
+            <g key={tick}>
+              <line
+                x1={esquerda}
+                x2={largura - direita}
+                y1={y}
+                y2={y}
+                stroke="#E2E8F0"
+                strokeWidth="1"
+                strokeDasharray="7 10"
+                opacity="0.72"
+              />
+              <text x={esquerda - 18} y={y + 5} textAnchor="end" fontSize="12.5" fill="#94A3B8">
+                {formatarValor(teto * tick)}
+              </text>
+            </g>
+          );
+        })}
+
+        <path d={criarArea(pontosSaida)} fill="url(#areaSaidaClassificadoFinal)" />
+        <path d={criarArea(pontosEntrada)} fill="url(#areaEntradaClassificadoFinal)" />
+
+        <path
+          d={criarPathSuave(pontosEntrada)}
+          fill="none"
+          stroke="#047857"
+          strokeWidth="4.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#sombraLinhaGraficoClassificado)"
+        />
+
+        <path
+          d={criarPathSuave(pontosSaida)}
+          fill="none"
+          stroke="#DC2626"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#sombraLinhaGraficoClassificado)"
+        />
+
+        {pontosEntrada.map((ponto) => (
+          <g key={"entrada-" + ponto.indice}>
+            <circle cx={ponto.x} cy={ponto.y} r="8" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+            <circle cx={ponto.x} cy={ponto.y} r="5.2" fill="#047857" stroke="#ffffff" strokeWidth="1.4" />
+            <LabelValor ponto={ponto} cor="#0F172A" acima />
+          </g>
+        ))}
+
+        {pontosSaida.map((ponto) => (
+          <g key={"saida-" + ponto.indice}>
+            <circle cx={ponto.x} cy={ponto.y} r="7.2" fill="#ffffff" filter="url(#sombraPontoGraficoClassificado)" />
+            <circle cx={ponto.x} cy={ponto.y} r="4.8" fill="#DC2626" stroke="#ffffff" strokeWidth="1.3" />
+            <LabelValor ponto={ponto} cor="#DC2626" />
+          </g>
+        ))}
+
+        {serie.map((item, indice) => {
+          if (indice !== 0 && indice !== serie.length - 1 && indice % passoData !== 0) return null;
+
+          return (
+            <text
+              key={"data-" + indice}
+              x={obterX(indice)}
+              y={altura - 42}
+              textAnchor="middle"
+              fontSize="12.5"
+              fontWeight="600"
+              fill="#64748B"
+            >
+              {rotuloData(item)}
+            </text>
+          );
+        })}
+
+        <g transform={"translate(" + (largura / 2 - 98) + " " + (altura - 14) + ")"}>
+          <rect x="-22" y="-24" width="240" height="42" rx="21" fill="#ffffff" stroke="#E2E8F0" filter="url(#sombraLabelGraficoClassificado)" />
+          <circle cx="0" cy="-3" r="5" fill="#047857" />
+          <text x="15" y="2" fontSize="13" fontWeight="600" fill="#047857">Entradas</text>
+          <circle cx="110" cy="-3" r="5" fill="#DC2626" />
+          <text x="125" y="2" fontSize="13" fontWeight="600" fill="#DC2626">Saídas</text>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function GraficoBarrasHorizontais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+  if (!dados.length) {
+    return <EmptyChart />;
+  }
+
+  const maiorValor = Math.max(1, ...dados.map((item) => numero(item[dataKey])));
+
+  return (
+    <div className="space-y-5 py-2">
+      {dados.map((item) => {
+        const valor = numero(item[dataKey]);
+        const larguraBarra = Math.max((valor / maiorValor) * 100, 2);
+
+        return (
+          <div key={item.nome} className="grid grid-cols-[92px_1fr_92px] items-center gap-3">
+            <span className="truncate text-sm font-medium text-slate-700">{item.nome}</span>
+
+            <div className="h-5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-700"
+                style={{ width: `${larguraBarra}%` }}
+              />
+            </div>
+
+            <span className="text-right text-sm font-semibold text-slate-950">
+              {formatarNumero(valor)} {sufixo}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GraficoBarrasVerticais({ dados = [], dataKey = "saldo", sufixo = "caixas" }) {
+  if (!dados.length) {
+    return <EmptyChart />;
+  }
+
+  const maiorValor = Math.max(1, ...dados.map((item) => numero(item[dataKey])));
+
+  return (
+    <div className="flex h-[280px] items-end gap-4 overflow-x-auto px-2 pb-2 pt-8">
+      {dados.map((item) => {
+        const valor = numero(item[dataKey]);
+        const alturaBarra = Math.max((valor / maiorValor) * 210, 18);
+
+        return (
+          <div key={item.nome} className="flex min-w-[72px] flex-1 flex-col items-center justify-end gap-2">
+            <span className="text-sm font-semibold text-slate-950">
+              {formatarNumero(valor)}
+            </span>
+
+            <div
+              className="w-full max-w-[54px] rounded-t-2xl bg-emerald-700"
+              style={{ height: `${alturaBarra}px` }}
+            />
+
+            <span className="text-center text-sm font-medium text-slate-600">
+              {item.nome}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TooltipGrafico({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="mb-1 font-medium text-slate-900">{label}</p>
+      <div className="space-y-1">
+        {payload.map((item) => (
+          <p key={item.dataKey} className="flex items-center gap-2 text-slate-600">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <span>{item.name}:</span>
+            <span className="font-medium text-slate-900">
+              {formatarNumero(item.value)}
+            </span>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ titulo, valor, subtitulo, icon: Icon, tone = "green" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-red-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+  };
+
+  return (
+    <div className="flex min-h-[92px] items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.green
+        }`}
+      >
+        <Icon size={24} strokeWidth={2} />
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-500">{titulo}</p>
+        <strong className="mt-1 block text-2xl font-semibold tracking-tight text-slate-950">
+          {valor}
+        </strong>
+        <p className="mt-1 text-xs text-slate-500">{subtitulo}</p>
+      </div>
+    </div>
+  );
+}
+
+function DestaqueItem({ icon: Icon, rotulo, valor, detalhe, tone = "green" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-red-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+    amber: "bg-amber-50 text-amber-700",
+  };
+
+  return (
+    <div className="flex items-start gap-4">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.green
+        }`}
+      >
+        <Icon size={22} strokeWidth={2} />
+      </div>
+
+      <div>
+        <p className="text-xs font-medium text-slate-500">{rotulo}</p>
+        <strong className="mt-1 block text-xl font-semibold text-slate-950">{valor}</strong>
+        <p className="mt-1 text-xs text-slate-500">{detalhe}</p>
+      </div>
+    </div>
+  );
+}
+
+function MiniIndicador({ icon: Icon, valor, texto, tone = "blue" }) {
+  const estilos = {
+    green: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
+  };
+
+  return (
+    <div className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          estilos[tone] || estilos.blue
+        }`}
+      >
+        <Icon size={22} strokeWidth={2} />
+      </div>
+
+      <div>
+        <strong className="block text-2xl font-semibold text-slate-950">{valor}</strong>
+        <p className="mt-1 text-xs text-slate-500">{texto}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({ titulo, children, className = "" }) {
+  return (
+    <section className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 ${className}`}>
+      <h2 className="text-base font-semibold text-slate-950">{titulo}</h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+export default function AlhoClassificado() {
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
+
+  const [entradas, setEntradas] = useState([]);
+  const [saidas, setSaidas] = useState([]);
+  const [estoqueClassificado, setEstoqueClassificado] = useState([]);
+
+  const [fazendas, setFazendas] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [calibres, setCalibres] = useState([]);
+  const [responsaveis, setResponsaveis] = useState([]);
+
+  const [filtros, setFiltros] = useState(estadoInicialFiltros);
+
+  const [paginaEstoque, setPaginaEstoque] = useState(1);
+  const [paginaEntradas, setPaginaEntradas] = useState(1);
+  const [paginaSaidas, setPaginaSaidas] = useState(1);
+
+  const [ordenacaoEstoque, setOrdenacaoEstoque] = useState({
+    campo: "saldo",
+    direcao: "desc",
+  });
+
+  const [ordenacaoEntradas, setOrdenacaoEntradas] = useState({
+    campo: "data",
+    direcao: "desc",
+  });
+
+  const [ordenacaoSaidas, setOrdenacaoSaidas] = useState({
+    campo: "data",
+    direcao: "desc",
+  });
+
+  const [modalAberto, setModalAberto] = useState(false);
+  const [modalTipo, setModalTipo] = useState("entrada");
+  const [registroEditando, setRegistroEditando] = useState(null);
+
+  const [formularioEntrada, setFormularioEntrada] = useState(estadoInicialEntrada());
+  const [formularioSaida, setFormularioSaida] = useState(estadoInicialSaida());
+
+  const resumo = useMemo(
+    () => calcularResumoAlhoClassificado(entradas, saidas),
+    [entradas, saidas]
+  );
+
+  const estoqueOrdenado = useMemo(() => {
+    return ordenarRegistros(estoqueClassificado, ordenacaoEstoque, "estoque");
+  }, [estoqueClassificado, ordenacaoEstoque]);
+
+  const entradasOrdenadas = useMemo(() => {
+    return ordenarRegistros(entradas, ordenacaoEntradas, "entrada");
+  }, [entradas, ordenacaoEntradas]);
+
+  const saidasOrdenadas = useMemo(() => {
+    return ordenarRegistros(saidas, ordenacaoSaidas, "saida");
+  }, [saidas, ordenacaoSaidas]);
+
+  const totalPaginasEstoque = useMemo(() => {
+    return calcularTotalPaginas(estoqueOrdenado.length);
+  }, [estoqueOrdenado.length]);
+
+  const totalPaginasEntradas = useMemo(() => {
+    return calcularTotalPaginas(entradasOrdenadas.length);
+  }, [entradasOrdenadas.length]);
+
+  const totalPaginasSaidas = useMemo(() => {
+    return calcularTotalPaginas(saidasOrdenadas.length);
+  }, [saidasOrdenadas.length]);
+
+  const estoquePaginado = useMemo(() => {
+    return paginarRegistros(estoqueOrdenado, paginaEstoque);
+  }, [estoqueOrdenado, paginaEstoque]);
+
+  const entradasPaginadas = useMemo(() => {
+    return paginarRegistros(entradasOrdenadas, paginaEntradas);
+  }, [entradasOrdenadas, paginaEntradas]);
+
+  const saidasPaginadas = useMemo(() => {
+    return paginarRegistros(saidasOrdenadas, paginaSaidas);
+  }, [saidasOrdenadas, paginaSaidas]);
+
+  const areasAtivas = useMemo(() => {
+    return areas.filter((area) => area.ativo !== false);
+  }, [areas]);
+
+  const areasEntradaFormulario = useMemo(() => {
+    if (!formularioEntrada.fazenda_id) {
+      return areasAtivas;
+    }
+
+    const areasDaFazenda = areasAtivas.filter((area) => {
+      return area.fazenda_id === formularioEntrada.fazenda_id;
+    });
+
+    if (areasDaFazenda.length > 0) {
+      return areasDaFazenda;
+    }
+
+    return areasAtivas;
+  }, [areasAtivas, formularioEntrada.fazenda_id]);
+
+  const areasDosFiltros = useMemo(() => {
+    if (!filtros.fazendaId) {
+      return areasAtivas;
+    }
+
+    const areasDaFazenda = areasAtivas.filter((area) => {
+      return area.fazenda_id === filtros.fazendaId;
+    });
+
+    if (areasDaFazenda.length > 0) {
+      return areasDaFazenda;
+    }
+
+    return areasAtivas;
+  }, [areasAtivas, filtros.fazendaId]);
+
+  const totalFormularioEntrada = useMemo(() => {
+    return calcularTotalCaixas(formularioEntrada);
+  }, [formularioEntrada]);
+
+  const estoqueComSaldo = useMemo(() => {
+    return estoqueClassificado.filter((item) => obterSaldoClassificado(item) > 0);
+  }, [estoqueClassificado]);
+
+  const areasSaidaFormulario = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueComSaldo.forEach((item) => {
+      const areaId = item.area_id || item.area_fazenda_id;
+
+      if (!areaId) return;
+
+      if (!mapa.has(areaId)) {
+        mapa.set(areaId, {
+          id: areaId,
+          nome: item.area_nome || "Área sem nome",
+          saldo: 0,
+        });
+      }
+
+      const atual = mapa.get(areaId);
+      atual.saldo += obterSaldoClassificado(item);
+
+      mapa.set(areaId, atual);
+    });
+
+    if (modalTipo === "saida" && registroEditando) {
+      const areaId = registroEditando.area_fazenda_id || registroEditando.area_id;
+
+      if (areaId && !mapa.has(areaId)) {
+        mapa.set(areaId, {
+          id: areaId,
+          nome: registroEditando.area_nome || "Área sem nome",
+          saldo: numero(registroEditando.quantidade_caixas),
+        });
+      }
+    }
+
+    return Array.from(mapa.values()).sort((a, b) =>
+      String(a.nome).localeCompare(String(b.nome), "pt-BR")
+    );
+  }, [estoqueComSaldo, modalTipo, registroEditando]);
+
+  const calibresSaidaFormulario = useMemo(() => {
+    if (!formularioSaida.area_fazenda_id) {
+      return [];
+    }
+
+    const lista = estoqueComSaldo.filter((item) => {
+      const areaId = item.area_id || item.area_fazenda_id;
+      return areaId === formularioSaida.area_fazenda_id;
+    });
+
+    const jaExiste = lista.some((item) => item.calibre_id === formularioSaida.calibre_id);
+
+    if (
+      modalTipo === "saida" &&
+      registroEditando &&
+      formularioSaida.calibre_id &&
+      !jaExiste
+    ) {
+      lista.push({
+        area_id: formularioSaida.area_fazenda_id,
+        area_fazenda_id: formularioSaida.area_fazenda_id,
+        calibre_id: formularioSaida.calibre_id,
+        calibre_codigo: registroEditando.calibre_codigo || "-",
+        calibre_nome: registroEditando.calibre_nome || "-",
+        calibre_ordem: registroEditando.calibre_ordem || 0,
+        saldo_classificado_caixas: numero(registroEditando.quantidade_caixas),
+      });
+    }
+
+    return lista.sort((a, b) => {
+      const ordemA = numero(a.calibre_ordem);
+      const ordemB = numero(b.calibre_ordem);
+
+      if (ordemA !== ordemB) {
+        return ordemA - ordemB;
+      }
+
+      return String(a.calibre_codigo || "").localeCompare(
+        String(b.calibre_codigo || ""),
+        "pt-BR"
+      );
+    });
+  }, [
+    estoqueComSaldo,
+    formularioSaida.area_fazenda_id,
+    formularioSaida.calibre_id,
+    modalTipo,
+    registroEditando,
+  ]);
+
+  const estoqueSaidaSelecionado = useMemo(() => {
+    if (!formularioSaida.area_fazenda_id || !formularioSaida.calibre_id) {
+      return null;
+    }
+
+    return (
+      estoqueClassificado.find((item) => {
+        const areaId = item.area_id || item.area_fazenda_id;
+        return (
+          areaId === formularioSaida.area_fazenda_id &&
+          item.calibre_id === formularioSaida.calibre_id
+        );
+      }) || null
+    );
+  }, [estoqueClassificado, formularioSaida.area_fazenda_id, formularioSaida.calibre_id]);
+
+  const devolucaoSaidaEdicao = useMemo(() => {
+    if (modalTipo !== "saida" || !registroEditando) {
+      return 0;
+    }
+
+    const mesmaArea =
+      (registroEditando.area_fazenda_id || registroEditando.area_id) ===
+      formularioSaida.area_fazenda_id;
+
+    const mesmoCalibre = registroEditando.calibre_id === formularioSaida.calibre_id;
+
+    if (!mesmaArea || !mesmoCalibre) {
+      return 0;
+    }
+
+    return numero(registroEditando.quantidade_caixas);
+  }, [
+    modalTipo,
+    registroEditando,
+    formularioSaida.area_fazenda_id,
+    formularioSaida.calibre_id,
+  ]);
+
+  const saldoSaidaSelecionado = useMemo(() => {
+    return obterSaldoClassificado(estoqueSaidaSelecionado) + devolucaoSaidaEdicao;
+  }, [estoqueSaidaSelecionado, devolucaoSaidaEdicao]);
+
+  const quantidadeSaidaDigitada = useMemo(() => {
+    return numero(formularioSaida.quantidade_caixas);
+  }, [formularioSaida.quantidade_caixas]);
+
+  const mensagemSaldoSaida = useMemo(() => {
+    if (!formularioSaida.area_fazenda_id || !formularioSaida.calibre_id) {
+      return {
+        tipo: "neutro",
+        texto: "Selecione uma Área/Pivô e um calibre para ver o saldo disponível.",
+      };
+    }
+
+    if (saldoSaidaSelecionado <= 0) {
+      return {
+        tipo: "erro",
+        texto: "Não existe saldo disponível para esta Área/Pivô e este calibre.",
+      };
+    }
+
+    if (quantidadeSaidaDigitada > saldoSaidaSelecionado) {
+      return {
+        tipo: "erro",
+        texto: `Quantidade maior que o saldo disponível. Disponível: ${formatarNumero(
+          saldoSaidaSelecionado
+        )} caixas.`,
+      };
+    }
+
+    return {
+      tipo: "ok",
+      texto: `Saldo disponível no Alho Classificado: ${formatarNumero(
+        saldoSaidaSelecionado
+      )} caixas.`,
+    };
+  }, [
+    formularioSaida.area_fazenda_id,
+    formularioSaida.calibre_id,
+    saldoSaidaSelecionado,
+    quantidadeSaidaDigitada,
+  ]);
+
+  const formularioSaidaPodeSalvar = useMemo(() => {
+    if (salvando) return false;
+    if (!formularioSaida.data_saida) return false;
+    if (!formularioSaida.hora) return false;
+    if (!formularioSaida.area_fazenda_id) return false;
+    if (!formularioSaida.calibre_id) return false;
+    if (!formularioSaida.responsavel_id) return false;
+    if (quantidadeSaidaDigitada <= 0) return false;
+    if (quantidadeSaidaDigitada > saldoSaidaSelecionado) return false;
+
+    return true;
+  }, [salvando, formularioSaida, quantidadeSaidaDigitada, saldoSaidaSelecionado]);
+
+  const movimentoDiarioCompleto = useMemo(() => {
+    const mapa = new Map();
+
+    entradas.forEach((item) => {
+      const data = item.data_classificacao;
+      if (!data) return;
+
+      if (!mapa.has(data)) {
+        mapa.set(data, {
+          data,
+          label: formatarDataCurta(data),
+          entradas: 0,
+          saidas: 0,
+        });
+      }
+
+      const atual = mapa.get(data);
+      atual.entradas += calcularTotalCaixas(item);
+      mapa.set(data, atual);
+    });
+
+    saidas.forEach((item) => {
+      const data = item.data_saida;
+      if (!data) return;
+
+      if (!mapa.has(data)) {
+        mapa.set(data, {
+          data,
+          label: formatarDataCurta(data),
+          entradas: 0,
+          saidas: 0,
+        });
+      }
+
+      const atual = mapa.get(data);
+      atual.saidas += numero(item.quantidade_caixas);
+      mapa.set(data, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => a.data.localeCompare(b.data));
+  }, [entradas, saidas]);
+
+  const movimentoDiarioGrafico = useMemo(() => {
+    if (filtros.dataInicial || filtros.dataFinal) {
+      return movimentoDiarioCompleto;
+    }
+
+    if (movimentoDiarioCompleto.length <= LIMITE_PONTOS_GRAFICO) {
+      return movimentoDiarioCompleto;
+    }
+
+    return movimentoDiarioCompleto.slice(-LIMITE_PONTOS_GRAFICO);
+  }, [movimentoDiarioCompleto, filtros.dataInicial, filtros.dataFinal]);
+
+  const saldoPorArea = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueClassificado.forEach((item) => {
+      const areaId = item.area_id || item.area_fazenda_id || item.area_nome || "sem-area";
+      const saldoDisponivel = obterSaldoClassificado(item);
+
+      if (!areaId || saldoDisponivel <= 0) return;
+
+      const atual = mapa.get(areaId) || {
+        id: areaId,
+        nome: item.area_nome || "Área sem nome",
+        saldo: 0,
+        valor: 0,
+        total: 0,
+        total_caixas: 0,
+        quantidade_caixas: 0,
+        saldo_classificado_caixas: 0,
+      };
+
+      atual.saldo += saldoDisponivel;
+      atual.valor = atual.saldo;
+      atual.total = atual.saldo;
+      atual.total_caixas = atual.saldo;
+      atual.quantidade_caixas = atual.saldo;
+      atual.saldo_classificado_caixas = atual.saldo;
+
+      mapa.set(areaId, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => {
+      return numero(b.saldo) - numero(a.saldo);
+    });
+  }, [estoqueClassificado]);
+
+  const saldoPorCalibre = useMemo(() => {
+    const mapa = new Map();
+
+    estoqueClassificado.forEach((item) => {
+      const calibreId = item.calibre_id || item.calibre_codigo || "sem-calibre";
+      const saldoDisponivel = obterSaldoClassificado(item);
+
+      if (!calibreId || saldoDisponivel <= 0) return;
+
+      const atual = mapa.get(calibreId) || {
+        id: calibreId,
+        calibre_id: calibreId,
+        codigo: item.calibre_codigo || "-",
+        nome: item.calibre_codigo || item.calibre_nome || "Sem calibre",
+        descricao: item.calibre_nome || "",
+        ordem: numero(item.calibre_ordem),
+        saldo: 0,
+        valor: 0,
+        total: 0,
+        total_caixas: 0,
+        quantidade_caixas: 0,
+        saldo_classificado_caixas: 0,
+      };
+
+      atual.saldo += saldoDisponivel;
+      atual.valor = atual.saldo;
+      atual.total = atual.saldo;
+      atual.total_caixas = atual.saldo;
+      atual.quantidade_caixas = atual.saldo;
+      atual.saldo_classificado_caixas = atual.saldo;
+
+      mapa.set(calibreId, atual);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => {
+      if (numero(b.saldo) !== numero(a.saldo)) {
+        return numero(b.saldo) - numero(a.saldo);
+      }
+
+      return numero(a.ordem) - numero(b.ordem);
+    });
+  }, [estoqueClassificado]);
+
+  const destaques = useMemo(() => {
+    const maiorEntrada = entradas.reduce((maior, item) => {
+      return calcularTotalCaixas(item) > calcularTotalCaixas(maior || {})
+        ? item
+        : maior;
+    }, null);
+
+    const maiorSaida = saidas.reduce((maior, item) => {
+      return numero(item.quantidade_caixas) > numero(maior?.quantidade_caixas)
+        ? item
+        : maior;
+    }, null);
+
+    const maiorAreaSaldo = saldoPorArea[0] || null;
+    const maiorCalibreSaldo = saldoPorCalibre[0] || null;
+
+    const mediaPorLancamento =
+      entradas.length > 0 ? Math.round(resumo.totalEntradas / entradas.length) : 0;
+
+    return {
+      maiorEntrada,
+      maiorSaida,
+      maiorAreaSaldo,
+      maiorCalibreSaldo,
+      mediaPorLancamento,
+    };
+  }, [entradas, saidas, resumo.totalEntradas, saldoPorArea, saldoPorCalibre]);
+
+  const indicadoresApoio = useMemo(() => {
+    const combinacoesComSaldo = estoqueClassificado.filter((item) => {
+      return obterSaldoClassificado(item) > 0;
+    }).length;
+
+    const diasComMovimentacao = movimentoDiarioCompleto.filter((item) => {
+      return item.entradas > 0 || item.saidas > 0;
+    }).length;
+
+    const mediaSaldoPorCalibre =
+      saldoPorCalibre.length > 0
+        ? Math.round(
+            saldoPorCalibre.reduce((total, item) => total + numero(item.saldo), 0) /
+              saldoPorCalibre.length
+          )
+        : 0;
+
+    return {
+      combinacoesComSaldo,
+      diasComMovimentacao,
+      mediaSaldoPorCalibre,
+    };
+  }, [estoqueClassificado, movimentoDiarioCompleto, saldoPorCalibre]);
+
+  useEffect(() => {
+    if (paginaEstoque > totalPaginasEstoque) {
+      setPaginaEstoque(totalPaginasEstoque);
+    }
+  }, [paginaEstoque, totalPaginasEstoque]);
+
+  useEffect(() => {
+    if (paginaEntradas > totalPaginasEntradas) {
+      setPaginaEntradas(totalPaginasEntradas);
+    }
+  }, [paginaEntradas, totalPaginasEntradas]);
+
+  useEffect(() => {
+    if (paginaSaidas > totalPaginasSaidas) {
+      setPaginaSaidas(totalPaginasSaidas);
+    }
+  }, [paginaSaidas, totalPaginasSaidas]);
+
+  async function carregarDados() {
+    try {
+      setCarregando(true);
+      setErro("");
+
+      const [opcoes, listaEntradas, listaSaidas, listaEstoque] = await Promise.all([
+        listarOpcoesAlhoClassificado(),
+        listarAlhoClassificado(filtros),
+        listarSaidasAlhoClassificado(filtros),
+        listarEstoqueAlhoClassificadoAtual(filtros),
+      ]);
+
+      setFazendas(opcoes.fazendas || []);
+      setAreas(opcoes.areas || []);
+      setCalibres(opcoes.calibres || []);
+      setResponsaveis(opcoes.responsaveis || []);
+
+      setEntradas(listaEntradas || []);
+      setSaidas(listaSaidas || []);
+      setEstoqueClassificado(listaEstoque || []);
+
+      setPaginaEstoque(1);
+      setPaginaEntradas(1);
+      setPaginaSaidas(1);
+    } catch (error) {
+      setErro(error.message || "Não foi possível carregar alho classificado.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  useEffect(() => {
+    carregarDados();
+  }, []);
+
+  async function aplicarFiltros() {
+    setPaginaEstoque(1);
+    setPaginaEntradas(1);
+    setPaginaSaidas(1);
+    await carregarDados();
+  }
+
+  async function limparFiltros() {
+    setFiltros(estadoInicialFiltros);
+    setPaginaEstoque(1);
+    setPaginaEntradas(1);
+    setPaginaSaidas(1);
+
+    setTimeout(() => {
+      carregarDados();
+    }, 0);
+  }
+
+  function alternarOrdenacaoEstoque(campo) {
+    setPaginaEstoque(1);
+
+    setOrdenacaoEstoque((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: ["entradas", "saidas", "saldo"].includes(campo) ? "desc" : "asc",
+      };
+    });
+  }
+
+  function alternarOrdenacaoEntradas(campo) {
+    setPaginaEntradas(1);
+
+    setOrdenacaoEntradas((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: campo === "data" ? "desc" : "asc",
+      };
+    });
+  }
+
+  function alternarOrdenacaoSaidas(campo) {
+    setPaginaSaidas(1);
+
+    setOrdenacaoSaidas((estadoAtual) => {
+      if (estadoAtual.campo === campo) {
+        return {
+          campo,
+          direcao: estadoAtual.direcao === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        campo,
+        direcao: campo === "data" ? "desc" : "asc",
+      };
+    });
+  }
+
+  function abrirNovaEntrada() {
+    setModalTipo("entrada");
+    setRegistroEditando(null);
+    setFormularioEntrada(estadoInicialEntrada());
+    setErro("");
+    setSucesso("");
+    setModalAberto(true);
+  }
+
+  function abrirNovaSaida() {
+    setModalTipo("saida");
+    setRegistroEditando(null);
+    setFormularioSaida(estadoInicialSaida());
+    setErro("");
+    setSucesso("");
+    setModalAberto(true);
+  }
+
+  function abrirEdicaoEntrada(registro) {
+    setModalTipo("entrada");
+    setRegistroEditando(registro);
+
+    setFormularioEntrada({
+      data_classificacao: registro.data_classificacao || dataHoje(),
+      hora: registro.hora || horaAgora(),
+      fazenda_id: registro.fazenda_id || "",
+      area_fazenda_id: registro.area_fazenda_id || registro.area_id || "",
+      lote: registro.lote || "",
+      calibre_id: registro.calibre_id || "",
+      quantidade_paletes: registro.quantidade_paletes || "",
+      caixas_por_palete: registro.caixas_por_palete || "",
+      permitir_edicao_total_caixas: Boolean(registro.permitir_edicao_total_caixas),
+      total_caixas_manual: registro.total_caixas_manual || "",
+      conferido: Boolean(registro.conferido),
+      responsavel_id: registro.responsavel_id || "",
+      observacao: registro.observacao || "",
+    });
+
+    setErro("");
+    setSucesso("");
+    setModalAberto(true);
+  }
+
+  function abrirEdicaoSaida(registro) {
+    setModalTipo("saida");
+    setRegistroEditando(registro);
+
+    setFormularioSaida({
+      data_saida: registro.data_saida || dataHoje(),
+      hora: registro.hora || horaAgora(),
+      area_fazenda_id: registro.area_fazenda_id || registro.area_id || "",
+      calibre_id: registro.calibre_id || "",
+      quantidade_caixas: registro.quantidade_caixas || "",
+      responsavel_id: registro.responsavel_id || "",
+      observacao: registro.observacao || "",
+    });
+
+    setErro("");
+    setSucesso("");
+    setModalAberto(true);
+  }
+
+  function fecharModal() {
+    if (salvando) return;
+
+    setModalAberto(false);
+    setRegistroEditando(null);
+    setFormularioEntrada(estadoInicialEntrada());
+    setFormularioSaida(estadoInicialSaida());
+  }
+
+  function atualizarFormularioEntrada(campo, valor) {
+    setFormularioEntrada((estadoAtual) => {
+      const proximo = {
+        ...estadoAtual,
+        [campo]: valor,
+      };
+
+      if (campo === "fazenda_id") {
+        const areasDaFazenda = areasAtivas.filter((area) => {
+          return area.fazenda_id === valor;
+        });
+
+        if (areasDaFazenda.length === 1) {
+          proximo.area_fazenda_id = areasDaFazenda[0].id;
+        } else {
+          proximo.area_fazenda_id = "";
+        }
+      }
+
+      if (campo === "area_fazenda_id" && valor && !proximo.fazenda_id) {
+        const areaSelecionada = areasAtivas.find((area) => area.id === valor);
+
+        if (areaSelecionada?.fazenda_id) {
+          proximo.fazenda_id = areaSelecionada.fazenda_id;
+        }
+      }
+
+      if (campo === "permitir_edicao_total_caixas" && !valor) {
+        proximo.total_caixas_manual = "";
+      }
+
+      return proximo;
+    });
+  }
+
+  function atualizarFormularioSaida(campo, valor) {
+    setFormularioSaida((estadoAtual) => {
+      const proximo = {
+        ...estadoAtual,
+        [campo]: valor,
+      };
+
+      if (campo === "area_fazenda_id") {
+        proximo.calibre_id = "";
+        proximo.quantidade_caixas = "";
+      }
+
+      if (campo === "calibre_id") {
+        proximo.quantidade_caixas = "";
+      }
+
+      return proximo;
+    });
+  }
+
+  async function salvarFormulario(event) {
+    event.preventDefault();
+
+    try {
+      setSalvando(true);
+      setErro("");
+      setSucesso("");
+
+      if (modalTipo === "entrada") {
+        if (registroEditando) {
+          await editarAlhoClassificado(registroEditando.id, formularioEntrada);
+          setSucesso("Entrada atualizada com sucesso.");
+        } else {
+          await cadastrarAlhoClassificado(formularioEntrada);
+          setSucesso("Entrada registrada com sucesso.");
+        }
+      }
+
+      if (modalTipo === "saida") {
+        if (!formularioSaidaPodeSalvar) {
+          throw new Error("Verifique os campos da saída e o saldo disponível.");
+        }
+
+        if (registroEditando) {
+          await editarSaidaAlhoClassificado(registroEditando.id, formularioSaida);
+          setSucesso("Saída atualizada com sucesso.");
+        } else {
+          await cadastrarSaidaAlhoClassificado(formularioSaida);
+          setSucesso("Saída registrada com sucesso.");
+        }
+      }
+
+      setModalAberto(false);
+      setRegistroEditando(null);
+      setFormularioEntrada(estadoInicialEntrada());
+      setFormularioSaida(estadoInicialSaida());
+
+      await carregarDados();
+    } catch (error) {
+      setErro(error.message || "Não foi possível salvar o lançamento.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function confirmarExclusaoEntrada(registro) {
+    const confirmar = window.confirm(
+      `Excluir a entrada ${registro.calibre_codigo} da área ${registro.area_nome}?`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setErro("");
+      setSucesso("");
+
+      await excluirAlhoClassificado(registro.id);
+
+      setSucesso("Entrada excluída com sucesso.");
+      await carregarDados();
+    } catch (error) {
+      setErro(error.message || "Não foi possível excluir a entrada.");
+    }
+  }
+
+  async function confirmarExclusaoSaida(registro) {
+    const confirmar = window.confirm(
+      `Excluir a saída ${registro.calibre_codigo} da área ${registro.area_nome}?`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setErro("");
+      setSucesso("");
+
+      await excluirSaidaAlhoClassificado(registro.id);
+
+      setSucesso("Saída excluída com sucesso.");
+      await carregarDados();
+    } catch (error) {
+      setErro(error.message || "Não foi possível excluir a saída.");
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {erro ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <strong className="font-semibold">Atenção</strong>
+          <p className="mt-1">{erro}</p>
+        </div>
+      ) : null}
+
+      {sucesso ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+          <strong className="font-semibold">Sucesso</strong>
+          <p className="mt-1">{sucesso}</p>
+        </div>
+      ) : null}
+
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Data inicial</span>
+              <input
+                type="date"
+                value={filtros.dataInicial}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    dataInicial: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Data final</span>
+              <input
+                type="date"
+                value={filtros.dataFinal}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    dataFinal: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Fazenda</span>
+              <select
+                value={filtros.fazendaId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    fazendaId: event.target.value,
+                    areaId: "",
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todas as fazendas</option>
+                {fazendas.map((fazenda) => (
+                  <option key={fazenda.id} value={fazenda.id}>
+                    {fazenda.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
+              <select
+                value={filtros.areaId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    areaId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todas as áreas</option>
+                {areasDosFiltros.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Calibre</span>
+              <select
+                value={filtros.calibreId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    calibreId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos os calibres</option>
+                {calibres.map((calibre) => (
+                  <option key={calibre.id} value={calibre.id}>
+                    {calibre.codigo} — {calibre.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Status</span>
+              <select
+                value={filtros.status}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    status: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos</option>
+                <option value="conferido">Conferido</option>
+                <option value="pendente">Pendente</option>
+              </select>
+            </label>
+
+            <label className="space-y-2 md:col-span-2 xl:col-span-2">
+              <span className="text-sm font-medium text-slate-700">Responsável</span>
+              <select
+                value={filtros.responsavelId}
+                onChange={(event) =>
+                  setFiltros((estado) => ({
+                    ...estado,
+                    responsavelId: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="">Todos os responsáveis</option>
+                {responsaveis.map((responsavel) => (
+                  <option key={responsavel.id} value={responsavel.id}>
+                    {responsavel.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={abrirNovaEntrada}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+            >
+              <Plus size={17} />
+              Entrada
+            </button>
+
+            <button
+              type="button"
+              onClick={abrirNovaSaida}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+            >
+              <Plus size={17} />
+              Saída
+            </button>
+
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <X size={16} />
+              Limpar filtros
+            </button>
+
+            <button
+              type="button"
+              onClick={aplicarFiltros}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800"
+            >
+              <RefreshCw size={16} />
+              Atualizar
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          titulo="Entradas"
+          valor={formatarNumero(resumo.totalEntradas)}
+          subtitulo="caixas classificadas"
+          icon={ArrowDownToLine}
+          tone="green"
+        />
+
+        <KpiCard
+          titulo="Saídas"
+          valor={formatarNumero(resumo.totalSaidas)}
+          subtitulo="caixas retiradas"
+          icon={ArrowUpFromLine}
+          tone="red"
+        />
+
+        <KpiCard
+          titulo="Saldo atual"
+          valor={formatarNumero(resumo.saldoAtual)}
+          subtitulo="entrada menos saída"
+          icon={Scale}
+          tone="green"
+        />
+
+        <KpiCard
+          titulo="Paletes"
+          valor={formatarNumero(resumo.totalPaletes)}
+          subtitulo="total filtrado"
+          icon={Warehouse}
+          tone="purple"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <ChartCard titulo="Movimentação diária de entradas e saídas">
+          <GraficoMovimentoDiario dados={movimentoDiarioGrafico} />
+        </ChartCard>
+
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <h2 className="text-base font-semibold text-slate-950">Destaques do período</h2>
+
+          <div className="mt-5 space-y-5">
+            <DestaqueItem
+              icon={ArrowDownToLine}
+              rotulo="Maior entrada"
+              valor={`${formatarNumero(calcularTotalCaixas(destaques.maiorEntrada || {}))} caixas`}
+              detalhe={
+                destaques.maiorEntrada
+                  ? `${destaques.maiorEntrada.area_nome} • ${formatarData(
+                      destaques.maiorEntrada.data_classificacao
+                    )}`
+                  : "-"
+              }
+              tone="green"
+            />
+
+            <DestaqueItem
+              icon={ArrowUpFromLine}
+              rotulo="Maior saída"
+              valor={`${formatarNumero(numero(destaques.maiorSaida?.quantidade_caixas))} caixas`}
+              detalhe={
+                destaques.maiorSaida
+                  ? `${destaques.maiorSaida.area_nome} • ${formatarData(
+                      destaques.maiorSaida.data_saida
+                    )}`
+                  : "-"
+              }
+              tone="red"
+            />
+
+            <DestaqueItem
+              icon={MapPin}
+              rotulo="Área com maior saldo"
+              valor={destaques.maiorAreaSaldo?.nome || "-"}
+              detalhe={`${formatarNumero(destaques.maiorAreaSaldo?.saldo)} caixas`}
+              tone="blue"
+            />
+
+            <DestaqueItem
+              icon={BarChart3}
+              rotulo="Calibre com maior saldo"
+              valor={destaques.maiorCalibreSaldo?.nome || "-"}
+              detalhe={`${formatarNumero(destaques.maiorCalibreSaldo?.saldo)} caixas`}
+              tone="purple"
+            />
+
+            <DestaqueItem
+              icon={TrendingUp}
+              rotulo="Média por lançamento"
+              valor={`${formatarNumero(destaques.mediaPorLancamento)} caixas`}
+              detalhe="entradas classificadas"
+              tone="amber"
+            />
+          </div>
+        </section>
+      </div>
+
+      
+      <AlhoClassificadoQuebraAreaCalibre
+        entradas={entradas}
+        estoqueClassificado={estoqueClassificado}
+      />
+
+
+
+      <div className="space-y-4">
+<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
+              Estoque do Alho Classificado
+            </h2>
+
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+              {formatarNumero(estoqueClassificado.length)} registros
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
+            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+                <tr>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="area"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Área / Pivô
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="calibre"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Calibre
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="entradas"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Entradas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="saidas"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Saídas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="saldo"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                      align="right"
+                    >
+                      Saldo
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="status"
+                      ordenacao={ordenacaoEstoque}
+                      onClick={alternarOrdenacaoEstoque}
+                    >
+                      Status
+                    </BotaoOrdenacao>
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {estoquePaginado.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
+                      Nenhum estoque classificado encontrado.
+                    </td>
+                  </tr>
+                ) : (
+                  estoquePaginado.map((item) => (
+                    <tr key={`${item.area_id}-${item.calibre_id}`}>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {item.area_nome}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {item.calibre_codigo || "-"}
+                      </td>
+                      <td className="px-3 py-3 text-right text-slate-600">
+                        {formatarNumero(obterEntradaClassificada(item))}
+                      </td>
+                      <td className="px-3 py-3 text-right text-red-700">
+                        {formatarNumero(obterSaidaClassificada(item))}
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-emerald-700">
+                        {formatarNumero(obterSaldoClassificado(item))}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${classeBadgeStatus(
+                            item.status_classificado
+                          )}`}
+                        >
+                          {item.status_classificado === "sem_saldo"
+                            ? "Sem saldo"
+                            : "Normal"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Paginacao
+            paginaAtual={paginaEstoque}
+            totalPaginas={totalPaginasEstoque}
+            totalRegistros={estoqueOrdenado.length}
+            onChange={setPaginaEstoque}
+          />
+        </section>
+<section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
+              Entradas registradas
+            </h2>
+
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+              {formatarNumero(entradas.length)} registros
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
+            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+                <tr>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="data"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                    >
+                      Data
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="area"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                    >
+                      Área / Pivô
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="calibre"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                    >
+                      Calibre
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="paletes"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                      align="right"
+                    >
+                      Paletes
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="caixas"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                      align="right"
+                    >
+                      Caixas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="responsavel"
+                      ordenacao={ordenacaoEntradas}
+                      onClick={alternarOrdenacaoEntradas}
+                    >
+                      Responsável
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {carregando ? (
+                  <tr>
+                    <td colSpan="7" className="px-3 py-8 text-center text-slate-400">
+                      Carregando entradas...
+                    </td>
+                  </tr>
+                ) : entradasOrdenadas.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-3 py-8 text-center text-slate-400">
+                      Nenhuma entrada encontrada.
+                    </td>
+                  </tr>
+                ) : (
+                  entradasPaginadas.map((registro) => (
+                    <tr key={registro.id}>
+                      <td className="px-3 py-3 text-slate-600">
+                        {formatarData(registro.data_classificacao)}
+                      </td>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {registro.area_nome}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.calibre_codigo}
+                      </td>
+                      <td className="px-3 py-3 text-right text-slate-600">
+                        {formatarNumero(registro.quantidade_paletes)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-slate-900">
+                        {formatarNumero(registro.total_caixas_calculado)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.responsavel_nome}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicaoEntrada(registro)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                          >
+                            <Edit3 size={13} />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => confirmarExclusaoEntrada(registro)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                          >
+                            <Trash2 size={13} />
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Paginacao
+            paginaAtual={paginaEntradas}
+            totalPaginas={totalPaginasEntradas}
+            totalRegistros={entradasOrdenadas.length}
+            onChange={setPaginaEntradas}
+          />
+        </section>
+
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 w-full">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">
+              Saídas registradas
+            </h2>
+
+            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+              {formatarNumero(saidas.length)} registros
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 overflow-y-auto pr-1 w-full max-h-[430px]">
+            <table className="min-w-full w-full divide-y divide-slate-100 text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 sticky top-0 z-20">
+                <tr>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="data"
+                      ordenacao={ordenacaoSaidas}
+                      onClick={alternarOrdenacaoSaidas}
+                    >
+                      Data
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="area"
+                      ordenacao={ordenacaoSaidas}
+                      onClick={alternarOrdenacaoSaidas}
+                    >
+                      Área / Pivô
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="calibre"
+                      ordenacao={ordenacaoSaidas}
+                      onClick={alternarOrdenacaoSaidas}
+                    >
+                      Calibre
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="caixas"
+                      ordenacao={ordenacaoSaidas}
+                      onClick={alternarOrdenacaoSaidas}
+                      align="right"
+                    >
+                      Caixas
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 whitespace-nowrap">
+                    <BotaoOrdenacao
+                      campo="responsavel"
+                      ordenacao={ordenacaoSaidas}
+                      onClick={alternarOrdenacaoSaidas}
+                    >
+                      Responsável
+                    </BotaoOrdenacao>
+                  </th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {carregando ? (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
+                      Carregando saídas...
+                    </td>
+                  </tr>
+                ) : saidasOrdenadas.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-3 py-8 text-center text-slate-400">
+                      Nenhuma saída registrada.
+                    </td>
+                  </tr>
+                ) : (
+                  saidasPaginadas.map((registro) => (
+                    <tr key={registro.id}>
+                      <td className="px-3 py-3 text-slate-600">
+                        {formatarData(registro.data_saida)}
+                      </td>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {registro.area_nome}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.calibre_codigo}
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-red-700">
+                        {formatarNumero(registro.quantidade_caixas)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {registro.responsavel_nome}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicaoSaida(registro)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                          >
+                            <Edit3 size={13} />
+                            Editar
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => confirmarExclusaoSaida(registro)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                          >
+                            <Trash2 size={13} />
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Paginacao
+            paginaAtual={paginaSaidas}
+            totalPaginas={totalPaginasSaidas}
+            totalRegistros={saidasOrdenadas.length}
+            onChange={setPaginaSaidas}
+          />
+        </section>
+      </div>
+
+      {modalAberto && modalTipo === "entrada" ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  {registroEditando ? "Editar entrada" : "Nova entrada"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Esta entrada aumenta o estoque próprio do Alho Classificado.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fecharModal}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={salvarFormulario} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Data</span>
+                  <input
+                    type="date"
+                    value={formularioEntrada.data_classificacao}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("data_classificacao", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Hora</span>
+                  <input
+                    type="time"
+                    value={formularioEntrada.hora}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("hora", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Fazenda</span>
+                  <select
+                    value={formularioEntrada.fazenda_id}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("fazenda_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {fazendas.map((fazenda) => (
+                      <option key={fazenda.id} value={fazenda.id}>
+                        {fazenda.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
+                  <select
+                    value={formularioEntrada.area_fazenda_id}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("area_fazenda_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {areasEntradaFormulario.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Lote</span>
+                  <input
+                    type="text"
+                    value={formularioEntrada.lote}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("lote", event.target.value)
+                    }
+                    placeholder="Ex: Lote 01"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Calibre</span>
+                  <select
+                    value={formularioEntrada.calibre_id}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("calibre_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {calibres.map((calibre) => (
+                      <option key={calibre.id} value={calibre.id}>
+                        {calibre.codigo} — {calibre.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">
+                    Quantidade de paletes
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formularioEntrada.quantidade_paletes}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("quantidade_paletes", event.target.value)
+                    }
+                    disabled={formularioEntrada.permitir_edicao_total_caixas}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600 disabled:bg-slate-50"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">
+                    Caixas por palete
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formularioEntrada.caixas_por_palete}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("caixas_por_palete", event.target.value)
+                    }
+                    disabled={formularioEntrada.permitir_edicao_total_caixas}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600 disabled:bg-slate-50"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Responsável</span>
+                  <select
+                    value={formularioEntrada.responsavel_id}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada("responsavel_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {responsaveis.map((responsavel) => (
+                      <option key={responsavel.id} value={responsavel.id}>
+                        {responsavel.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={formularioEntrada.permitir_edicao_total_caixas}
+                    onChange={(event) =>
+                      atualizarFormularioEntrada(
+                        "permitir_edicao_total_caixas",
+                        event.target.checked
+                      )
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-700"
+                  />
+                  Permitir edição manual do total de caixas
+                </label>
+
+                {formularioEntrada.permitir_edicao_total_caixas ? (
+                  <label className="mt-4 block space-y-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Total manual de caixas
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formularioEntrada.total_caixas_manual}
+                      onChange={(event) =>
+                        atualizarFormularioEntrada(
+                          "total_caixas_manual",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                    />
+                  </label>
+                ) : null}
+
+                <div className="mt-4 rounded-xl bg-white px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Total calculado para entrada
+                  </p>
+                  <strong className="mt-1 block text-2xl font-semibold text-emerald-700">
+                    {formatarNumero(totalFormularioEntrada)} caixas
+                  </strong>
+                </div>
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-700">
+                  Descrição / Observação
+                </span>
+                <textarea
+                  value={formularioEntrada.observacao}
+                  onChange={(event) =>
+                    atualizarFormularioEntrada("observacao", event.target.value)
+                  }
+                  rows="4"
+                  placeholder="Digite uma observação sobre a entrada..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+
+              <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formularioEntrada.conferido}
+                  onChange={(event) =>
+                    atualizarFormularioEntrada("conferido", event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-700"
+                />
+                Lançamento conferido
+              </label>
+
+              <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
+                <button
+                  type="button"
+                  onClick={fecharModal}
+                  disabled={salvando}
+                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+                >
+                  {salvando ? "Salvando..." : "Salvar entrada"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {modalAberto && modalTipo === "saida" ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  {registroEditando ? "Editar saída" : "Nova saída"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Esta saída reduz o estoque próprio do Alho Classificado.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fecharModal}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <form onSubmit={salvarFormulario} className="space-y-6">
+              <div
+                className={`rounded-2xl border px-5 py-4 text-sm ${
+                  mensagemSaldoSaida.tipo === "erro"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : mensagemSaldoSaida.tipo === "ok"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-blue-200 bg-blue-50 text-blue-700"
+                }`}
+              >
+                <strong className="font-semibold">Saldo do Alho Classificado</strong>
+                <p className="mt-1">{mensagemSaldoSaida.texto}</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Data da saída</span>
+                  <input
+                    type="date"
+                    value={formularioSaida.data_saida}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("data_saida", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Hora</span>
+                  <input
+                    type="time"
+                    value={formularioSaida.hora}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("hora", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Área / Pivô</span>
+                  <select
+                    value={formularioSaida.area_fazenda_id}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("area_fazenda_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {areasSaidaFormulario.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.nome} — {formatarNumero(area.saldo)} caixas
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Calibre</span>
+                  <select
+                    value={formularioSaida.calibre_id}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("calibre_id", event.target.value)
+                    }
+                    disabled={!formularioSaida.area_fazenda_id}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600 disabled:bg-slate-50"
+                  >
+                    <option value="">Selecione</option>
+                    {calibresSaidaFormulario.map((item) => (
+                      <option key={item.calibre_id} value={item.calibre_id}>
+                        {item.calibre_codigo} — {item.calibre_nome} —{" "}
+                        {formatarNumero(
+                          obterSaldoClassificado(item) +
+                            (registroEditando?.calibre_id === item.calibre_id
+                              ? devolucaoSaidaEdicao
+                              : 0)
+                        )}{" "}
+                        caixas
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">
+                    Quantidade de caixas
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formularioSaida.quantidade_caixas}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("quantidade_caixas", event.target.value)
+                    }
+                    className={`w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-emerald-600 ${
+                      quantidadeSaidaDigitada > saldoSaidaSelecionado
+                        ? "border-red-300 bg-red-50"
+                        : "border-slate-200"
+                    }`}
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Responsável</span>
+                  <select
+                    value={formularioSaida.responsavel_id}
+                    onChange={(event) =>
+                      atualizarFormularioSaida("responsavel_id", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Selecione</option>
+                    {responsaveis.map((responsavel) => (
+                      <option key={responsavel.id} value={responsavel.id}>
+                        {responsavel.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-700">Observação</span>
+                <textarea
+                  value={formularioSaida.observacao}
+                  onChange={(event) =>
+                    atualizarFormularioSaida("observacao", event.target.value)
+                  }
+                  rows="4"
+                  placeholder="Observações sobre a saída..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"
+                />
+              </label>
+
+              <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
+                <button
+                  type="button"
+                  onClick={fecharModal}
+                  disabled={salvando}
+                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={!formularioSaidaPodeSalvar}
+                  className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {salvando ? "Salvando..." : "Salvar saída"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
