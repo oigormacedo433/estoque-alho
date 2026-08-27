@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -16,11 +16,14 @@ import { supabase } from "../../services/supabaseClient";
 
 import { confirmarCargaComoSaida } from "../../services/cargasSaidasService";
 
+const REGISTROS_POR_PAGINA_CARGAS = 10;
+
 const filtrosIniciais = {
   dataInicial: "",
   dataFinal: "",
   cliente: "",
   status: "",
+  metrica: "peso",
 };
 
 function dataHoje() {
@@ -75,6 +78,66 @@ function formatarPeso(valor) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} kg`;
+}
+
+function obterCaixasCarga(carga) {
+  if (!carga) return 0;
+
+  const direto = numero(
+    carga.quantidade_total_caixas ??
+      carga.quantidade_caixas ??
+      carga.total_caixas ??
+      carga.quantidade_total_unidades ??
+      carga.quantidade_unidades ??
+      carga.unidades ??
+      carga.caixas ??
+      0
+  );
+
+  if (direto > 0) return direto;
+
+  if (Array.isArray(carga.itens)) {
+    return carga.itens.reduce((total, item) => {
+      return total + numero(item.quantidade_caixas ?? item.quantidade ?? item.caixas ?? 0);
+    }, 0);
+  }
+
+  return 0;
+}
+
+function obterPesoCarga(carga) {
+  if (!carga) return 0;
+
+  const direto = numero(carga.peso_total_kg ?? carga.peso_total ?? carga.peso ?? 0);
+
+  if (direto > 0) return direto;
+
+  const caixas = obterCaixasCarga(carga);
+  const pesoUnitario = numero(
+    carga.peso_por_unidade_kg ??
+      carga.peso_por_caixa_kg ??
+      carga.peso_caixa_kg ??
+      0
+  );
+
+  return caixas * pesoUnitario;
+}
+
+function valorCargaMetrica(carga, metrica) {
+  return metrica === "caixas" ? obterCaixasCarga(carga) : obterPesoCarga(carga);
+}
+
+function valorClienteMetrica(cliente, metrica) {
+  return metrica === "caixas" ? numero(cliente?.caixas) : numero(cliente?.peso);
+}
+
+function formatarMetricaCarga(valor, metrica) {
+  if (metrica === "caixas") return formatarNumero(valor) + " caixas";
+  return formatarPeso(valor);
+}
+
+function rotuloMetricaCarga(metrica) {
+  return metrica === "caixas" ? "Caixas" : "Peso";
 }
 
 function formatarData(data) {
@@ -653,28 +716,40 @@ function GraficoStatus({ resumo }) {
   );
 }
 
-function ListaPendentes({ cargas, ordenacao, setOrdenacao }) {
+function ListaPendentes({ cargas, ordenacao, setOrdenacao, metrica = "peso" }) {
+  const ordenacaoAtual =
+    ordenacao?.campo === "peso"
+      ? {
+          ...ordenacao,
+          campo: "valor_metrica",
+        }
+      : ordenacao;
+
   const pendentes = ordenarLista(
     cargas
       .filter((carga) => carga.status === "pendente")
       .map((carga) => ({
         ...carga,
-        peso: numero(carga.peso_total_kg),
+        peso: obterPesoCarga(carga),
+        caixas: obterCaixasCarga(carga),
+        valor_metrica: valorCargaMetrica(carga, metrica),
       })),
-    ordenacao
+    ordenacaoAtual
   );
 
   return (
     <div className="h-[260px]">
-      <div className="mb-2 grid grid-cols-[60px_1fr_135px] gap-3 px-1">
+      <div className="mb-2 grid grid-cols-[70px_1fr_120px] items-center gap-3 px-1">
         <BotaoOrdenacao campo="data_carga" ordenacao={ordenacao} onClick={setOrdenacao}>
           Data
         </BotaoOrdenacao>
+
         <BotaoOrdenacao campo="cliente" ordenacao={ordenacao} onClick={setOrdenacao}>
           Cliente
         </BotaoOrdenacao>
-        <BotaoOrdenacao campo="peso" ordenacao={ordenacao} onClick={setOrdenacao} alinhado="right">
-          Peso
+
+        <BotaoOrdenacao campo="valor_metrica" ordenacao={ordenacaoAtual} onClick={setOrdenacao} alinhado="right">
+          {rotuloMetricaCarga(metrica)}
         </BotaoOrdenacao>
       </div>
 
@@ -683,33 +758,31 @@ function ListaPendentes({ cargas, ordenacao, setOrdenacao }) {
           Nenhuma carga pendente.
         </div>
       ) : (
-        <div className="max-h-[215px] space-y-1.5 overflow-y-auto pr-1">
+        <div className="max-h-[215px] space-y-3 overflow-y-auto pr-1">
           {pendentes.map((carga) => (
             <div
               key={carga.id}
-              className="grid min-h-[34px] grid-cols-[60px_1fr_135px] items-center gap-3 rounded-xl border border-slate-100 px-3 py-1.5 text-sm"
+              className="grid grid-cols-[70px_1fr_120px] items-center gap-3 rounded-xl border border-slate-100 px-3 py-2 text-sm"
             >
               <div className="text-slate-500">{formatarDataCurta(carga.data_carga)}</div>
 
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0">
                 <strong className="truncate font-medium text-slate-950">{carga.cliente}</strong>
-
-                <div className="flex shrink-0 gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {carga.itens.slice(0, 2).map((item) => (
                     <span
-                      key={item.id}
+                      key={item.id || item.calibre_id + item.area_id}
                       className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"
                     >
-                      {item.calibre_codigo}
+                      {item.area_nome ? item.area_nome + " " : ""}
+                      {item.calibre_codigo || item.calibre_nome || "-"}
                     </span>
                   ))}
                 </div>
               </div>
 
-              <div className="text-right">
-                <strong className="whitespace-nowrap font-medium text-slate-950">
-                  Peso: {formatarPeso(carga.peso_total_kg)}
-                </strong>
+              <div className="text-right text-xs font-semibold text-slate-950">
+                {formatarMetricaCarga(carga.valor_metrica, metrica)}
               </div>
             </div>
           ))}
@@ -719,19 +792,32 @@ function ListaPendentes({ cargas, ordenacao, setOrdenacao }) {
   );
 }
 
-function GraficoClientes({ dados, ordenacao, setOrdenacao }) {
-  const ordenados = ordenarLista(dados, ordenacao);
-  const maior = Math.max(...ordenados.map((item) => item.peso), 1);
+function GraficoClientes({ dados, ordenacao, setOrdenacao, metrica = "peso" }) {
+  const dadosComValor = (dados || []).map((item) => ({
+    ...item,
+    valor_metrica: valorClienteMetrica(item, metrica),
+  }));
+
+  const ordenacaoAtual =
+    ordenacao?.campo === "peso"
+      ? {
+          ...ordenacao,
+          campo: "valor_metrica",
+        }
+      : ordenacao;
+
+  const ordenados = ordenarLista(dadosComValor, ordenacaoAtual);
+  const maior = Math.max(...ordenados.map((item) => item.valor_metrica), 1);
 
   return (
     <div className="h-[260px]">
-      <div className="mb-2 grid grid-cols-[150px_1fr_100px] items-center gap-3 px-1">
+      <div className="mb-2 grid grid-cols-[150px_1fr_120px] items-center gap-3 px-1">
         <BotaoOrdenacao campo="cliente" ordenacao={ordenacao} onClick={setOrdenacao}>
           Cliente
         </BotaoOrdenacao>
         <span />
-        <BotaoOrdenacao campo="peso" ordenacao={ordenacao} onClick={setOrdenacao} alinhado="right">
-          Peso total
+        <BotaoOrdenacao campo="valor_metrica" ordenacao={ordenacaoAtual} onClick={setOrdenacao} alinhado="right">
+          {rotuloMetricaCarga(metrica)} total
         </BotaoOrdenacao>
       </div>
 
@@ -742,23 +828,59 @@ function GraficoClientes({ dados, ordenacao, setOrdenacao }) {
       ) : (
         <div className="max-h-[215px] space-y-3 overflow-y-auto pr-1">
           {ordenados.map((item) => (
-            <div key={item.cliente} className="grid grid-cols-[150px_1fr_100px] items-center gap-3 text-sm">
+            <div key={item.cliente} className="grid grid-cols-[150px_1fr_120px] items-center gap-3 text-sm">
               <span className="truncate text-slate-700">{item.cliente}</span>
 
               <div className="h-4 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className="h-full rounded-full bg-emerald-700"
-                  style={{ width: `${Math.max((item.peso / maior) * 100, 4)}%` }}
+                  style={{ width: `${Math.max((item.valor_metrica / maior) * 100, 4)}%` }}
                 />
               </div>
 
               <strong className="text-right font-medium text-slate-950">
-                {formatarPeso(item.peso)}
+                {formatarMetricaCarga(item.valor_metrica, metrica)}
               </strong>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PaginacaoCargas({ paginaAtual, totalPaginas, totalRegistros, onChange }) {
+  return (
+    <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm md:flex-row md:items-center md:justify-between">
+      <p className="text-slate-500">
+        10 registros por página • {formatarNumero(totalRegistros)} registro(s)
+      </p>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={paginaAtual <= 1}
+          onClick={() => onChange(paginaAtual - 1)}
+          className="rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Anterior
+        </button>
+
+        <span className="rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white">
+          {paginaAtual}
+        </span>
+
+        <span className="text-slate-400">de {totalPaginas}</span>
+
+        <button
+          type="button"
+          disabled={paginaAtual >= totalPaginas}
+          onClick={() => onChange(paginaAtual + 1)}
+          className="rounded-xl border border-slate-200 px-3 py-2 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Próxima
+        </button>
+      </div>
     </div>
   );
 }
@@ -794,6 +916,8 @@ export default function Cargas() {
     campo: "peso",
     direcao: "desc",
   });
+
+  const [paginaTabela, setPaginaTabela] = useState(1);
 
   useEffect(() => {
     const alterados = [];
@@ -894,6 +1018,8 @@ export default function Cargas() {
       });
     };
   }, []);
+
+  const metricaCargas = filtros.metrica === "caixas" ? "caixas" : "peso";
 
   const estoquePorCalibre = useMemo(() => {
     const mapa = new Map();
@@ -1036,7 +1162,8 @@ export default function Cargas() {
     const pendentes = cargas.filter((carga) => carga.status === "pendente").length;
     const canceladas = cargas.filter((carga) => carga.status === "cancelada").length;
 
-    const pesoTotal = cargas.reduce((total, carga) => total + numero(carga.peso_total_kg), 0);
+    const pesoTotal = cargas.reduce((total, carga) => total + obterPesoCarga(carga), 0);
+    const caixasTotal = cargas.reduce((total, carga) => total + obterCaixasCarga(carga), 0);
 
     return {
       totalCargas,
@@ -1044,6 +1171,7 @@ export default function Cargas() {
       pendentes,
       canceladas,
       pesoTotal,
+      caixasTotal,
     };
   }, [cargas]);
 
@@ -1077,10 +1205,12 @@ export default function Cargas() {
       const atual = mapa.get(cliente) || {
         cliente,
         peso: 0,
+        caixas: 0,
         cargas: 0,
       };
 
-      atual.peso += numero(carga.peso_total_kg);
+      atual.peso += obterPesoCarga(carga);
+      atual.caixas += obterCaixasCarga(carga);
       atual.cargas += 1;
       mapa.set(cliente, atual);
     });
@@ -1089,11 +1219,17 @@ export default function Cargas() {
   }, [cargas]);
 
   const destaques = useMemo(() => {
-    const maiorCarga = [...cargas].sort((a, b) => numero(b.peso_total_kg) - numero(a.peso_total_kg))[0];
+    const maiorCarga = [...cargas].sort((a, b) => {
+      return valorCargaMetrica(b, metricaCargas) - valorCargaMetrica(a, metricaCargas);
+    })[0];
 
-    const clienteMaior = [...dadosClientes].sort((a, b) => b.peso - a.peso)[0];
+    const clienteMaior = [...dadosClientes].sort((a, b) => {
+      return valorClienteMetrica(b, metricaCargas) - valorClienteMetrica(a, metricaCargas);
+    })[0];
 
     const pesoMedio = resumo.totalCargas > 0 ? resumo.pesoTotal / resumo.totalCargas : 0;
+    const caixasMedia = resumo.totalCargas > 0 ? resumo.caixasTotal / resumo.totalCargas : 0;
+    const valorMedioMetrica = metricaCargas === "peso" ? pesoMedio : caixasMedia;
 
     const taxaConfirmacao =
       resumo.totalCargas > 0 ? (resumo.confirmadas / resumo.totalCargas) * 100 : 0;
@@ -1106,10 +1242,12 @@ export default function Cargas() {
       maiorCarga,
       clienteMaior,
       pesoMedio,
+      caixasMedia,
+      valorMedioMetrica,
       taxaConfirmacao,
       proximaPendente,
     };
-  }, [cargas, dadosClientes, resumo]);
+  }, [cargas, dadosClientes, resumo, metricaCargas]);
 
   const cargasOrdenadas = useMemo(() => {
     const base = cargas.map((carga) => {
@@ -1117,8 +1255,9 @@ export default function Cargas() {
 
       return {
         ...carga,
-        unidades: numero(carga.quantidade_total_caixas ?? carga.quantidade_total_caixas),
-        peso_total: numero(carga.peso_total_kg),
+        caixas: obterCaixasCarga(carga),
+        unidades: obterCaixasCarga(carga),
+        peso_total: obterPesoCarga(carga),
         calibres_texto: montarTextoCalibres(carga),
         confirmada_texto: carga.status === "confirmada" ? "Sim" : "Nao",
         estoque_status: analiseEstoque.status,
@@ -1129,6 +1268,25 @@ export default function Cargas() {
 
     return ordenarLista(base, ordenacaoTabela);
   }, [cargas, estoquePorCalibre, ordenacaoTabela]);
+
+  const totalPaginasTabela = useMemo(() => {
+    return Math.max(Math.ceil(cargasOrdenadas.length / REGISTROS_POR_PAGINA_CARGAS), 1);
+  }, [cargasOrdenadas.length]);
+
+  const cargasPaginadas = useMemo(() => {
+    const inicio = (paginaTabela - 1) * REGISTROS_POR_PAGINA_CARGAS;
+    return cargasOrdenadas.slice(inicio, inicio + REGISTROS_POR_PAGINA_CARGAS);
+  }, [cargasOrdenadas, paginaTabela]);
+
+  useEffect(() => {
+    if (paginaTabela > totalPaginasTabela) {
+      setPaginaTabela(totalPaginasTabela);
+    }
+  }, [paginaTabela, totalPaginasTabela]);
+
+  useEffect(() => {
+    setPaginaTabela(1);
+  }, [filtros.dataInicial, filtros.dataFinal, filtros.cliente, filtros.status]);
 
   async function carregarDados(filtrosAtuais = filtros) {
     try {
@@ -1669,6 +1827,47 @@ export default function Cargas() {
             </select>
           </label>
 
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Visualizar como</span>
+              <div className="grid h-11 grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFiltros((estado) => ({
+                      ...estado,
+                      metrica: "peso",
+                    }))
+                  }
+                  className={[
+                    "inline-flex items-center justify-center rounded-lg text-sm font-semibold transition",
+                    metricaCargas === "peso"
+                      ? "bg-emerald-700 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-white",
+                  ].join(" ")}
+                >
+                  Peso
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFiltros((estado) => ({
+                      ...estado,
+                      metrica: "caixas",
+                    }))
+                  }
+                  className={[
+                    "inline-flex items-center justify-center rounded-lg text-sm font-semibold transition",
+                    metricaCargas === "caixas"
+                      ? "bg-emerald-700 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-white",
+                  ].join(" ")}
+                >
+                  Caixas
+                </button>
+              </div>
+            </div>
+
           <button
             type="button"
             onClick={abrirNovaCarga}
@@ -1730,9 +1929,9 @@ export default function Cargas() {
         />
 
         <CardResumo
-          titulo="Peso total"
-          valor={formatarPeso(resumo.pesoTotal)}
-          subtitulo="peso preparado"
+          titulo={metricaCargas === "peso" ? "Peso total" : "Caixas totais"}
+          valor={formatarMetricaCarga(metricaCargas === "peso" ? resumo.pesoTotal : resumo.caixasTotal, metricaCargas)}
+          subtitulo={metricaCargas === "peso" ? formatarNumero(resumo.caixasTotal) + " caixas preparadas" : formatarPeso(resumo.pesoTotal)}
           cor="emerald"
           icone={<Scale size={23} />}
         />
@@ -1775,7 +1974,7 @@ export default function Cargas() {
               <div>
                 <p className="text-xs text-slate-500">Maior carga</p>
                 <strong className="block text-xl font-medium text-slate-950">
-                  {destaques.maiorCarga ? formatarPeso(destaques.maiorCarga.peso_total_kg) : "-"}
+                  {destaques.maiorCarga ? formatarMetricaCarga(valorCargaMetrica(destaques.maiorCarga, metricaCargas), metricaCargas) : "-"}
                 </strong>
               </div>
               <div className="text-right text-xs text-slate-500">
@@ -1796,7 +1995,7 @@ export default function Cargas() {
               </div>
               <div className="text-right text-xs text-slate-500">
                 <p>{formatarNumero(destaques.clienteMaior?.cargas || 0)} cargas</p>
-                <p>{formatarPeso(destaques.clienteMaior?.peso || 0)}</p>
+                <p>{formatarMetricaCarga(valorClienteMetrica(destaques.clienteMaior, metricaCargas), metricaCargas)}</p>
               </div>
             </div>
 
@@ -1805,9 +2004,9 @@ export default function Cargas() {
                 <Scale size={21} />
               </div>
               <div>
-                <p className="text-xs text-slate-500">Peso medio por carga</p>
+                <p className="text-xs text-slate-500">{metricaCargas === "peso" ? "Peso medio por carga" : "Caixas medias por carga"}</p>
                 <strong className="block text-lg font-medium text-slate-950">
-                  {formatarPeso(destaques.pesoMedio)}
+                  {formatarMetricaCarga(destaques.valorMedioMetrica, metricaCargas)}
                 </strong>
               </div>
             </div>
@@ -1869,6 +2068,7 @@ export default function Cargas() {
               cargas={cargas}
               ordenacao={ordenacaoPendentes}
               setOrdenacao={setOrdenacaoPendentes}
+              metrica={metricaCargas}
             />
           </div>
         </section>
@@ -1882,6 +2082,7 @@ export default function Cargas() {
               dados={dadosClientes}
               ordenacao={ordenacaoClientes}
               setOrdenacao={setOrdenacaoClientes}
+              metrica={metricaCargas}
             />
           </div>
         </section>
@@ -1970,7 +2171,7 @@ export default function Cargas() {
                   </td>
                 </tr>
               ) : (
-                cargasOrdenadas.map((carga) => (
+                cargasPaginadas.map((carga) => (
                   <tr key={carga.id}>
                     <td className="px-4 py-3 text-slate-600">{formatarData(carga.data_carga)}</td>
 
@@ -2119,6 +2320,14 @@ export default function Cargas() {
         <p className="mt-4 text-sm text-slate-500">
           Mostrando {formatarNumero(cargas.length)} carga(s).
         </p>
+      
+
+        <PaginacaoCargas
+          paginaAtual={paginaTabela}
+          totalPaginas={totalPaginasTabela}
+          totalRegistros={cargasOrdenadas.length}
+          onChange={setPaginaTabela}
+        />
       </section>
 
       {modalAberto ? (
