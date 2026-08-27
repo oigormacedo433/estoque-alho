@@ -354,3 +354,76 @@ main {
     min-width: 0;
   }
 }
+
+/* MOBILE_RESPONSIVE_BASE_ESTOQUE_ALHO_20260826 */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-x: none;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 48px;
+    font-size: 16px !important;
+  }
+
+  textarea {
+    line-height: 1.45;
+  }
+
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  button {
+    min-height: 44px;
+  }
+
+  [class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  [class*="fixed"][class*="inset-0"] {
+    padding: 0 !important;
+  }
+
+  [class*="fixed"][class*="inset-0"] > [class*="bg-white"][class*="shadow"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  [class*="fixed"][class*="inset-0"] > [class*="bg-white"][class*="shadow"] form {
+    padding-bottom: 88px;
+  }
+
+  [class*="fixed"][class*="inset-0"] label {
+    scroll-margin-top: 16px;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  .recharts-wrapper,
+  svg {
+    max-width: none;
+  }
+}

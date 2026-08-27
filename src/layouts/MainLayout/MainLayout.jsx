@@ -23,13 +23,51 @@ function MainLayout() {
         onLogout={sair}
       />
 
-      <div className="min-h-screen lg:pl-[290px]">
+      
+      
+
+
+      {/* BOTAO_MENU_MOBILE_FIXO_20260826 */}
+      {!sidebarAberta ? (
+        <button
+          type="button"
+          onClick={() => setSidebarAberta(true)}
+          aria-label="Abrir menu"
+          className="
+            fixed
+            bottom-4
+            left-4
+            z-[1600]
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-2xl
+            bg-emerald-700
+            text-3xl
+            font-black
+            leading-none
+            text-white
+            shadow-2xl
+            ring-1
+            ring-white/30
+            transition
+            active:scale-95
+            lg:hidden
+          "
+        >
+          ☰
+        </button>
+      ) : null}
+
+<div className="min-h-screen lg:pl-[290px]">
         <Topbar
           onMenuClick={() => setSidebarAberta(true)}
           onMobileMenuClick={() => setSidebarAberta(true)}
         />
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="px-3 py-4 sm:px-6 sm:py-6 lg:px-8 max-w-full overflow-x-hidden">
           <Outlet />
         </main>
       </div>

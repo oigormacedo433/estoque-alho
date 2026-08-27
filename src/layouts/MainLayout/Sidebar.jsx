@@ -112,7 +112,7 @@ function SidebarContent({ onClose, onLogout }) {
         )}
       </div>
 
-      <nav className="mt-9 flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
+      <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto pr-1 sm:mt-9">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = location.pathname === item.path;
@@ -187,12 +187,12 @@ function Sidebar({ mobileOpen = false, onClose, onLogout }) {
           z-[900]
           hidden
           h-screen
-          w-[290px]
+          w-[290px] max-w-[86vw]
           border-r
           border-white/10
           bg-[var(--color-sidebar-dark)]
           px-5
-          py-6
+          py-5 sm:py-6
           text-white
           lg:block
         "

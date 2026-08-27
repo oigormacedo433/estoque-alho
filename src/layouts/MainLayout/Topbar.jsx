@@ -155,40 +155,19 @@ function Topbar({ onOpenSidebar }) {
         border-b
         border-[var(--color-border-soft)]
         bg-[var(--color-bg-page)]/90
-        px-4
-        py-4
+        px-3
+        py-3
         backdrop-blur-xl
         sm:px-6
+        sm:py-4
         lg:px-8
       "
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={onOpenSidebar}
-            className="
-              flex
-              h-11
-              w-11
-              shrink-0
-              items-center
-              justify-center
-              rounded-2xl
-              border
-              border-[var(--color-border)]
-              bg-white
-              text-[var(--color-text-primary)]
-              shadow-sm
-              lg:hidden
-            "
-            aria-label="Abrir menu"
-          >
-            <Menu size={22} />
-          </button>
 
           <div className="min-w-0">
-            <h2 className="truncate text-xl font-black text-[var(--color-text-primary)] sm:text-2xl">
+            <h2 className="truncate text-lg font-black text-[var(--color-text-primary)] sm:text-2xl">
               {paginaAtual.title}
             </h2>
 
