@@ -885,6 +885,286 @@ function PaginacaoCargas({ paginaAtual, totalPaginas, totalRegistros, onChange }
   );
 }
 
+
+function obterTextoAreaItemCarga(item, carga) {
+  return (
+    item?.area_nome ||
+    item?.area_pivo_nome ||
+    item?.area ||
+    item?.nome_area ||
+    carga?.area_nome ||
+    carga?.area_pivo_nome ||
+    "Sem área"
+  );
+}
+
+function obterTextoCalibreItemCarga(item) {
+  return (
+    item?.calibre_codigo ||
+    item?.calibre_nome ||
+    item?.calibre ||
+    item?.codigo_calibre ||
+    "Sem calibre"
+  );
+}
+
+function obterCaixasItemCarga(item) {
+  return numero(
+    item?.quantidade_caixas ??
+      item?.quantidade ??
+      item?.caixas ??
+      item?.total_caixas ??
+      item?.unidades ??
+      0
+  );
+}
+
+function obterPesoItemCarga(item, carga) {
+  const pesoDireto = numero(
+    item?.peso_total_kg ??
+      item?.peso_total ??
+      item?.peso_kg ??
+      0
+  );
+
+  if (pesoDireto > 0) return pesoDireto;
+
+  const caixas = obterCaixasItemCarga(item);
+
+  const pesoUnitario = numero(
+    item?.peso_unitario_kg ??
+      item?.peso_unidade_kg ??
+      item?.peso_por_unidade_kg ??
+      item?.peso_por_caixa_kg ??
+      carga?.peso_unitario_kg ??
+      carga?.peso_unidade_kg ??
+      carga?.peso_por_unidade_kg ??
+      carga?.peso_por_caixa_kg ??
+      carga?.peso_caixa_kg ??
+      0
+  );
+
+  return caixas * pesoUnitario;
+}
+
+function formatarValorAreaCalibreCarga(valor, metrica) {
+  if (metrica === "peso") return formatarPeso(valor);
+  return formatarNumero(valor) + " caixas";
+}
+
+function montarDadosAreaCalibreCargas(cargas, metrica) {
+  const mapaAreas = new Map();
+  const mapaCalibres = new Map();
+
+  const lista = Array.isArray(cargas) ? cargas : [];
+
+  lista.forEach((carga) => {
+    if (!carga || carga.status === "cancelada") return;
+
+    const itens = Array.isArray(carga.itens) ? carga.itens : [];
+
+    itens.forEach((item) => {
+      const area = String(obterTextoAreaItemCarga(item, carga) || "").trim();
+      const calibre = String(obterTextoCalibreItemCarga(item) || "").trim();
+
+      if (!area || area === "Sem área") return;
+      if (!calibre || calibre === "Sem calibre") return;
+
+      const valor =
+        metrica === "peso"
+          ? obterPesoItemCarga(item, carga)
+          : obterCaixasItemCarga(item);
+
+      if (valor <= 0) return;
+
+      if (!mapaAreas.has(area)) {
+        mapaAreas.set(area, {
+          area,
+          total: 0,
+          valores: new Map(),
+        });
+      }
+
+      const linha = mapaAreas.get(area);
+      linha.total += valor;
+      linha.valores.set(calibre, (linha.valores.get(calibre) || 0) + valor);
+
+      mapaCalibres.set(calibre, (mapaCalibres.get(calibre) || 0) + valor);
+    });
+  });
+
+  const areas = Array.from(mapaAreas.values()).sort((a, b) => {
+    const numeroA = Number(String(a.area).match(/\d+/)?.[0] || 9999);
+    const numeroB = Number(String(b.area).match(/\d+/)?.[0] || 9999);
+
+    if (numeroA !== numeroB) return numeroA - numeroB;
+
+    return String(a.area).localeCompare(String(b.area), "pt-BR", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+
+  const calibres = Array.from(mapaCalibres.entries())
+    .map(([calibre, total]) => ({
+      calibre,
+      total,
+      ordem: Number(String(calibre).match(/\d+/)?.[0] || 9999),
+    }))
+    .sort((a, b) => {
+      if (a.ordem !== b.ordem) return a.ordem - b.ordem;
+
+      return String(a.calibre).localeCompare(String(b.calibre), "pt-BR", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+  return {
+    areas,
+    calibres,
+    totalGeral: areas.reduce((total, area) => total + area.total, 0),
+  };
+}
+
+function corCelulaCargaAreaCalibre(percentual, valor) {
+  if (valor <= 0) {
+    return "bg-slate-50 text-slate-300 border-slate-100";
+  }
+
+  if (percentual >= 35) return "bg-emerald-100 text-emerald-950 border-emerald-200";
+  if (percentual >= 20) return "bg-teal-100 text-teal-950 border-teal-200";
+  if (percentual >= 10) return "bg-amber-100 text-amber-950 border-amber-200";
+  if (percentual >= 4) return "bg-orange-100 text-orange-950 border-orange-200";
+
+  return "bg-red-100 text-red-950 border-red-200";
+}
+
+function GraficoCargasPorAreaCalibre({ cargas = [], metrica = "caixas" }) {
+  const dados = useMemo(() => {
+    return montarDadosAreaCalibreCargas(cargas, metrica);
+  }, [cargas, metrica]);
+
+  if (!dados.areas.length || !dados.calibres.length) return null;
+
+  const gridTemplateColumns =
+    "120px repeat(" + dados.calibres.length + ", minmax(82px, 1fr)) 96px";
+
+  const minWidth = 120 + dados.calibres.length * 82 + 96;
+
+  return (
+    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            {metrica === "peso"
+              ? "Peso por Área/Pivô e Calibre"
+              : "Caixas por Área/Pivô e Calibre"}
+          </h2>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Mostra quanto saiu em cada calibre, separado pela Área/Pivô da carga. Cargas canceladas não entram no cálculo.
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-right">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+            Total no filtro
+          </p>
+          <strong className="mt-1 block text-lg font-semibold text-emerald-950">
+            {formatarValorAreaCalibreCarga(dados.totalGeral, metrica)}
+          </strong>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-2">
+        <div style={{ minWidth }}>
+          <div
+            className="grid items-center gap-2 border-b border-slate-100 pb-2"
+            style={{ gridTemplateColumns }}
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Área / Pivô
+            </div>
+
+            {dados.calibres.map((calibre) => (
+              <div
+                key={calibre.calibre}
+                className="text-center text-[11px] font-semibold uppercase leading-tight text-slate-700"
+              >
+                {calibre.calibre}
+              </div>
+            ))}
+
+            <div className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Total
+            </div>
+          </div>
+
+          <div className="mt-2 max-h-[430px] space-y-2 overflow-y-auto pr-1">
+            {dados.areas.map((area) => (
+              <div
+                key={area.area}
+                className="grid items-center gap-2"
+                style={{ gridTemplateColumns }}
+              >
+                <div className="truncate text-sm font-semibold text-slate-950">
+                  {area.area}
+                </div>
+
+                {dados.calibres.map((calibre) => {
+                  const valor = numero(area.valores.get(calibre.calibre));
+                  const percentual = area.total > 0 ? (valor / area.total) * 100 : 0;
+
+                  return (
+                    <div
+                      key={area.area + "-" + calibre.calibre}
+                      className={[
+                        "flex h-[58px] flex-col items-center justify-center rounded-xl border px-2 text-center",
+                        corCelulaCargaAreaCalibre(percentual, valor),
+                      ].join(" ")}
+                      title={
+                        area.area +
+                        " • " +
+                        calibre.calibre +
+                        " • " +
+                        formatarValorAreaCalibreCarga(valor, metrica)
+                      }
+                    >
+                      {valor > 0 ? (
+                        <>
+                          <strong className="text-[12.5px] leading-4">
+                            {metrica === "peso" ? formatarPeso(valor) : formatarNumero(valor)}
+                          </strong>
+
+                          <span className="mt-0.5 text-[10.5px] font-medium opacity-75">
+                            {percentual.toLocaleString("pt-BR", {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            })}
+                            %
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-semibold">-</span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="flex h-[58px] items-center justify-end rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-right text-sm font-semibold text-emerald-950">
+                  {formatarValorAreaCalibreCarga(area.total, metrica)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 export default function Cargas() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -2088,7 +2368,13 @@ export default function Cargas() {
         </section>
       </div>
 
-      <section className="rounded-3xl bg-white p-5 shadow-sm">
+      
+      <GraficoCargasPorAreaCalibre
+        cargas={cargas}
+        metrica={typeof metricaCargas !== "undefined" ? metricaCargas : "caixas"}
+      />
+
+<section className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-medium text-slate-950">Cargas registradas</h2>
