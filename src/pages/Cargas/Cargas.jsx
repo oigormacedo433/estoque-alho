@@ -1223,6 +1223,364 @@ function GraficoCargasPorAreaCalibre({ cargas = [], metrica = "caixas" }) {
 }
 
 
+
+function obterItensCargaParticipacao(carga) {
+  if (!carga) return [];
+
+  const possibilidades = [
+    carga.itens,
+    carga.carga_itens,
+    carga.carga_items,
+    carga.itens_carga,
+    carga.cargas_itens,
+    carga.items,
+    carga.produtos,
+  ];
+
+  const lista = possibilidades.find((valor) => Array.isArray(valor));
+
+  return Array.isArray(lista) ? lista : [];
+}
+
+function obterCalibreParticipacaoCarga(item) {
+  return (
+    item?.calibre_codigo ||
+    item?.calibre_nome ||
+    item?.calibre ||
+    item?.codigo_calibre ||
+    item?.calibres?.codigo ||
+    item?.calibres?.nome ||
+    item?.calibre_ref?.codigo ||
+    item?.calibre_ref?.nome ||
+    item?.calibre_dados?.codigo ||
+    item?.calibre_dados?.nome ||
+    item?.calibre_obj?.codigo ||
+    item?.calibre_obj?.nome ||
+    item?.calibre?.codigo ||
+    item?.calibre?.nome ||
+    "Sem calibre"
+  );
+}
+
+function obterCaixasParticipacaoCarga(item) {
+  return numero(
+    item?.quantidade_caixas ??
+      item?.quantidade ??
+      item?.caixas ??
+      item?.total_caixas ??
+      item?.unidades ??
+      0
+  );
+}
+
+function obterPesoParticipacaoCarga(item, carga) {
+  const pesoDireto = numero(
+    item?.peso_total_kg ??
+      item?.peso_total ??
+      item?.peso_kg ??
+      0
+  );
+
+  if (pesoDireto > 0) return pesoDireto;
+
+  const caixas = obterCaixasParticipacaoCarga(item);
+
+  const pesoUnitario = numero(
+    item?.peso_unitario_kg ??
+      item?.peso_unidade_kg ??
+      item?.peso_por_unidade_kg ??
+      item?.peso_por_caixa_kg ??
+      carga?.peso_unitario_kg ??
+      carga?.peso_unidade_kg ??
+      carga?.peso_por_unidade_kg ??
+      carga?.peso_por_caixa_kg ??
+      carga?.peso_caixa_kg ??
+      0
+  );
+
+  return caixas * pesoUnitario;
+}
+
+function formatarValorParticipacaoCarga(valor, metrica) {
+  if (metrica === "peso") return formatarPeso(valor);
+  return formatarNumero(valor) + " caixas";
+}
+
+function montarParticipacaoCargasPorCalibre(cargas, metrica) {
+  const mapa = new Map();
+  const lista = Array.isArray(cargas) ? cargas : [];
+
+  lista.forEach((carga) => {
+    if (!carga || carga.status === "cancelada") return;
+
+    const itens = obterItensCargaParticipacao(carga);
+
+    itens.forEach((item) => {
+      const calibre = String(obterCalibreParticipacaoCarga(item) || "Sem calibre").trim();
+
+      if (!calibre || calibre === "Sem calibre") return;
+
+      const caixas = obterCaixasParticipacaoCarga(item);
+      const peso = obterPesoParticipacaoCarga(item, carga);
+      const valor = metrica === "peso" ? peso : caixas;
+
+      if (valor <= 0) return;
+
+      const atual =
+        mapa.get(calibre) || {
+          calibre,
+          caixas: 0,
+          peso: 0,
+          valor: 0,
+          registros: 0,
+        };
+
+      atual.caixas += caixas;
+      atual.peso += peso;
+      atual.valor += valor;
+      atual.registros += 1;
+
+      mapa.set(calibre, atual);
+    });
+  });
+
+  const dados = Array.from(mapa.values()).sort((a, b) => {
+    if (b.valor !== a.valor) return b.valor - a.valor;
+
+    return String(a.calibre).localeCompare(String(b.calibre), "pt-BR", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+
+  const total = dados.reduce((soma, item) => soma + numero(item.valor), 0);
+
+  return {
+    dados,
+    total,
+  };
+}
+
+
+function GraficoParticipacaoCargasPorCalibre({ cargas = [], metrica = "caixas" }) {
+  const [calibresSelecionados, setCalibresSelecionados] = useState([]);
+
+  const resultadoCompleto = useMemo(() => {
+    return montarParticipacaoCargasPorCalibre(cargas, metrica);
+  }, [cargas, metrica]);
+
+  const opcoesCalibres = useMemo(() => {
+    return resultadoCompleto.dados.map((item) => item.calibre);
+  }, [resultadoCompleto.dados]);
+
+  useEffect(() => {
+    setCalibresSelecionados((selecionadosAtuais) => {
+      return selecionadosAtuais.filter((calibre) => opcoesCalibres.includes(calibre));
+    });
+  }, [opcoesCalibres]);
+
+  const dados = useMemo(() => {
+    if (!calibresSelecionados.length) {
+      return resultadoCompleto.dados;
+    }
+
+    return resultadoCompleto.dados.filter((item) =>
+      calibresSelecionados.includes(item.calibre)
+    );
+  }, [resultadoCompleto.dados, calibresSelecionados]);
+
+  const total = useMemo(() => {
+    return dados.reduce((soma, item) => soma + numero(item.valor), 0);
+  }, [dados]);
+
+  const cores = [
+    "#047857",
+    "#2563EB",
+    "#F59E0B",
+    "#DC2626",
+    "#7C3AED",
+    "#0F766E",
+    "#334155",
+    "#16A34A",
+    "#EA580C",
+    "#0891B2",
+    "#BE123C",
+    "#4F46E5",
+  ];
+
+  function alternarCalibre(calibre) {
+    setCalibresSelecionados((selecionadosAtuais) => {
+      if (selecionadosAtuais.includes(calibre)) {
+        return selecionadosAtuais.filter((item) => item !== calibre);
+      }
+
+      return [...selecionadosAtuais, calibre];
+    });
+  }
+
+  let acumulado = 0;
+
+  const gradiente = dados
+    .map((item, index) => {
+      const percentual = total > 0 ? (numero(item.valor) / total) * 100 : 0;
+      const inicioFatia = acumulado;
+      const fimFatia = acumulado + percentual;
+      acumulado = fimFatia;
+
+      return cores[index % cores.length] + " " + inicioFatia + "% " + fimFatia + "%";
+    })
+    .join(", ");
+
+  return (
+    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 xl:col-span-2">
+      <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            {metrica === "peso"
+              ? "Participação das cargas por calibre (Peso)"
+              : "Participação das cargas por calibre (Caixas)"}
+          </h2>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Escolha um ou mais calibres abaixo para montar o gráfico apenas com eles.
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-right">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+            Total selecionado
+          </p>
+          <strong className="mt-1 block text-lg font-semibold text-emerald-950">
+            {formatarValorParticipacaoCarga(total, metrica)}
+          </strong>
+        </div>
+      </div>
+
+      <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-950">
+              Filtrar calibres deste gráfico
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {calibresSelecionados.length
+                ? calibresSelecionados.length + " calibre(s) selecionado(s)"
+                : "Nenhum selecionado: mostrando todos"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setCalibresSelecionados([])}
+            className={[
+              "inline-flex min-h-11 items-center justify-center rounded-xl border px-4 text-xs font-semibold transition",
+              calibresSelecionados.length === 0
+                ? "border-emerald-700 bg-emerald-700 text-white"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100",
+            ].join(" ")}
+          >
+            Ver todos
+          </button>
+        </div>
+
+        {!resultadoCompleto.dados.length ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center text-sm font-semibold text-slate-400">
+            Sem calibres disponíveis no filtro atual da tela.
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {resultadoCompleto.dados.map((item) => {
+              const ativo = calibresSelecionados.includes(item.calibre);
+
+              return (
+                <button
+                  key={item.calibre}
+                  type="button"
+                  onClick={() => alternarCalibre(item.calibre)}
+                  className={[
+                    "inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition",
+                    ativo
+                      ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "h-2.5 w-2.5 rounded-full",
+                      ativo ? "bg-white" : "bg-emerald-600",
+                    ].join(" ")}
+                  />
+                  {item.calibre}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {!dados.length || total <= 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-semibold text-slate-400">
+          Nenhum dado para os calibres selecionados.
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center">
+          <div className="relative mx-auto h-52 w-52 rounded-full sm:h-60 sm:w-60" style={{ background: "conic-gradient(" + gradiente + ")" }}>
+            <div className="absolute inset-12 flex flex-col items-center justify-center rounded-full bg-white text-center shadow-inner sm:inset-14">
+              <span className="text-xs font-medium text-slate-500">Total</span>
+              <strong className="mt-1 text-2xl font-semibold leading-none text-slate-950">
+                {metrica === "peso" ? formatarPeso(total) : formatarNumero(total)}
+              </strong>
+              <span className="mt-1 text-xs text-slate-500">
+                {metrica === "peso" ? "kg" : "caixas"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-2 xl:grid-cols-2">
+            {dados.map((item, index) => {
+              const percentual = total > 0 ? (numero(item.valor) / total) * 100 : 0;
+
+              return (
+                <div
+                  key={item.calibre}
+                  className="grid gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm shadow-sm md:grid-cols-[minmax(0,1fr)_120px] md:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className="h-3.5 w-3.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: cores[index % cores.length] }}
+                    />
+
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-950">{item.calibre}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatarNumero(item.registros)} lançamento(s)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-left md:text-right">
+                    <p className="font-semibold text-slate-950">
+                      {formatarValorParticipacaoCarga(item.valor, metrica)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {percentual.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
+                      %
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Cargas() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -2294,6 +2652,12 @@ export default function Cargas() {
       <div className="grid gap-4 xl:grid-cols-[1fr_330px]">
         
       <GraficoCargasPorAreaCalibre
+        cargas={cargas}
+        metrica={metricaCargas}
+      />
+
+
+      <GraficoParticipacaoCargasPorCalibre
         cargas={cargas}
         metrica={metricaCargas}
       />
