@@ -359,7 +359,7 @@ function montarMapaEstoque(estoqueAtual = []) {
 }
 
 function analisarEstoqueCarga(carga, estoquePorCalibre) {
-  const itens = Array.isArray(carga.itens) ? carga.itens : [];
+  const itens = obterItensDaCarga(carga);
 
   if (itens.length === 0) {
     return {
@@ -886,17 +886,24 @@ function PaginacaoCargas({ paginaAtual, totalPaginas, totalRegistros, onChange }
 }
 
 
+
 function obterTextoAreaItemCarga(item, carga) {
   return (
     item?.area_nome ||
     item?.area_pivo_nome ||
     item?.area ||
     item?.nome_area ||
+    item?.areas_fazenda?.nome ||
+    item?.area_fazenda?.nome ||
+    item?.area_pivo?.nome ||
+    item?.area_ref?.nome ||
+    item?.area?.nome ||
     carga?.area_nome ||
     carga?.area_pivo_nome ||
     "Sem área"
   );
 }
+
 
 function obterTextoCalibreItemCarga(item) {
   return (
@@ -904,6 +911,16 @@ function obterTextoCalibreItemCarga(item) {
     item?.calibre_nome ||
     item?.calibre ||
     item?.codigo_calibre ||
+    item?.calibres?.codigo ||
+    item?.calibres?.nome ||
+    item?.calibre_ref?.codigo ||
+    item?.calibre_ref?.nome ||
+    item?.calibre_dados?.codigo ||
+    item?.calibre_dados?.nome ||
+    item?.calibre_obj?.codigo ||
+    item?.calibre_obj?.nome ||
+    item?.calibre?.codigo ||
+    item?.calibre?.nome ||
     "Sem calibre"
   );
 }
@@ -950,6 +967,25 @@ function obterPesoItemCarga(item, carga) {
 function formatarValorAreaCalibreCarga(valor, metrica) {
   if (metrica === "peso") return formatarPeso(valor);
   return formatarNumero(valor) + " caixas";
+}
+
+function obterItensDaCarga(carga) {
+  if (!carga) return [];
+
+  const possibilidades = [
+    carga.itens,
+    carga.carga_itens,
+    carga.carga_items,
+    carga.itens_carga,
+    carga.cargas_itens,
+    carga.items,
+    carga.produtos,
+    carga.calibres,
+  ];
+
+  const lista = possibilidades.find((valor) => Array.isArray(valor));
+
+  return Array.isArray(lista) ? lista : [];
 }
 
 function montarDadosAreaCalibreCargas(cargas, metrica) {
@@ -1045,7 +1081,29 @@ function GraficoCargasPorAreaCalibre({ cargas = [], metrica = "caixas" }) {
     return montarDadosAreaCalibreCargas(cargas, metrica);
   }, [cargas, metrica]);
 
-  if (!dados.areas.length || !dados.calibres.length) return null;
+  if (!dados.areas.length || !dados.calibres.length) {
+    return (
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 xl:col-span-2">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">
+              {metrica === "peso"
+                ? "Peso por Área/Pivô e Calibre"
+                : "Caixas por Área/Pivô e Calibre"}
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Mostra quanto saiu em cada calibre, separado pela Área/Pivô da carga.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+            Sem dados por Área/Pivô e Calibre no filtro atual.
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const gridTemplateColumns =
     "120px repeat(" + dados.calibres.length + ", minmax(82px, 1fr)) 96px";
@@ -1053,7 +1111,7 @@ function GraficoCargasPorAreaCalibre({ cargas = [], metrica = "caixas" }) {
   const minWidth = 120 + dados.calibres.length * 82 + 96;
 
   return (
-    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 xl:col-span-2">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-950">
@@ -2234,7 +2292,13 @@ export default function Cargas() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_330px]">
-        <section className="rounded-3xl bg-white p-5 shadow-sm">
+        
+      <GraficoCargasPorAreaCalibre
+        cargas={cargas}
+        metrica={metricaCargas}
+      />
+
+<section className="rounded-3xl bg-white p-5 shadow-sm">
           <h2 className="text-center text-lg font-medium text-slate-950">
             Cargas planejadas por dia
           </h2>
@@ -2367,13 +2431,6 @@ export default function Cargas() {
           </div>
         </section>
       </div>
-
-      
-      <GraficoCargasPorAreaCalibre
-        cargas={cargas}
-        metrica={typeof metricaCargas !== "undefined" ? metricaCargas : "caixas"}
-      />
-
 <section className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
